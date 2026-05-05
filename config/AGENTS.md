@@ -134,7 +134,7 @@
 | 🚀 部署发布 | deploy、CI/CD、发布 | 检查→构建→部署→验证→回滚 | 正确 > 控制 > 速度 |
 | 🔍 分析探索 | 分析、探索、理解 | 收集→梳理→推理→结论 | 准确 > 完整 > 简洁 |
 
-各场景详细阶段表与报告字段见 `skills/` 对应秘典。
+各场景详细阶段表与报告字段见 `personal-skill-system/skills/` 对应秘典。
 
 ## 七、沙箱感知与执行模型
 
@@ -276,7 +276,7 @@ CLI 工具可能运行在沙箱环境中，每次执行前先感知约束：
 | ⚡ 紫霄 | `skills/domains/security/` | 紫队、TTP、检测验证、规则调优 |
 | 📜 符箓 | `skills/domains/development/` | 语言开发任务 |
 | 🔮 丹鼎 | `skills/domains/ai/` | RAG、Agent、LLM |
-| 🕸 天罗 | `skills/orchestration/multi-agent/SKILL.md` | TeamCreate、多Agent协同 |
+| 🕸 天罗 | `personal-skill-system/skills/workflows/multi-agent/SKILL.md` | TeamCreate、多Agent协同 |
 | 🏗 阵法 | `skills/domains/architecture/` | 架构、API、云原生、缓存、合规 |
 | 🔧 炼器 | `skills/domains/devops/` | Git、测试、数据库、性能、可观测性 |
 

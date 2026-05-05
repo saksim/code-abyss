@@ -4,6 +4,8 @@
 
 `personal-skill-system/skills/` is the authoritative skill source.
 
+All future core SKILL create/read/update/delete operations must happen inside `personal-skill-system/skills/`.
+
 Root `skills/` is a repo-local legacy compatibility surface, not the place where skill truth should be edited first and not part of the shipped package path under the direct-source cutover.
 
 `top_developer/` is raw source material. It should not be exposed as default user-invocable skills until its useful material is split into task-shaped capability modules and validated.
@@ -40,6 +42,7 @@ For this repository, that means:
 | Rule | Requirement |
 |---|---|
 | Edit first | New skill work starts in `personal-skill-system/skills`. |
+| CRUD entrypoint | Core skill create/read/update/delete should use the managed tool entrypoint under `personal-skill-system/skills/tools/manage-skill/`. |
 | Direct ship | Host runtime `skills/` are installed from `personal-skill-system/skills` through pack policy. |
 | Legacy root | Root `skills/` may remain in-repo temporarily, but it must not drive package shipping or host installation. |
 | Validate package policy | Distribution checks must prove package files and pack manifests point to the authoritative source. |

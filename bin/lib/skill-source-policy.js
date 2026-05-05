@@ -3,6 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 const { collectSkills } = require('./skill-registry');
+const {
+  resolveProjectRoot,
+  resolveAuthoritativeSkillSystemDir,
+  resolveAuthoritativeSkillsDir,
+  resolveLegacyRootSkillsDir,
+} = require('./skill-paths');
 const DISTRIBUTION_HOSTS = ['claude', 'codex', 'gemini'];
 
 function normalizeRelPath(relPath) {
@@ -65,11 +71,11 @@ function summarizeStatus(findings) {
 }
 
 function analyzeSkillSourcePolicy(options = {}) {
-  const projectRoot = path.resolve(options.projectRoot || path.join(__dirname, '..', '..'));
+  const projectRoot = path.resolve(options.projectRoot || resolveProjectRoot(__dirname));
   const packageJsonPath = path.resolve(options.packageJsonPath || path.join(projectRoot, 'package.json'));
-  const authoritativeSystemDir = path.resolve(options.authoritativeSystemDir || path.join(projectRoot, 'personal-skill-system'));
-  const authoritativeSkillsDir = path.resolve(options.authoritativeSkillsDir || path.join(authoritativeSystemDir, 'skills'));
-  const rootMirrorDir = path.resolve(options.rootMirrorDir || path.join(projectRoot, 'skills'));
+  const authoritativeSystemDir = path.resolve(options.authoritativeSystemDir || resolveAuthoritativeSkillSystemDir(projectRoot));
+  const authoritativeSkillsDir = path.resolve(options.authoritativeSkillsDir || resolveAuthoritativeSkillsDir(projectRoot));
+  const rootMirrorDir = path.resolve(options.rootMirrorDir || resolveLegacyRootSkillsDir(projectRoot));
   const packManifestPath = path.resolve(options.packManifestPath || path.join(projectRoot, 'packs', 'abyss', 'manifest.json'));
 
   const packagePolicy = readPackagePolicy(packageJsonPath);

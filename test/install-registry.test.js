@@ -3,10 +3,8 @@
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
-const { spawnSync } = require('child_process');
-
-const verifySkillsPath = path.join(__dirname, '..', 'bin', 'verify-skills-contract.js');
 const skillContractFixturesDir = path.join(__dirname, 'fixtures', 'skill-contract');
+const { main: verifySkillsMain } = require('../bin/verify-skills-contract');
 
 const { parseFrontmatter } = require('../bin/lib/utils');
 const {
@@ -285,26 +283,21 @@ describe('scanInvocableSkills', () => {
 
 describe('verify:skills CLI', () => {
   test('验证真实 skills 目录通过', () => {
-    const result = spawnSync(process.execPath, [verifySkillsPath], {
-      cwd: path.join(__dirname, '..'),
-      encoding: 'utf8',
-    });
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    expect(result.status).toBe(0);
-    expect(result.stdout).toContain('技能契约验证通过');
+    expect(() => verifySkillsMain()).not.toThrow();
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('技能契约验证通过'));
+
+    log.mockRestore();
   });
 
   test('无效 fixture 目录会阻断验证', () => {
-    const result = spawnSync(process.execPath, [verifySkillsPath], {
-      cwd: path.join(__dirname, '..'),
-      env: {
-        ...process.env,
-        SAGE_SKILLS_DIR: path.join(skillContractFixturesDir, 'invalid-tools'),
-      },
-      encoding: 'utf8',
-    });
+    const prev = process.env.SAGE_SKILLS_DIR;
+    process.env.SAGE_SKILLS_DIR = path.join(skillContractFixturesDir, 'invalid-tools');
 
-    expect(result.status).toBe(1);
-    expect(result.stderr).toContain("allowed-tools 包含非法值 'bad-tool'");
+    expect(() => verifySkillsMain()).toThrow("allowed-tools 包含非法值 'bad-tool'");
+
+    if (prev === undefined) delete process.env.SAGE_SKILLS_DIR;
+    else process.env.SAGE_SKILLS_DIR = prev;
   });
 });

@@ -26,6 +26,42 @@ function analyzeTopLevelDirs(targetDir, findings) {
   return count;
 }
 
+function analyzeLegacyRootMirror(targetDir, findings) {
+  const repoRoot = path.resolve(targetDir, '..');
+  const legacyRoot = path.join(repoRoot, 'skills');
+  if (!fs.existsSync(legacyRoot) || !fs.statSync(legacyRoot).isDirectory()) {
+    return { fileCount: 0, dirCount: 0 };
+  }
+
+  const stack = [legacyRoot];
+  let fileCount = 0;
+  let dirCount = 0;
+
+  while (stack.length > 0) {
+    const current = stack.pop();
+    const entries = fs.readdirSync(current, { withFileTypes: true });
+    for (const entry of entries) {
+      const full = path.join(current, entry.name);
+      if (entry.isDirectory()) {
+        dirCount += 1;
+        stack.push(full);
+        continue;
+      }
+      fileCount += 1;
+    }
+  }
+
+  if (fileCount > 0) {
+    findings.push({
+      severity: 'error',
+      file: rel(repoRoot, legacyRoot),
+      message: `legacy root skills/ mirror still contains ${fileCount} file(s); keep root skills/ retired`
+    });
+  }
+
+  return { fileCount, dirCount };
+}
+
 function analyzeSkillSystem(targetDir) {
   const findings = [];
   const summary = {
@@ -37,8 +73,14 @@ function analyzeSkillSystem(targetDir) {
     capabilityModules: 0,
     routeEntries: 0,
     packCount: 0,
-    routeFixtures: 0
+    routeFixtures: 0,
+    legacyRootMirrorFiles: 0,
+    legacyRootMirrorDirs: 0
   };
+
+  const legacyRootMirror = analyzeLegacyRootMirror(targetDir, findings);
+  summary.legacyRootMirrorFiles = legacyRootMirror.fileCount;
+  summary.legacyRootMirrorDirs = legacyRootMirror.dirCount;
 
   const { skillFiles, skillRecords } = collectSkillRecords(targetDir, findings);
   summary.skillFiles = skillFiles.length;

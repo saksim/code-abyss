@@ -434,6 +434,91 @@
       }
     },
     {
+      "skill": "manage-skill",
+      "kind": "tool",
+      "priority": 88,
+      "namespace": "system",
+      "supported-hosts": [
+        "codex",
+        "claude",
+        "gemini"
+      ],
+      "activation": {
+        "intent-tags": [
+          "execute",
+          "validate"
+        ],
+        "trigger-keywords": [
+          "manage-skill",
+          "skill crud",
+          "create skill",
+          "update skill",
+          "archive skill",
+          "delete skill",
+          "维护技能",
+          "创建技能",
+          "更新技能",
+          "删除技能",
+          "归档技能"
+        ],
+        "negative-keywords": [
+          "ordinary feature",
+          "single bug",
+          "普通功能开发",
+          "单点缺陷"
+        ],
+        "requires-explicit-invocation": true
+      },
+      "conflicts-with": [],
+      "auto-chain": [
+        "verify-skill-system",
+        "verify-change"
+      ],
+      "aliases": [
+        "skill-admin",
+        "skill-crud",
+        "技能管理"
+      ],
+      "rationale": {
+        "primary-intent": "authoritative skill tree CRUD",
+        "why-this-route": "manage-skill should win only when the request explicitly asks to create, inspect, update, archive, or delete core skills inside the authoritative skill system tree.",
+        "wins-when": [
+          "manage-skill",
+          "skill crud",
+          "create skill",
+          "update skill",
+          "archive skill",
+          "delete skill",
+          "skill-admin",
+          "skill-crud",
+          "维护技能",
+          "创建技能",
+          "更新技能",
+          "删除技能",
+          "归档技能",
+          "技能管理"
+        ],
+        "avoid-when": [
+          "ordinary feature",
+          "single bug",
+          "普通功能开发",
+          "单点缺陷"
+        ],
+        "boundary-notes": "Use for core skill create/read/update/delete work inside personal-skill-system/skills; broader system redesign still belongs to skill-evolution."
+      },
+      "confidence": {
+        "minimum-score": 65,
+        "strong-score": 80,
+        "very-strong-score": 93,
+        "requires-fallback-below-minimum": true
+      },
+      "fallback": {
+        "mode": "do-not-auto-route",
+        "clarify-question": "Do you want explicit invocation of manage-skill for authoritative skill CRUD?",
+        "default-action": "wait-for-explicit-invocation"
+      }
+    },
+    {
       "skill": "verify-chart-spec",
       "kind": "tool",
       "priority": 89,

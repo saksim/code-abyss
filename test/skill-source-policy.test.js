@@ -133,10 +133,35 @@ describe('skill source policy', () => {
       codex: 'personal-skill-system/skills',
       gemini: 'personal-skill-system/skills',
     });
-    expect(report.metrics.authoritativeSkillCount).toBe(33);
+    expect(report.metrics.authoritativeSkillCount).toBe(34);
     expect(report.gaps.missingSkillPaths).toEqual(expect.arrayContaining([
       'routers/sage',
       'workflows/review',
     ]));
+  });
+
+  test('fails when authoritative source directory is replaced by any other default root', () => {
+    const sourceDir = path.join(tmpDir, 'personal-skill-system', 'skills');
+    const packageJsonPath = path.join(tmpDir, 'package.json');
+    const wrongSource = path.join(tmpDir, 'alt-skills');
+
+    writeSkill(sourceDir, 'routers/sage', 'name: sage\ndescription: router\nuser-invocable: false');
+    writeSkill(wrongSource, 'routers/sage', 'name: sage\ndescription: router\nuser-invocable: false');
+    fs.writeFileSync(packageJsonPath, JSON.stringify({
+      name: 'fixture',
+      version: '0.0.0',
+      files: ['bin/', 'personal-skill-system/'],
+    }, null, 2));
+    writeAbyssManifest(tmpDir, 'alt-skills');
+
+    const report = analyzeSkillSourcePolicy({
+      projectRoot: tmpDir,
+      packageJsonPath,
+      authoritativeSystemDir: path.join(tmpDir, 'personal-skill-system'),
+      authoritativeSkillsDir: sourceDir,
+    });
+
+    expect(report.status).toBe('fail');
+    expect(report.findings.some((item) => item.message.includes('non-authoritative skill source'))).toBe(true);
   });
 });

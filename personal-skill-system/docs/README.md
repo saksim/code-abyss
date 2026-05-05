@@ -30,7 +30,7 @@ Important distinction:
 
 鏈疆宸插皢 `PERSONAL_SKILL_SYSTEM` 涓墍鏈変細褰卞搷瑙﹀彂鍒ゅ畾鐨勫叧閿潰缁熶竴涓轰腑鑻卞弻璇細
 
-1. `skills/**/SKILL.md`
+1. `personal-skill-system/skills/**/SKILL.md`
    - `trigger-keywords`锛氫腑鑻卞弻璇?   - `negative-keywords`锛氫腑鑻卞弻璇紙闈炵┖椤癸級
    - `aliases`锛氫腑鑻卞弻璇?2. `templates/skill/**/SKILL.md`
    - 鍚屾涓嫳鍙岃妯℃澘瀛楁锛岄伩鍏嶆柊寤?skill 鍥為€€鍒板崟璇?3. `registry/route-map.generated.json`

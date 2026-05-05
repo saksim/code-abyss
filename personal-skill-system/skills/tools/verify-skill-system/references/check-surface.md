@@ -5,7 +5,7 @@ This tool validates the skill system itself rather than ordinary product code.
 ## Structural checks
 
 - expected top-level directories exist
-- `skills/**/SKILL.md` files are discoverable
+- `personal-skill-system/skills/**/SKILL.md` files are discoverable
 - generated registry files exist and parse
 
 ## Skill contract checks

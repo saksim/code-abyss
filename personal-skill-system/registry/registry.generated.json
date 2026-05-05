@@ -157,6 +157,11 @@
       "path": "skills/tools/verify-skill-system/SKILL.md"
     },
     {
+      "name": "manage-skill",
+      "kind": "tool",
+      "path": "skills/tools/manage-skill/SKILL.md"
+    },
+    {
       "name": "pre-commit-gate",
       "kind": "guard",
       "path": "skills/guards/pre-commit-gate/SKILL.md"
@@ -762,6 +767,17 @@
           "id": "orchestration-status-and-handoffs",
           "path": "skills/domains/orchestration/references/expert-status-and-handoffs.md",
           "capability": "Make handoffs, completion signals, and status reporting legible."
+        }
+      ]
+    },
+    {
+      "host-skill": "manage-skill",
+      "host-kind": "tool",
+      "modules": [
+        {
+          "id": "skill-management-authoritative-crud",
+          "path": "skills/tools/manage-skill/references/authoritative-skill-rules.md",
+          "capability": "Keep all core skill create/read/update/delete operations inside the authoritative personal-skill-system/skills tree."
         }
       ]
     }

@@ -61,6 +61,7 @@
       "chart-visualization-g2-shared-tooltip-and-navigation",
       "chart-visualization-s2-advanced-table-features",
       "chart-visualization-s2-customization-and-extensions",
+      "skill-management-authoritative-crud",
       "frontend-design-information-architecture-and-interaction",
       "frontend-design-information-architecture",
       "frontend-design-interaction-patterns",
@@ -107,10 +108,10 @@
     "thin": []
   },
   "counts": {
-    "top-ready": 99,
+    "top-ready": 100,
     "strong-but-not-top": 0,
     "thin": 0,
-    "total": 99
+    "total": 100
   },
   "skill-level-summary": {
     "source": "docs/SKILL_TOP_LEVEL_AUDIT_2026-04-20.md",
@@ -146,22 +147,23 @@
       "verify-chart-spec",
       "verify-s2-config",
       "verify-skill-system",
+      "manage-skill",
       "pre-commit-gate",
       "pre-merge-gate"
     ],
     "strong-uplift-but-not-top-yet": [],
     "useful-overlay-not-top-level-alone": [],
     "counts": {
-      "top-level-enough-now": 33,
+      "top-level-enough-now": 34,
       "strong-uplift-but-not-top-yet": 0,
       "useful-overlay-not-top-level-alone": 0,
-      "total-skills-rated": 33
+      "total-skills-rated": 34
     }
   },
   "next-batch": [],
   "notes": [
     "This file rates capability modules, not whole skills.",
-    "All 99 currently registered capability modules are TOP-ready in the current manual frame.",
-    "After the latest uplift round, all 33 registered host skills are also rated top-level enough under the weak-model-uplift standard."
+    "All 100 currently registered capability modules are TOP-ready in the current manual frame.",
+    "After the latest uplift round, all 34 registered host skills are also rated top-level enough under the weak-model-uplift standard."
   ]
 }

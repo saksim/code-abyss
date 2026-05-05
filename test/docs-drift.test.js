@@ -34,11 +34,39 @@ describe('docs drift guard', () => {
     const onboarding = fs.readFileSync(path.join(projectRoot, 'docs', 'ONBOARDING.md'), 'utf8');
     const docsReadme = fs.readFileSync(path.join(projectRoot, 'docs', 'README.md'), 'utf8');
     const skillAuthoring = fs.readFileSync(path.join(projectRoot, 'docs', 'SKILL_AUTHORING.md'), 'utf8');
-    const corpus = [readme, design, onboarding, docsReadme, skillAuthoring].join('\n');
+    const claude = fs.readFileSync(path.join(projectRoot, 'CLAUDE.md'), 'utf8');
+    const pssReadme = fs.readFileSync(path.join(projectRoot, 'personal-skill-system', 'docs', 'README.md'), 'utf8');
+    const checkSurface = fs.readFileSync(path.join(projectRoot, 'personal-skill-system', 'skills', 'tools', 'verify-skill-system', 'references', 'check-surface.md'), 'utf8');
+    const corpus = [readme, design, onboarding, docsReadme, skillAuthoring, claude, pssReadme, checkSurface].join('\n');
 
     expect(corpus).not.toContain('`skills/**/SKILL.md`');
     expect(corpus).not.toContain('`skills/<category>/<name>/SKILL.md`');
     expect(corpus).not.toContain('`skills/<category>/<skill-name>/SKILL.md`');
     expect(corpus).toContain('`personal-skill-system/skills/**/SKILL.md`');
+  });
+
+  test('root skills/ 目录不应再含文件', () => {
+    const legacyRoot = path.join(projectRoot, 'skills');
+    if (!fs.existsSync(legacyRoot)) {
+      expect(fs.existsSync(legacyRoot)).toBe(false);
+      return;
+    }
+
+    const stack = [legacyRoot];
+    const files = [];
+
+    while (stack.length > 0) {
+      const current = stack.pop();
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        const full = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(full);
+        } else {
+          files.push(path.relative(projectRoot, full).split(path.sep).join('/'));
+        }
+      }
+    }
+
+    expect(files).toEqual([]);
   });
 });

@@ -24,7 +24,7 @@ Code Abyss 是一个多目标 AI CLI 安装器，负责把 persona、output styl
 
 ### 单一事实源
 
-- `skills/**/SKILL.md`
+- `personal-skill-system/skills/**/SKILL.md`
 - `output-styles/index.json`
 - `config/personas/index.json`
 - `packs/*/manifest.json`
@@ -57,7 +57,7 @@ npm run packs:report -- summary
 
 ### 改 skill
 
-- 修改 `skills/**/SKILL.md` 时，把 frontmatter 当作唯一元数据入口。
+- 修改 `personal-skill-system/skills/**/SKILL.md` 时，把 frontmatter 当作唯一元数据入口。
 - 如果是脚本型 skill，只允许一个 `scripts/*.js` 入口。
 - 改完至少跑 `npm run verify:skills`。
 
@@ -90,7 +90,7 @@ npm run packs:report -- summary
 ## 当前实现口径
 
 - Claude：写入 `~/.claude/CLAUDE.md`、`commands/`、`skills/`、`settings.json`
-- Codex：写入 `~/.codex/config.toml`、`instruction.md`、`AGENTS.md`、`skills/`，pack runtime 可写入 `~/.agents/skills/`
+- Codex：写入 `~/.codex/config.toml`、`instruction.md`、`AGENTS.md`、`~/.agents/skills/`，core skills 从 `personal-skill-system/skills` 分发
 - Gemini：写入 `~/.gemini/GEMINI.md`、`commands/*.toml`、`skills/`、`settings.json`
 
 ## 文档阅读顺序

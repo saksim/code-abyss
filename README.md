@@ -76,6 +76,7 @@ npm run verify:skills
 - 安装入口：`bin/install.js`
 - Pack 入口：`bin/packs.js`
 - Skill 单一事实源：`personal-skill-system/skills/**/SKILL.md`（root `skills/` 已退役）
+- 以后所有核心 SKILL 的新增、删除、修改、查询都只在 `personal-skill-system/skills/` 完成
 - Style / Persona registry：`output-styles/index.json`、`config/personas/index.json`
 
 ### 3. 按顺序读文档

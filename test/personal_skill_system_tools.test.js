@@ -18,6 +18,7 @@ const {
   generateRouteCandidates,
   selectBestRouteCandidate
 } = require('../personal-skill-system/skills/tools/lib/skill-system-routing');
+const manageSkillModulePath = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'manage-skill', 'scripts', 'run.js');
 
 describe('personal skill system tool runtime', () => {
   let tmpDir;
@@ -157,6 +158,51 @@ describe('personal skill system tool runtime', () => {
     expect(report.status).toBe('pass');
     expect(report.metrics.skillFiles).toBeGreaterThan(0);
     expect(report.metrics.routeFixtures).toBeGreaterThan(0);
+    expect(report.metrics.legacyRootMirrorFiles).toBe(0);
+  });
+
+  test('analyzeSkillSystem fails if legacy root skills mirror regains files', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), target, { recursive: true });
+
+    const legacyFile = path.join(repoRoot, 'skills', 'rogue', 'SKILL.md');
+    fs.mkdirSync(path.dirname(legacyFile), { recursive: true });
+    fs.writeFileSync(legacyFile, '# rogue\n');
+
+    const report = analyzeSkillSystem(target);
+
+    expect(report.status).toBe('fail');
+    expect(report.metrics.legacyRootMirrorFiles).toBe(1);
+    expect(report.findings.some((item) => item.message.includes('legacy root skills/ mirror still contains'))).toBe(true);
+  });
+
+  test('manage-skill performs authoritative CRUD inside personal-skill-system only', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-managed-skill-${Date.now()}`;
+      const createPayload = manageSkill.main(['create', 'workflow', skillName]);
+      expect(createPayload.path).toBe(`personal-skill-system/skills/workflows/${skillName}`);
+      expect(fs.existsSync(path.join(repoRoot, 'personal-skill-system', 'skills', 'workflows', skillName, 'SKILL.md'))).toBe(true);
+
+      const showPayload = manageSkill.main(['show', skillName]);
+      expect(showPayload.frontmatter.name).toBe(skillName);
+
+      manageSkill.main(['archive', skillName]);
+      const archivedSkill = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'skills', 'workflows', skillName, 'SKILL.md'), 'utf8');
+      expect(archivedSkill).toContain('status: archived');
+
+      expect(fs.existsSync(path.join(repoRoot, 'skills'))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 
   test('routing library returns ranked candidates with explainable reasons', () => {

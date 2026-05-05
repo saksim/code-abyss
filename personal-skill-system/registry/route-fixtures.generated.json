@@ -267,6 +267,18 @@
       "query": "Run verify-change on this diff and classify risk before merge.",
       "expect": "verify-change",
       "expect-no-fallback": true
+    },
+    {
+      "name": "m3-001-explicit-manage-skill-create",
+      "query": "Run manage-skill to create a new workflow skill inside the personal skill system.",
+      "expect": "manage-skill",
+      "expect-no-fallback": true
+    },
+    {
+      "name": "m3-001-explicit-manage-skill-update-zh",
+      "query": "请执行 manage-skill 更新这个核心技能的 frontmatter 字段。",
+      "expect": "manage-skill",
+      "expect-no-fallback": true
     }
   ]
 }

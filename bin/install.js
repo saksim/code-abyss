@@ -15,7 +15,8 @@ if (parseInt(process.versions.node) < parseInt(MIN_NODE)) {
   process.exit(1);
 }
 const PKG_ROOT = fs.realpathSync(path.join(__dirname, '..'));
-const AUTHORITATIVE_SKILLS_DIR = path.join(PKG_ROOT, 'personal-skill-system', 'skills');
+const { resolveAuthoritativeSkillsDir } = require(path.join(__dirname, 'lib', 'skill-paths.js'));
+const AUTHORITATIVE_SKILLS_DIR = resolveAuthoritativeSkillsDir(PKG_ROOT);
 const { shouldSkip, copyRecursive, rmSafe, deepMergeNew, printMergeLog, formatActionableError } =
   require(path.join(__dirname, 'lib', 'utils.js'));
 const {
