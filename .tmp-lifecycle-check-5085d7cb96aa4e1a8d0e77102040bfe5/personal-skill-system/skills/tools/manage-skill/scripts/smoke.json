@@ -1,0 +1,23 @@
+{
+  "schema-version": 1,
+  "freshness": {
+    "max-age": 7,
+    "unit": "days"
+  },
+  "commands": [
+    {
+      "cwd": "skill-dir",
+      "argv": [
+        "node",
+        "scripts/run.js",
+        "show",
+        "manage-skill"
+      ],
+      "expect": {
+        "action": "show",
+        "skill": "manage-skill"
+      },
+      "timeout-ms": 10000
+    }
+  ]
+}

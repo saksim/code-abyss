@@ -1,0 +1,68 @@
+{
+  "schema-version": 1,
+  "run-id": "host-smoke-20260506T170342Z-codex",
+  "executed-at": "2026-05-06T17:03:42.269Z",
+  "host": "codex",
+  "source-runtime-proof": "registry/runtime-proof.generated.json",
+  "selection": {
+    "scope": "single",
+    "skills": [
+      "manage-skill"
+    ]
+  },
+  "results": [
+    {
+      "skill": "manage-skill",
+      "kind": "tool",
+      "level-before": "declared-and-tested",
+      "status": "fail",
+      "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+      "contract": {
+        "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "show",
+              "manage-skill"
+            ],
+            "expect": {
+              "action": "show",
+              "skill": "manage-skill"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      },
+      "command-count": 1,
+      "passed-commands": 0,
+      "commands": [
+        {
+          "cwd": "skill-dir",
+          "argv": [
+            "node",
+            "scripts/run.js",
+            "show",
+            "manage-skill"
+          ],
+          "expect": {
+            "action": "show",
+            "skill": "manage-skill"
+          },
+          "timeout-ms": 10000,
+          "status": "fail",
+          "exit-code": 0,
+          "signal": null,
+          "duration-ms": 6,
+          "json-parse-ok": false,
+          "observed": {},
+          "mismatches": [
+            "stdout is not valid JSON: Unexpected end of JSON input"
+          ]
+        }
+      ]
+    }
+  ]
+}

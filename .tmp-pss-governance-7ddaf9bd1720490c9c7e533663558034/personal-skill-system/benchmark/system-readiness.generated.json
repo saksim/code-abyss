@@ -1,0 +1,166 @@
+{
+  "schema-version": 1,
+  "generated-at": "2026-05-06T17:24:29.669Z",
+  "sources": {
+    "benchmark-summary": "benchmark/summary.generated.json",
+    "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",
+    "runtime-proof": "registry/runtime-proof.generated.json",
+    "route-fixtures": "registry/route-fixtures.generated.json"
+  },
+  "status": "blocked",
+  "signals": {
+    "benchmark": {
+      "status": "ready",
+      "file": "benchmark/summary.generated.json",
+      "summary_status": "ok",
+      "run_count": 1
+    },
+    "route-evidence": {
+      "status": "ready",
+      "stable_skills": 30,
+      "covered_skills": 30
+    },
+    "runtime-proof": {
+      "status": "ready",
+      "live_scripted_skills": 9,
+      "runtime_proof_entries": 9
+    },
+    "host-smoke": {
+      "status": "blocked",
+      "host_smoke_capable_skills": 9,
+      "satisfied": 2,
+      "passing": 8,
+      "missing": 0,
+      "failing": 0,
+      "stale": 0,
+      "contract_drift": 1,
+      "policy": {
+        "tiers": {
+          "critical": 3,
+          "standard": 6,
+          "experimental": 0
+        },
+        "statuses": {
+          "ready": 8,
+          "attention": 0,
+          "blocked": 1
+        }
+      }
+    }
+  },
+  "host-smoke-policy": [
+    {
+      "skill": "gen-docs",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "manage-skill",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "blocked",
+      "level": "host-smoked",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "contract-drift",
+      "governance-status": "contract-drift"
+    },
+    {
+      "skill": "pre-commit-gate",
+      "kind": "guard",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "pre-merge-gate",
+      "kind": "guard",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-change",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-module",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-quality",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "ready",
+      "level": "host-smoked",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "passing",
+      "governance-status": "satisfied"
+    },
+    {
+      "skill": "verify-security",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-skill-system",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "ready",
+      "level": "host-smoked",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "passing",
+      "governance-status": "satisfied"
+    }
+  ],
+  "summary": {
+    "live-scripted-skills": 9,
+    "stable-user-invocable-skills": 30,
+    "route-evidence-covered-skills": 30,
+    "runtime-proof-entries": 9,
+    "host-smoke-capable-skills": 9
+  },
+  "notes": [
+    "Generated from benchmark summary, route fixtures, runtime proof registry, and host-smoke scorecard.",
+    "Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter."
+  ]
+}

@@ -1,0 +1,24 @@
+{
+  "schema-version": 1,
+  "freshness": {
+    "max-age": 7,
+    "unit": "days"
+  },
+  "commands": [
+    {
+      "cwd": "bundle-root",
+      "argv": [
+        "node",
+        "skills/tools/verify-skill-system/scripts/run.js",
+        "--target",
+        ".",
+        "--json"
+      ],
+      "expect": {
+        "tool": "verify-skill-system",
+        "status": "pass"
+      },
+      "timeout-ms": 15000
+    }
+  ]
+}

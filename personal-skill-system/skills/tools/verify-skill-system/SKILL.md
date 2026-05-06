@@ -16,6 +16,9 @@ permissions: [Read, Glob, Bash]
 risk-level: low
 supported-hosts: [codex, claude, gemini]
 status: stable
+host-smoke-tier: critical
+host-smoke-target-level: host-smoked
+host-smoke-freshness-days: 7
 owner: self
 last-reviewed: 2026-04-18
 review-cycle-days: 30
@@ -40,7 +43,14 @@ aliases: [skill-system-audit, 技能系统审计]
 - route-map completeness for user-invocable skills
 - reference link existence
 - runtime and script contract alignment
+- host-smoke execution evidence alignment for stable scripted skills
 - route-map linkage to known skills
+- generated governance artifact writeability on the current host for readiness, scorecards, and runtime-proof refreshes
+
+## Runtime Proof
+
+- `node scripts/run.js --target ./personal-skill-system --json` returns a structured bundle-health report with findings and metrics
+- governance drift in registry, route fixtures, stable skill standards, runtime host-smoke evidence, or template integrity is reported as explicit findings
 
 ## Run
 

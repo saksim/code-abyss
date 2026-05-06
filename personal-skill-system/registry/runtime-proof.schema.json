@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/runtime-proof.schema.json",
+  "title": "Portable Personal Skill Runtime Proof Registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "proofs"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "proofs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "skill",
+          "kind",
+          "level",
+          "contracts",
+          "evidence-tests",
+          "host-smoke-policy"
+        ],
+        "properties": {
+          "skill": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "tool",
+              "guard"
+            ]
+          },
+          "level": {
+            "type": "string",
+            "enum": [
+              "declared-only",
+              "declared-and-tested",
+              "host-smoked"
+            ]
+          },
+          "contracts": {
+            "type": "array",
+            "minItems": 2,
+            "items": {
+              "type": "string",
+              "minLength": 8
+            },
+            "uniqueItems": true
+          },
+          "evidence-tests": {
+            "type": "array",
+            "minItems": 0,
+            "items": {
+              "type": "string",
+              "minLength": 8
+            },
+            "uniqueItems": true
+          },
+          "host-smoke-policy": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "tier",
+              "target-level"
+            ],
+            "properties": {
+              "tier": {
+                "type": "string",
+                "enum": [
+                  "critical",
+                  "standard",
+                  "experimental"
+                ]
+              },
+              "target-level": {
+                "type": "string",
+                "enum": [
+                  "declared-only",
+                  "declared-and-tested",
+                  "host-smoked"
+                ]
+              },
+              "freshness-days": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          },
+          "host-smoke": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "manifest",
+              "commands"
+            ],
+            "properties": {
+              "manifest": {
+                "type": "string",
+                "pattern": "^skills\\/.+\\/scripts\\/smoke\\.json$"
+              },
+              "freshness": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "max-age",
+                  "unit"
+                ],
+                "properties": {
+                  "max-age": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "unit": {
+                    "type": "string",
+                    "enum": [
+                      "hours",
+                      "days"
+                    ]
+                  }
+                }
+              },
+              "commands": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "argv",
+                    "expect"
+                  ],
+                  "properties": {
+                    "cwd": {
+                      "type": "string",
+                      "enum": [
+                        "skill-dir",
+                        "bundle-root"
+                      ]
+                    },
+                    "argv": {
+                      "type": "array",
+                      "minItems": 2,
+                      "items": {
+                        "type": "string",
+                        "minLength": 1
+                      }
+                    },
+                    "expect": {
+                      "type": "object",
+                      "minProperties": 1,
+                      "additionalProperties": {
+                        "type": [
+                          "string",
+                          "number",
+                          "boolean"
+                        ]
+                      }
+                    },
+                    "timeout-ms": {
+                      "type": "integer",
+                      "minimum": 1000
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

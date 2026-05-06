@@ -1,150 +1,269 @@
 # Skill Authoring
 
-> 适用对象：新增或维护 `personal-skill-system/skills/**/SKILL.md` 的维护者
+This repository has one authoritative skill source tree:
 
-## 这份文档解决什么问题
+- `personal-skill-system/skills/**/SKILL.md`
 
-skill 是 Code Abyss 最容易扩展、也最容易漂移的部分。这里定义的不是“写作建议”，而是仓库当前真正执行的 contract。
+Do not author or revive repo-root `skills/`.
 
-## 先记住一句话
+## What This Document Covers
 
-`personal-skill-system/skills/**/SKILL.md` frontmatter 是 skill metadata 的唯一事实源。
+Use this document when you add, upgrade, deprecate, archive, or delete skills inside the personal skill system.
 
-命令生成、registry 扫描、脚本执行、CI 合约校验，都应该从这里出发。
+It describes the real contracts enforced by the repository today, not a loose writing guide.
 
-## 最小模板
+## Two Enforcement Layers
+
+Skill work in this repository is governed by two different checks.
+
+### 1. Distribution contract
+
+Run:
+
+```bash
+npm run verify:skills
+```
+
+This check protects the source tree that the installer and runtime mirror consume.
+
+It enforces:
+
+- unique `name`
+- non-empty `description`
+- explicit `user-invocable`
+- one authoritative `SKILL.md` per skill directory
+- at most one `scripts/*.js` entrypoint per skill
+- no revival of the retired repo-root `skills/` mirror
+
+This contract is intentionally narrow. It answers: "Can the repository still discover, mirror, and distribute skills safely?"
+
+### 2. Bundle governance contract
+
+Run:
+
+```bash
+npm run verify:skill-system
+```
+
+This check protects the portable bundle as a system.
+
+It enforces or audits:
+
+- schema-v2 frontmatter presence on bundle skills
+- layer and kind consistency
+- registry, route-map, and route-fixture coverage
+- bundle-level system readiness artifact freshness
+- reference-link existence
+- scripted runtime surface integrity
+- template scaffold integrity
+- lifecycle review hygiene
+- legacy mirror retirement
+
+This contract answers: "Is the skill system still coherent, governable, and safe to evolve?"
+
+Treat both checks as required.
+
+## Layer Model
+
+Every public skill should belong to one primary layer.
+
+| Layer | Purpose |
+| --- | --- |
+| `routers/` | Dispatch, conflict policy, fallback behavior |
+| `domains/` | Judgment, domain knowledge, decision heuristics |
+| `workflows/` | Multi-step execution chains |
+| `tools/` | Deterministic validation, generation, or analysis |
+| `guards/` | Risk gates downstream of routing |
+| `adapters/` | Host-specific notes and capability hints |
+
+Do not blur these without a strong reason. If a skill both routes and executes, split the routing concern from the execution concern unless doing so would make the system harder to use.
+
+## Canonical Frontmatter
+
+Bundle skills use schema-version 2 frontmatter.
+
+Minimal example:
 
 ```yaml
 ---
+schema-version: 2
 name: verify-quality
-description: Code quality gate
+title: Verify Quality Tool
+description: Analyze maintainability and engineering quality drift in a codebase. Use when the task is an explicit quality audit or a quality gate.
+kind: tool
+visibility: public
 user-invocable: true
-allowed-tools: Bash, Read, Glob
-argument-hint: <scan-path>
-aliases: vq
+trigger-mode: [manual]
+trigger-keywords: [verify-quality, quality audit, quality gate]
+negative-keywords: []
+priority: 90
+runtime: scripted
+executor: node
+permissions: [Read, Bash]
+risk-level: low
+supported-hosts: [codex, claude, gemini]
+status: stable
+owner: self
+last-reviewed: 2026-05-06
+review-cycle-days: 30
+tags: [tool, quality]
+aliases: [vq]
 ---
 ```
 
-## frontmatter 字段
+## Lifecycle Model
 
-### 必填字段
+Every skill should move through an explicit lifecycle.
 
-| 字段 | 说明 |
-| --- | --- |
-| `name` | kebab-case，且在所有 skills 中唯一 |
-| `description` | 非空描述，给用户和命令生成使用 |
-| `user-invocable` | `true` / `false`，决定是否对外暴露 |
+| Status | Meaning | Expected behavior |
+| --- | --- | --- |
+| `draft` | Scaffold or incomplete design | May have narrow or placeholder routing; must not be marketed as top-tier |
+| `experimental` | Real but still under evaluation | Keep scope narrow and gather route/test evidence |
+| `stable` | Default production skill | Requires strong references, review rhythm, and trustworthy routing |
+| `deprecated` | Still present but no longer preferred | Keep migration notes explicit and avoid adding new depth here |
+| `archived` | Retained for history only | Remove from active route surface and stop treating it as a live capability |
 
-### 可选字段
+Use `archive` before destructive deletion unless history is obviously disposable.
 
-| 字段 | 说明 |
-| --- | --- |
-| `allowed-tools` | 逗号分隔；缺省时默认 `Read` |
-| `argument-hint` | 给命令生成与帮助文案用 |
-| `aliases` | 逗号分隔的附加命令名 |
+## Top-Tier Standard
 
-## 运行时推断规则
+A skill is not top-tier because it is long. A top-tier skill has a clean surface and deep usable internals.
 
-仓库会基于目录结构自动推断两类信息。
+For a current or future skill to count as top-tier, it should satisfy all of these:
 
-### `category`
+1. Clear route surface
+   - The description says when to use it.
+   - Trigger keywords are specific.
+   - Conflicts and fallback behavior are deliberate.
 
-由目录前缀推断：
+2. Thin entry, deep references
+   - `SKILL.md` gives the operating model.
+   - Dense detail lives in `references/`.
+   - Reference filenames are stable and easy to navigate.
 
-- `personal-skill-system/skills/tools/*` -> `tool`
-- `personal-skill-system/skills/domains/*` -> `domain`
-- `personal-skill-system/skills/orchestration/*` -> `orchestration`
-- 其他 -> `root`
+3. Real lifecycle ownership
+   - `owner`, `last-reviewed`, and `review-cycle-days` are present.
+   - Review cadence matches the volatility of the skill.
 
-### `runtimeType`
+4. Honest runtime contract
+   - `runtime`, `executor`, `permissions`, and scripts match reality.
+   - Scripted skills expose `scripts/run.js`.
+   - Stable scripted tools and guards keep `Runtime Proof` bullets aligned with `runtime-proof.generated.json`.
+   - Governed scripted tools and guards declare `host-smoke-tier` and `host-smoke-target-level` in frontmatter; `host-smoke-freshness-days` is required when the target level is `host-smoked`.
 
-由 `scripts/` 目录推断：
+5. Proof surface
+   - Registry and route-map entries are aligned.
+   - Route fixtures cover representative activation paths.
+   - Tool and guard behavior has runtime tests when the blast radius justifies it.
+   - Runtime-proof evidence points to real test cases, not placeholder claims.
 
-- 恰好一个 `scripts/*.js` -> `scripted`
-- 没有脚本入口 -> `knowledge`
+## Recommended Authoring Flow
 
-## 脚本型 skill 的约束
+### Add a new skill
 
-- 只能有一个 `scripts/*.js` 入口
-- 实际执行入口统一通过 `<skill-rel-path>/scripts/run.js`
-- 不要在命令生成层直接绕过 registry 去调用脚本
+1. Use the canonical scaffold path:
 
-## 知识型 skill 的约束
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js create <kind> <skill-name>
+```
 
-- 没有脚本入口
-- 只提供给模型读取 `SKILL.md`
-- 适合放领域知识、流程约束、路由规则
+If the new skill is a `domain` or `workflow` and you want future governance surfaces scaffolded immediately, use:
 
-## 失败即中断的校验项
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js create <kind> <skill-name> --scaffold-modules
+```
 
-这些问题会直接让 `collectSkills()`、`npm run verify:skills` 和 CI 失败：
+This seeds:
 
-- frontmatter 不能被解析
-- 缺少必填字段
-- `name` 不是合法 kebab-case
-- `allowed-tools` 含非法工具名
-- skill name 重复
-- `scripts/` 下出现多个 `.js` 入口
+- a `registry.generated.json` module-group for the new host skill
+- placeholder `expert-modules` on the generated route entry
+- `thin` capability-module ratings for the new reference-backed modules
 
-## 作者工作流
+2. Replace template placeholders:
+   - description
+   - trigger keywords
+   - aliases
+   - owner
+   - lifecycle dates
+   - reference contents
 
-### 新增一个知识型 skill
+3. Decide whether the skill should be public, explicit-only, or internal in practice.
 
-1. 创建 `personal-skill-system/skills/<category>/<skill-name>/SKILL.md`
-2. 写好 frontmatter 与正文
-3. 跑：
+4. Add or deepen `references/` before bloating `SKILL.md`.
+
+5. For scripted skills, replace the stub `scripts/run.js` with real logic.
+
+6. For stable-bound scripted tools and guards, write a `## Runtime Proof` section in `SKILL.md` and sync matching contracts into `personal-skill-system/registry/runtime-proof.generated.json`.
+
+7. Prefer `node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-runtime-proof <skill-name>` instead of hand-editing runtime-proof registry drift.
+
+8. Link at least one concrete runtime or governance test to that runtime-proof entry.
+
+9. If the skill targets `host-smoked`, keep `scripts/smoke.json` freshness aligned with `host-smoke-freshness-days`.
+   `host-smoked` is evidence-backed, not sticky: if contract, pass state, or freshness drift, `manage-skill sync-runtime-proof` should downgrade the level back to the default governed state until fresh passing evidence exists again.
+
+10. Change lifecycle state through the governed command instead of hand-editing `status`:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status <skill-name> <draft|experimental|stable|deprecated|archived>
+```
+
+11. Run:
 
 ```bash
 npm run verify:skills
-npm test -- --runInBand test/install-generation.test.js
+npm run verify:skill-system
 ```
 
-### 新增一个脚本型 skill
-
-1. 创建 `personal-skill-system/skills/<category>/<skill-name>/SKILL.md`
-2. 新增 `scripts/<entry>.js`
-3. 确认 `scripts/` 下只有一个 `.js`
-4. 跑：
+12. Refresh benchmark governance artifacts when you change benchmark, runtime-proof, or host-smoke surfaces:
 
 ```bash
-npm run verify:skills
-npm test -- --runInBand test/run-skill.test.js test/install-generation.test.js
+node personal-skill-system/benchmark/scripts/generate-summary.js
+node personal-skill-system/benchmark/scripts/generate-system-readiness.js
 ```
 
-## 改动后至少要验证什么
+13. Add or update tests if the skill changes executable behavior or routing semantics.
 
-| 改动 | 最低验证 |
-| --- | --- |
-| frontmatter 字段 | `npm run verify:skills` |
-| 命令生成 | `test/install-generation.test.js` |
-| 脚本执行 | `test/run-skill.test.js` |
-| 安装产物 | `test/install-smoke.test.js` |
+### Upgrade an existing skill
 
-## 写 skill 时最容易踩的坑
+Use this order:
 
-### 把正文当成元数据事实源
+1. tighten route surface
+2. deepen references
+3. harden scripted behavior
+4. add route fixtures or runtime tests
+5. move lifecycle status only after evidence exists, using `manage-skill set-status`
 
-不行。可执行链只认 frontmatter，不会解析你正文里写的额外说明。
+Do not promote a skill to `stable` if the only improvement is more prose.
 
-### 一个 skill 放多个脚本入口
+### Deprecate or archive a skill
 
-不行。当前 contract 要求脚本型 skill 只能有一个入口。如果需要多个动作，应在一个入口里自行分发，或者拆成多个 skill。
+1. mark lifecycle status
+2. remove or narrow active routing as appropriate
+3. point users toward the replacement surface
+4. rerun both verification commands
 
-### 忘记考虑 `user-invocable`
+### Delete a skill
 
-如果你希望它出现在生成命令里，必须显式写 `user-invocable: true`。
+Prefer the authoritative delete flow:
 
-## 什么时候需要补文档
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js delete --path <layer>/<skill-name>
+```
 
-只要你改了下面这些内容，就应该同步回看 README / onboarding / 相关专题文档：
+Delete only after archive is unnecessary and generated surfaces can be safely updated.
 
-- 新增对外可见 skill
-- 变更 skill 使用方式
-- 改动 `allowed-tools` 或参数形态
-- 调整 registry 推断规则
+## Common Failure Modes
 
-## 相关文档
+- treating `SKILL.md` body as metadata instead of frontmatter
+- creating a broad public route for a thin or weak skill
+- hiding essential operating rules in external docs not copied into the bundle
+- adding new public skills instead of deepening references behind an existing stable route
+- keeping archived skills on the active route surface
+- changing runtime behavior without adding tests or fixtures
 
-- [ONBOARDING.md](./ONBOARDING.md)
-- [../README.md](../README.md)
-- [../DESIGN.md](../DESIGN.md)
+## Related Documents
+
+- [DESIGN.md](/D:/Download/gaming/new_program/code-abyss/DESIGN.md)
+- [README.md](/D:/Download/gaming/new_program/code-abyss/README.md)
+- [TOP_TIER_SKILL_STANDARD.md](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md)

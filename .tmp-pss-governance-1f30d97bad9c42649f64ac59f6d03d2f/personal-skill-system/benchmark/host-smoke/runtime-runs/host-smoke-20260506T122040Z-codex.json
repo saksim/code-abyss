@@ -1,0 +1,69 @@
+{
+  "schema-version": 1,
+  "run-id": "host-smoke-20260506T122040Z-codex",
+  "executed-at": "2026-05-06T12:20:40.226Z",
+  "host": "codex",
+  "source-runtime-proof": "registry/runtime-proof.generated.json",
+  "selection": {
+    "scope": "single",
+    "skills": [
+      "verify-quality"
+    ]
+  },
+  "results": [
+    {
+      "skill": "verify-quality",
+      "kind": "tool",
+      "level-before": "declared-and-tested",
+      "status": "pass",
+      "manifest": "skills/tools/verify-quality/scripts/smoke.json",
+      "contract": {
+        "manifest": "skills/tools/verify-quality/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-quality"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      },
+      "command-count": 1,
+      "passed-commands": 1,
+      "commands": [
+        {
+          "cwd": "skill-dir",
+          "argv": [
+            "node",
+            "scripts/run.js",
+            "--target",
+            ".",
+            "--json"
+          ],
+          "expect": {
+            "tool": "verify-quality"
+          },
+          "timeout-ms": 10000,
+          "status": "pass",
+          "exit-code": 0,
+          "signal": null,
+          "duration-ms": 14,
+          "json-parse-ok": true,
+          "observed": {
+            "tool": "verify-quality"
+          },
+          "mismatches": [],
+          "stdout-preview": "{\n  \"tool\": \"verify-quality\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\code-abyss\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-quality\",\n  \"summary\": \"Scanned 6 files for structural quality heuristics.\",\n  \"issues\": [],\n  \"hotspots\": [],\n  \"nextSteps\": [\n    \"inspect warnings first\",\n    \"split oversized files if they represent multiple concerns\",\n    \"convert fragile TODOs into tracked wo"
+        }
+      ]
+    }
+  ]
+}

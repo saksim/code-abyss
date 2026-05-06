@@ -1,0 +1,16 @@
+{
+  "schema-version": 1,
+  "commands": [
+    {
+      "cwd": "skill-dir",
+      "argv": [
+        "node",
+        "scripts/run.js"
+      ],
+      "expect": {
+        "tool": "tool-template"
+      },
+      "timeout-ms": 10000
+    }
+  ]
+}

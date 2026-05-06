@@ -1,0 +1,417 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/benchmark/host-smoke/scorecard.schema.json",
+  "title": "Runtime Host Smoke Scorecard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "source-runtime-proof",
+    "runtime-run-dir",
+    "run-count",
+    "artifact-error-count",
+    "summary",
+    "artifact-errors",
+    "skills"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated-at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source-runtime-proof": {
+      "type": "string",
+      "pattern": "^registry\\/runtime-proof\\.generated\\.json$"
+    },
+    "runtime-run-dir": {
+      "type": "string",
+      "pattern": "^benchmark\\/host-smoke\\/runtime-runs$"
+    },
+    "run-count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "artifact-error-count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "latest-run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "run-id",
+        "executed-at",
+        "host",
+        "file"
+      ],
+      "properties": {
+        "run-id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executed-at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "host-smoke-capable-skills",
+        "levels",
+        "evidence-status",
+        "governance-status"
+      ],
+      "properties": {
+        "host-smoke-capable-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "levels": {
+          "$ref": "#/$defs/levelCounts"
+        },
+        "evidence-status": {
+          "$ref": "#/$defs/evidenceCounts"
+        },
+        "governance-status": {
+          "$ref": "#/$defs/governanceCounts"
+        }
+      }
+    },
+    "artifact-errors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "file",
+          "message"
+        ],
+        "properties": {
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "message": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/skillEntry"
+      }
+    }
+  },
+  "$defs": {
+    "levelCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "declared-only",
+        "declared-and-tested",
+        "host-smoked"
+      ],
+      "properties": {
+        "declared-only": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "declared-and-tested": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "host-smoked": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "evidenceCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "passing",
+        "stale",
+        "failing",
+        "missing",
+        "contract-drift",
+        "invalid-contract"
+      ],
+      "properties": {
+        "passing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contract-drift": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid-contract": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "governanceCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "satisfied",
+        "not-host-smoked",
+        "stale",
+        "failing",
+        "missing",
+        "contract-drift",
+        "invalid-contract"
+      ],
+      "properties": {
+        "satisfied": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "not-host-smoked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stale": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "failing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "contract-drift": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "invalid-contract": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "artifactRef": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "run-id",
+        "executed-at",
+        "host",
+        "status",
+        "file"
+      ],
+      "properties": {
+        "run-id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "executed-at": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "host": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pass",
+            "fail"
+          ]
+        },
+        "file": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "freshnessStatus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "required",
+        "fresh",
+        "stale",
+        "ageMs",
+        "maxAgeMs"
+      ],
+      "properties": {
+        "required": {
+          "type": "boolean"
+        },
+        "fresh": {
+          "type": "boolean"
+        },
+        "stale": {
+          "type": "boolean"
+        },
+        "ageMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "maxAgeMs": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        }
+      }
+    },
+    "freshnessContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "max-age",
+        "unit"
+      ],
+      "properties": {
+        "max-age": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "unit": {
+          "type": "string",
+          "enum": [
+            "hours",
+            "days"
+          ]
+        }
+      }
+    },
+    "skillEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill",
+        "kind",
+        "level",
+        "manifest",
+        "command-count",
+        "freshness-status",
+        "evidence-status",
+        "governance-status",
+        "latest-any-matches-contract",
+        "latest-any",
+        "latest-matching",
+        "latest-passing"
+      ],
+      "properties": {
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "tool",
+            "guard"
+          ]
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "declared-only",
+            "declared-and-tested",
+            "host-smoked"
+          ]
+        },
+        "manifest": {
+          "type": "string",
+          "pattern": "^skills\\/.+\\/scripts\\/smoke\\.json$"
+        },
+        "command-count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "freshness": {
+          "$ref": "#/$defs/freshnessContract"
+        },
+        "freshness-status": {
+          "$ref": "#/$defs/freshnessStatus"
+        },
+        "evidence-status": {
+          "type": "string",
+          "enum": [
+            "passing",
+            "stale",
+            "failing",
+            "missing",
+            "contract-drift",
+            "invalid-contract"
+          ]
+        },
+        "governance-status": {
+          "type": "string",
+          "enum": [
+            "satisfied",
+            "not-host-smoked",
+            "stale",
+            "failing",
+            "missing",
+            "contract-drift",
+            "invalid-contract"
+          ]
+        },
+        "latest-any-matches-contract": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "latest-any": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "latest-matching": {
+          "$ref": "#/$defs/artifactRef"
+        },
+        "latest-passing": {
+          "$ref": "#/$defs/artifactRef"
+        }
+      }
+    }
+  }
+}

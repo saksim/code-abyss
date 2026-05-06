@@ -1,0 +1,124 @@
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const {
+  REQUIRED_FRONTMATTER_KEYS,
+  rel,
+  readUtf8,
+  parseFrontmatter,
+  listMarkdownFiles,
+  parseJsonFile,
+  getSmokeManifestFile,
+  validateSmokeManifest,
+  readReferencePaths
+} = require('./skill-system-common');
+
+const TEMPLATE_KINDS = ['domain', 'guard', 'router', 'tool', 'workflow'];
+const SCRIPTED_TEMPLATE_KINDS = new Set(['guard', 'tool']);
+const MIN_TEMPLATE_REFERENCES = 2;
+
+function validateTemplateScaffold(targetDir, kind, findings) {
+  const templateDir = path.join(targetDir, 'templates', 'skill', kind);
+  const skillFile = path.join(templateDir, 'SKILL.md');
+  const relative = rel(targetDir, skillFile);
+
+  if (!fs.existsSync(templateDir) || !fs.statSync(templateDir).isDirectory()) {
+    findings.push({ severity: 'error', file: rel(targetDir, templateDir), message: `missing template scaffold directory for '${kind}'` });
+    return false;
+  }
+
+  const text = readUtf8(skillFile);
+  if (text == null) {
+    findings.push({ severity: 'error', file: relative, message: 'template SKILL.md is unreadable as utf8 text' });
+    return false;
+  }
+
+  const parsed = parseFrontmatter(text);
+  if (parsed.error) {
+    findings.push({ severity: 'error', file: relative, message: `template frontmatter error: ${parsed.error}` });
+    return false;
+  }
+
+  const data = parsed.data;
+  for (const key of REQUIRED_FRONTMATTER_KEYS) {
+    if (!(key in data)) {
+      findings.push({ severity: 'error', file: relative, message: `template missing frontmatter key '${key}'` });
+    }
+  }
+
+  if (data.kind !== kind) {
+    findings.push({ severity: 'error', file: relative, message: `template kind '${data.kind}' does not match directory '${kind}'` });
+  }
+
+  const expectedName = `${kind}-template`;
+  if (data.name !== expectedName) {
+    findings.push({ severity: 'warning', file: relative, message: `template name should usually be '${expectedName}'` });
+  }
+
+  if (data.status !== 'draft') {
+    findings.push({ severity: 'warning', file: relative, message: `template status should normally stay 'draft', got '${data.status}'` });
+  }
+
+  const referenceDir = path.join(templateDir, 'references');
+  const referenceFiles = listMarkdownFiles(referenceDir);
+  if (referenceFiles.length < MIN_TEMPLATE_REFERENCES) {
+    findings.push({
+      severity: 'error',
+      file: relative,
+      message: `template '${kind}' only has ${referenceFiles.length} reference files; expected at least ${MIN_TEMPLATE_REFERENCES}`
+    });
+  }
+
+  for (const refPath of readReferencePaths(text)) {
+    if (!fs.existsSync(path.join(templateDir, refPath))) {
+      findings.push({ severity: 'error', file: relative, message: `template declares missing reference '${refPath}'` });
+    }
+  }
+
+  if (SCRIPTED_TEMPLATE_KINDS.has(kind)) {
+    const scriptPath = path.join(templateDir, 'scripts', 'run.js');
+    if (!fs.existsSync(scriptPath)) {
+      findings.push({ severity: 'error', file: relative, message: `scripted template '${kind}' is missing scripts/run.js` });
+    }
+
+    const smokeManifestFile = getSmokeManifestFile(templateDir);
+    if (!fs.existsSync(smokeManifestFile)) {
+      findings.push({ severity: 'error', file: relative, message: `scripted template '${kind}' is missing scripts/smoke.json` });
+    } else {
+      const smokeManifest = parseJsonFile(smokeManifestFile);
+      if (smokeManifest.error) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, smokeManifestFile),
+          message: `template smoke manifest parse failed: ${smokeManifest.error}`
+        });
+      } else {
+        for (const error of validateSmokeManifest(smokeManifest.data)) {
+          findings.push({
+            severity: 'error',
+            file: rel(targetDir, smokeManifestFile),
+            message: error
+          });
+        }
+      }
+    }
+  }
+
+  return true;
+}
+
+function analyzeTemplateScaffolds(targetDir, findings) {
+  let validCount = 0;
+  for (const kind of TEMPLATE_KINDS) {
+    if (validateTemplateScaffold(targetDir, kind, findings)) {
+      validCount += 1;
+    }
+  }
+  return validCount;
+}
+
+module.exports = {
+  TEMPLATE_KINDS,
+  analyzeTemplateScaffolds
+};

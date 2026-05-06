@@ -1,0 +1,360 @@
+{
+  "schema-version": 1,
+  "proofs": [
+    {
+      "skill": "gen-docs",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --target ./path --json` returns a machine-readable report with README and DESIGN preview keys",
+        "`node scripts/run.js --target ./path --write --force` writes documentation scaffolds without changing files outside the target module"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::generateDocs builds engineering-grade scaffold sections",
+        "test/personal_skill_system_tools.test.js::generateDocs detects languages and entry candidates from the target module"
+      ],
+      "host-smoke-policy": {
+        "tier": "standard",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/gen-docs/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "gen-docs"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "manage-skill",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`create` updates the authoritative skill tree and generated metadata together instead of leaving registry or route drift behind",
+        "`set-status` updates lifecycle metadata through a governed path instead of allowing raw `status=` edits that can strand runtime-proof, ratings, or readiness artifacts",
+        "`archive` and `delete` remove active-route surfaces for the target skill, including route fixtures and ratings summary membership",
+        "`sync-runtime-proof` can rebuild or update runtime-proof entries from authoritative skill metadata instead of requiring hand-edited registry drift repair and can suggest or auto-apply matching evidence tests for scripted skills based on existing Jest coverage",
+        "`sync-runtime-proof` also lifts skill-local `scripts/smoke.json` manifests into registry-backed host-smoke metadata so future host runners consume one consistent contract",
+        "`sync-runtime-proof` treats `host-smoked` as evidence-backed state instead of sticky status and automatically downgrades entries whose contract, pass state, or freshness proof no longer holds",
+        "`run-host-smoke` executes the declared host-smoke contract and records append-only pass/fail evidence so `host-smoked` can be proven from artifacts instead of trust",
+        "failed host-smoke executions preserve their artifacts and demote any now-invalid `host-smoked` level instead of leaving stale governance claims behind",
+        "host-smoke contract and evidence changes also refresh a bundle-wide scorecard so system-level freshness and governance drift stay inspectable"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::manage-skill performs authoritative CRUD inside personal-skill-system only",
+        "test/skill_system_governance.test.js::manage-skill create keeps a copied bundle structurally analyzable"
+      ],
+      "host-smoke-policy": {
+        "tier": "critical",
+        "target-level": "host-smoked",
+        "freshness-days": 7
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        },
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "show",
+              "manage-skill"
+            ],
+            "expect": {
+              "action": "show",
+              "skill": "manage-skill"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "pre-commit-gate",
+      "kind": "guard",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --target ./path --json` returns explicit `pass` or `block` status instead of prose-only guidance",
+        "changed-file scoping prevents unrelated legacy debt outside the touched surface from automatically blocking the commit"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::pre-commit gate ignores quality debt outside changed files",
+        "test/personal_skill_system_tools.test.js::pre-commit gate blocks quality warnings inside changed files"
+      ],
+      "host-smoke-policy": {
+        "tier": "standard",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/guards/pre-commit-gate/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--changed-files",
+              "SKILL.md",
+              "--json"
+            ],
+            "expect": {
+              "guard": "pre-commit-gate",
+              "status": "pass"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "pre-merge-gate",
+      "kind": "guard",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --target ./path --json` returns explicit merge-gate status with blockers when release risk is unresolved",
+        "changed-file scoping keeps security blockers attached to the actual merge surface rather than unrelated legacy files"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::pre-merge gate scopes security blockers to changed files when provided"
+      ],
+      "host-smoke-policy": {
+        "tier": "standard",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/guards/pre-merge-gate/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--changed-files",
+              "SKILL.md",
+              "--json"
+            ],
+            "expect": {
+              "guard": "pre-merge-gate",
+              "status": "pass"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "verify-change",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --mode working --json` emits a structured change report even when only working tree state is available",
+        "`--changed-files` or environment fallback keeps the tool usable when git state is unavailable or permission-limited"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::analyzeChange accepts --changed-files fallback when git is unavailable",
+        "test/personal_skill_system_tools.test.js::analyzeChange normalizes rename-style changed files and exposes change kinds",
+        "test/personal_skill_system_tools.test.js::analyzeChange uses env fallback when git repo is absent"
+      ],
+      "host-smoke-policy": {
+        "tier": "standard",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/verify-change/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--changed-files",
+              "SKILL.md",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-change",
+              "mode": "working"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "verify-module",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --target ./path/to/module --json` returns a structured module-audit report with findings instead of free-form prose",
+        "missing docs, tests, or structure show up as explicit findings rather than being silently ignored"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::analyzeModule returns explicit module completeness findings for missing docs and tests"
+      ],
+      "host-smoke-policy": {
+        "tier": "standard",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/verify-module/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-module"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "verify-quality",
+      "kind": "tool",
+      "level": "host-smoked",
+      "contracts": [
+        "`node scripts/run.js --target ./src --json` returns a structured quality report with issue entries and severity",
+        "language-specific maintainability smells are surfaced as findings rather than only aggregate scores"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::analyzeQuality detects python-specific maintainability smells",
+        "test/personal_skill_system_tools.test.js::analyzeQuality detects async JS and TS contract smells"
+      ],
+      "host-smoke-policy": {
+        "tier": "critical",
+        "target-level": "host-smoked",
+        "freshness-days": 7
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/verify-quality/scripts/smoke.json",
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        },
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-quality"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "verify-security",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --target ./src --json` returns a structured security report with concrete findings and files",
+        "trust-boundary and dangerous-sink heuristics emit explicit findings when risky patterns co-occur in one file"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::analyzeSecurity detects unsafe deserialization and tls bypass",
+        "test/personal_skill_system_tools.test.js::analyzeSecurity links untrusted input to dangerous sinks in one file"
+      ],
+      "host-smoke-policy": {
+        "tier": "standard",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/verify-security/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-security"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "verify-skill-system",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --target ./personal-skill-system --json` returns a structured bundle-health report with findings and metrics",
+        "governance drift in registry, route fixtures, stable skill standards, runtime host-smoke evidence, or template integrity is reported as explicit findings"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::analyzeSkillSystem passes on the portable bundle",
+        "test/skill_system_governance.test.js::analyzeSkillSystem validates canonical template scaffolds"
+      ],
+      "host-smoke-policy": {
+        "tier": "critical",
+        "target-level": "host-smoked",
+        "freshness-days": 7
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        },
+        "commands": [
+          {
+            "cwd": "bundle-root",
+            "argv": [
+              "node",
+              "skills/tools/verify-skill-system/scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-skill-system",
+              "status": "pass"
+            },
+            "timeout-ms": 15000
+          }
+        ]
+      }
+    }
+  ]
+}
