@@ -13,6 +13,11 @@ const {
   validateSmokeManifest,
   readReferencePaths
 } = require('./skill-system-common');
+const {
+  OPENAI_METADATA_KEYS,
+  buildOpenAiMetadata,
+  readOpenAiMetadataFile
+} = require('./skill-system-host-metadata');
 
 const TEMPLATE_KINDS = ['domain', 'guard', 'router', 'tool', 'workflow'];
 const SCRIPTED_TEMPLATE_KINDS = new Set(['guard', 'tool']);
@@ -83,6 +88,36 @@ function validateTemplateScaffold(targetDir, kind, findings) {
     }
   }
 
+  const hostMetadataFile = path.join(templateDir, 'agents', 'openai.yaml');
+  if (!fs.existsSync(hostMetadataFile)) {
+    findings.push({ severity: 'error', file: relative, message: `template '${kind}' is missing agents/openai.yaml` });
+  } else {
+    const parsedHostMetadata = readOpenAiMetadataFile(hostMetadataFile);
+    if (parsedHostMetadata.error) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, hostMetadataFile),
+        message: `template host metadata parse failed: ${parsedHostMetadata.error}`
+      });
+    } else {
+      const expectedHostMetadata = buildOpenAiMetadata({
+        name: data.name,
+        title: data.title,
+        description: data.description,
+        kind: data.kind
+      });
+      for (const key of OPENAI_METADATA_KEYS) {
+        if (normalizeValue(parsedHostMetadata.data[key]) !== normalizeValue(expectedHostMetadata[key])) {
+          findings.push({
+            severity: 'error',
+            file: rel(targetDir, hostMetadataFile),
+            message: `template host metadata '${key}' is out of sync with SKILL.md`
+          });
+        }
+      }
+    }
+  }
+
   if (SCRIPTED_TEMPLATE_KINDS.has(kind)) {
     const scriptPath = path.join(templateDir, 'scripts', 'run.js');
     if (!fs.existsSync(scriptPath)) {
@@ -113,6 +148,10 @@ function validateTemplateScaffold(targetDir, kind, findings) {
   }
 
   return true;
+}
+
+function normalizeValue(value) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
 }
 
 function analyzeTemplateScaffolds(targetDir, findings) {

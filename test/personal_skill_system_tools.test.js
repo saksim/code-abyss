@@ -298,6 +298,111 @@ describe('personal skill system tool runtime', () => {
         expect(ratings['rating-buckets']['top-ready']).not.toContain(moduleId);
         expect(ratings['rating-buckets']['strong-but-not-top']).not.toContain(moduleId);
       }
+      expect((ratings['next-batch'] || []).some((item) => scaffoldedModules.includes(item.module))).toBe(false);
+
+      const ratingsDoc = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'docs', 'CAPABILITY_MODULE_RATINGS.md'), 'utf8');
+      for (const moduleId of scaffoldedModules) {
+        expect(ratingsDoc).not.toContain(`\`${moduleId}\``);
+      }
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill set-module-rating promotes one capability module and syncs next-batch/doc surfaces', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-domain-${Date.now()}`;
+      const createPayload = manageSkill.main(['create', 'domain', skillName, '--scaffold-modules']);
+      const [firstModule] = createPayload['scaffolded-capability-modules'];
+
+      const payload = manageSkill.main(['set-module-rating', firstModule, 'strong-but-not-top']);
+      expect(payload.action).toBe('set-module-rating');
+      expect(payload.scope).toBe('module');
+      expect(payload.module).toBe(firstModule);
+      expect(payload.rating).toBe('strong-but-not-top');
+      expect(payload['previous-ratings']).toEqual([
+        expect.objectContaining({
+          module: firstModule,
+          previous_rating: 'thin',
+          'host-skill': skillName,
+          'host-kind': 'domain'
+        })
+      ]);
+
+      const ratings = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'capability-ratings.generated.json'), 'utf8'));
+      expect(ratings['rating-buckets']['strong-but-not-top']).toContain(firstModule);
+      expect(ratings['rating-buckets'].thin).not.toContain(firstModule);
+      expect(ratings['next-batch']).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          module: firstModule,
+          rating: 'strong-but-not-top',
+          priority: 'promote-next'
+        })
+      ]));
+
+      const ratingsDoc = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'docs', 'CAPABILITY_MODULE_RATINGS.md'), 'utf8');
+      expect(ratingsDoc).toContain(`- \`${firstModule}\` (\`${skillName}\`, \`strong-but-not-top\`): Close the remaining depth and evidence gaps before TOP-ready promotion.`);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill set-module-rating rejects skipping buckets without explicit override', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-domain-${Date.now()}`;
+      const createPayload = manageSkill.main(['create', 'domain', skillName, '--scaffold-modules']);
+      const [firstModule] = createPayload['scaffolded-capability-modules'];
+
+      expect(() => manageSkill.main(['set-module-rating', firstModule, 'top-ready']))
+        .toThrow(`capability module '${firstModule}' can only move one bucket at a time without --allow-skip`);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill reconcile-host-smoke reports drift and can invalidate append-only evidence without deleting run files', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const beforeRunDir = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'host-smoke', 'runtime-runs');
+      const beforeFiles = fs.readdirSync(beforeRunDir).length;
+
+      const payload = manageSkill.main(['reconcile-host-smoke', 'manage-skill', '--invalidate-drift']);
+      expect(payload.reports).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          skill: 'manage-skill',
+          status: 'contract-drift'
+        })
+      ]));
+
+      const afterFiles = fs.readdirSync(beforeRunDir).length;
+      expect(afterFiles).toBe(beforeFiles);
+
+      const invalidationPath = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'host-smoke', 'invalidation.generated.json');
+      const ledger = JSON.parse(fs.readFileSync(invalidationPath, 'utf8'));
+      expect(ledger.entries.some((entry) => entry.skill === 'manage-skill')).toBe(true);
     } finally {
       process.chdir(originalCwd);
     }

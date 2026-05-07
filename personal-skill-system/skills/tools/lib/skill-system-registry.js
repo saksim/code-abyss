@@ -5,11 +5,14 @@ const path = require('path');
 const { parseJsonFile, rel, validateSmokeManifest, probeArtifactWriteAccess } = require('./skill-system-common');
 const {
   loadHostSmokeRunIndex,
+  loadHostSmokeInvalidationIndex,
   findLatestHostSmokeEvidence,
   evaluateHostSmokeFreshness,
   normalizeHostSmokeContract: normalizeIndexedHostSmokeContract,
   getHostSmokeScorecardPath,
-  buildHostSmokeScorecard
+  buildHostSmokeScorecard,
+  buildHostSmokeInvalidationLedger,
+  getHostSmokeInvalidationPath
 } = require('./skill-system-host-smoke');
 const { validateRouteMap, validateRouteFixtures, validateStableRouteEvidence } = require('./skill-system-routing');
 const {
@@ -109,6 +112,7 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
   }
 
   validateSkillLevelSummary(targetDir, ratingsPath, data, skillRecords, findings);
+  validateCapabilityNextBatch(targetDir, ratingsPath, data, moduleNames, findings);
   validateCapabilityRatingsDoc(targetDir, ratingsPath, data, findings);
 
   return {
@@ -215,6 +219,76 @@ function extractDocCount(text, label) {
   return match ? Number(match[1]) : null;
 }
 
+function extractMarkdownSectionLines(text, heading) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = String(text || '').match(new RegExp(`## ${escaped}\\n\\n([\\s\\S]*?)(?=\\n## |\\s*$)`));
+  if (!match) {
+    return null;
+  }
+  return match[1]
+    .trim()
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function validateCapabilityNextBatch(targetDir, ratingsPath, ratingsData, moduleNames, findings) {
+  const buckets = ratingsData['rating-buckets'] || {};
+  const nextBatch = Array.isArray(ratingsData['next-batch']) ? ratingsData['next-batch'] : [];
+  const expectedModuleIds = new Set([
+    ...(Array.isArray(buckets['thin']) ? buckets['thin'] : []),
+    ...(Array.isArray(buckets['strong-but-not-top']) ? buckets['strong-but-not-top'] : [])
+  ]);
+  const seenModules = new Set();
+
+  for (const entry of nextBatch) {
+    const moduleId = String(entry && entry.module || '').trim();
+    if (!moduleId) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: 'capability next-batch entry is missing module id'
+      });
+      continue;
+    }
+    if (seenModules.has(moduleId)) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: `capability next-batch duplicates module '${moduleId}'`
+      });
+      continue;
+    }
+    seenModules.add(moduleId);
+
+    if (!moduleNames.has(moduleId)) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: `capability next-batch references unknown module '${moduleId}'`
+      });
+    }
+
+    if (!expectedModuleIds.has(moduleId)) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: `capability next-batch should only include thin or strong-but-not-top modules, but '${moduleId}' is not in an upgrade bucket`
+      });
+    }
+  }
+
+  for (const moduleId of expectedModuleIds) {
+    if (!seenModules.has(moduleId)) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: `capability next-batch is missing upgrade candidate '${moduleId}'`
+      });
+    }
+  }
+}
+
 function validateCapabilityRatingsDoc(targetDir, ratingsPath, ratingsData, findings) {
   const docPath = path.join(targetDir, 'docs', 'CAPABILITY_MODULE_RATINGS.md');
   if (!fs.existsSync(docPath)) {
@@ -251,6 +325,33 @@ function validateCapabilityRatingsDoc(targetDir, ratingsPath, ratingsData, findi
         severity: 'error',
         file: rel(targetDir, docPath),
         message: `ratings doc says '${label}: ${actual}' but generated data says '${expected}'`
+      });
+    }
+  }
+
+  const nextBatchLines = extractMarkdownSectionLines(text, 'Next Batch');
+  if (!nextBatchLines) {
+    findings.push({
+      severity: 'warning',
+      file: rel(targetDir, docPath),
+      message: "ratings doc is missing 'Next Batch' section"
+    });
+  } else {
+    const generatedNextBatch = Array.isArray(ratingsData['next-batch']) ? ratingsData['next-batch'] : [];
+    const expectedNextBatchLines = generatedNextBatch.length < 1
+      ? ['- `(none; the current bundle is fully promoted in this snapshot)`']
+      : generatedNextBatch.map((entry) => {
+          const moduleId = String(entry && entry.module || '').trim() || 'unknown-module';
+          const hostSkill = String(entry && entry['host-skill'] || '').trim() || 'unknown-skill';
+          const rating = String(entry && entry.rating || '').trim() || 'unknown-rating';
+          const nextStep = String(entry && entry['next-step'] || '').trim() || 'fill in the next promotion step';
+          return `- \`${moduleId}\` (\`${hostSkill}\`, \`${rating}\`): ${nextStep}`;
+        });
+    if (JSON.stringify(nextBatchLines) !== JSON.stringify(expectedNextBatchLines)) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, docPath),
+        message: "ratings doc 'Next Batch' section is out of sync with capability-ratings.generated.json"
       });
     }
   }
@@ -300,7 +401,9 @@ function validateRuntimeHostSmokeEvidence(targetDir, registryPath, proof, findin
     return;
   }
 
-  const evidence = findLatestHostSmokeEvidence(hostSmokeIndex, skillName, hostSmoke);
+  const evidence = findLatestHostSmokeEvidence(hostSmokeIndex, skillName, hostSmoke, {
+    invalidationIndex: hostSmokeIndex.invalidationIndex
+  });
   if (proof.level === 'host-smoked') {
     if (!evidence.latestMatching) {
       findings.push({
@@ -346,6 +449,7 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
   const runtimeProof = parseJsonFile(registryPath);
   const schema = parseJsonFile(schemaPath);
   const hostSmokeIndex = loadHostSmokeRunIndex(targetDir);
+  hostSmokeIndex.invalidationIndex = loadHostSmokeInvalidationIndex(targetDir);
 
   if (schema.error) {
     findings.push({ severity: 'error', file: rel(targetDir, schemaPath), message: `runtime proof schema parse failed: ${schema.error}` });
@@ -631,6 +735,7 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
   }
 
   validateHostSmokeScorecard(targetDir, registryPath, proofs, findings, hostSmokeIndex);
+  validateHostSmokeInvalidationLedger(targetDir, findings, hostSmokeIndex);
 
   return {
     proofs,
@@ -698,6 +803,58 @@ function validateHostSmokeScorecard(targetDir, registryPath, proofs, findings, h
   }
 }
 
+function validateHostSmokeInvalidationLedger(targetDir, findings, hostSmokeIndex) {
+  const invalidationPath = getHostSmokeInvalidationPath(targetDir);
+  const invalidationIndex = hostSmokeIndex && hostSmokeIndex.invalidationIndex
+    ? hostSmokeIndex.invalidationIndex
+    : loadHostSmokeInvalidationIndex(targetDir);
+
+  for (const error of invalidationIndex.errors || []) {
+    findings.push({
+      severity: 'error',
+      file: String(error.file || '').trim(),
+      message: `host-smoke invalidation ledger issue: ${String(error.message || '').trim()}`
+    });
+  }
+
+  if (!fs.existsSync(invalidationPath)) {
+    return;
+  }
+
+  const parsed = parseJsonFile(invalidationPath);
+  if (parsed.error) {
+    findings.push({
+      severity: 'error',
+      file: rel(targetDir, invalidationPath),
+      message: `host-smoke invalidation ledger parse failed: ${parsed.error}`
+    });
+    return;
+  }
+
+  const actual = parsed.data || {};
+  const actualGeneratedAt = new Date(String(actual['generated-at'] || '').trim());
+  const expectedGeneratedAt = Number.isNaN(actualGeneratedAt.getTime())
+    ? new Date().toISOString()
+    : actualGeneratedAt.toISOString();
+  const expected = buildHostSmokeInvalidationLedger(targetDir, invalidationIndex.entries, actualGeneratedAt.getTime());
+  const comparableActual = {
+    ...actual,
+    'generated-at': expectedGeneratedAt
+  };
+  const comparableExpected = {
+    ...expected,
+    'generated-at': expectedGeneratedAt
+  };
+
+  if (JSON.stringify(comparableActual) !== JSON.stringify(comparableExpected)) {
+    findings.push({
+      severity: 'error',
+      file: rel(targetDir, invalidationPath),
+      message: 'host-smoke invalidation ledger is out of sync with governed evidence invalidation state'
+    });
+  }
+}
+
 function validateGeneratedArtifactWriteability(targetDir, findings) {
   const probes = [
     {
@@ -709,6 +866,11 @@ function validateGeneratedArtifactWriteability(targetDir, findings) {
       path: path.join(targetDir, 'benchmark', 'host-smoke', 'scorecard.generated.json'),
       mode: 'rewrite-file',
       label: 'host-smoke scorecard'
+    },
+    {
+      path: path.join(targetDir, 'benchmark', 'host-smoke', 'invalidation.generated.json'),
+      mode: 'create-file',
+      label: 'host-smoke invalidation ledger'
     },
     {
       path: path.join(targetDir, 'benchmark', 'system-readiness.generated.json'),

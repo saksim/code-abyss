@@ -1,0 +1,3 @@
+display_name: "Guard Template"
+short_description: "Template scaffold for a guard skill. Replace this with a description that says what risky work the guard blocks or allows and when to invoke it."
+default_prompt: "Use ~/.agents/skills/guards/guard-template/SKILL.md as the primary instruction source before acting on guard-template."

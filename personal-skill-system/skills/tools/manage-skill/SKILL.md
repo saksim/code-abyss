@@ -38,6 +38,9 @@ Operate on the authoritative skill tree under `personal-skill-system/skills/` on
 - `show`: inspect resolved paths and metadata for an existing skill
 - `update`: patch non-lifecycle frontmatter fields for an existing skill
 - `set-status`: move a skill between `draft`, `experimental`, `stable`, `deprecated`, and `archived` while keeping generated governance surfaces synchronized
+- `set-module-rating`: move one capability module or every module owned by a host skill between `thin`, `strong-but-not-top`, and `top-ready`
+  while keeping `capability-ratings.generated.json` and `docs/CAPABILITY_MODULE_RATINGS.md` synchronized;
+  default behavior only allows one-bucket moves unless `--allow-skip` is set intentionally
 - `archive`: mark a skill as archived without deleting it
 - `delete`: remove a skill directory from the authoritative tree, preferably after archive
 - `sync-runtime-proof`: align runtime-proof registry entries with current scripted skill metadata and Runtime Proof bullets
@@ -47,6 +50,8 @@ Operate on the authoritative skill tree under `personal-skill-system/skills/` on
 - `run-host-smoke`: execute registry-backed host-smoke commands for one or all scripted skills and append evidence artifacts under `benchmark/host-smoke/runtime-runs/`
   while refreshing the bundle-wide host-smoke scorecard under `benchmark/host-smoke/scorecard.generated.json`;
   failed executions also demote stale or broken `host-smoked` levels back to the default governed level
+- `reconcile-host-smoke`: inspect the current host-smoke evidence state for one or all scripted skills, append governed invalidation entries for drifted artifacts when requested,
+  downgrade unsupported `host-smoked` claims, and optionally rerun the selected host-smoke contract immediately
 
 If the host cannot rewrite required generated governance artifacts such as runtime-proof, scorecard, or system-readiness files, fail early instead of partially mutating lifecycle state.
 
@@ -62,6 +67,7 @@ Return:
 
 - `create` updates the authoritative skill tree and generated metadata together instead of leaving registry or route drift behind
 - `create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new domain/workflow skills
+- `set-module-rating` upgrades or downgrades registered capability modules through a governed path instead of hand-editing rating buckets, `next-batch`, or the mirrored ratings doc
 - `set-status` updates lifecycle metadata through a governed path instead of allowing raw `status=` edits that can strand runtime-proof, ratings, or readiness artifacts
 - `archive` and `delete` remove active-route surfaces for the target skill, including route fixtures and ratings summary membership
 - `sync-runtime-proof` can rebuild or update runtime-proof entries from authoritative skill metadata instead of requiring hand-edited registry drift repair and can suggest or auto-apply matching evidence tests for scripted skills based on existing Jest coverage
@@ -70,6 +76,7 @@ Return:
 - `run-host-smoke` executes the declared host-smoke contract and records append-only pass/fail evidence so `host-smoked` can be proven from artifacts instead of trust
 - failed host-smoke executions preserve their artifacts and demote any now-invalid `host-smoked` level instead of leaving stale governance claims behind
 - host-smoke contract and evidence changes also refresh a bundle-wide scorecard so system-level freshness and governance drift stay inspectable
+- `reconcile-host-smoke` invalidates drifted runtime host-smoke artifacts through a governed ledger instead of rewriting append-only run history and can chain directly into a rerun when fresh evidence is needed
 
 ## Read These References
 

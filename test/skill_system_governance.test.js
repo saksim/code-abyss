@@ -33,6 +33,7 @@ describe('skill system governance', () => {
     expect(report.findings.some((item) => item.message.includes("template 'tool' is missing scripts/smoke.json"))).toBe(false);
     expect(report.findings.some((item) => item.message.includes("template 'domain' only has"))).toBe(false);
     expect(report.findings.some((item) => item.message.includes("template 'workflow' only has"))).toBe(false);
+    expect(report.findings.some((item) => item.message.includes("template 'tool' is missing agents/openai.yaml"))).toBe(false);
   });
 
   test('analyzeSkillSystem fails when a scripted template loses smoke manifest coverage', () => {
@@ -74,6 +75,19 @@ describe('skill system governance', () => {
     expect(report.findings.some((item) => item.message.includes("template 'workflow' only has 2 reference files; expected at least 3"))).toBe(true);
   });
 
+  test('analyzeSkillSystem fails when a canonical template loses host metadata', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    fs.rmSync(path.join(target, 'templates', 'skill', 'tool', 'agents', 'openai.yaml'));
+
+    const report = analyzeSkillSystem(target);
+
+    expect(report.status).toBe('fail');
+    expect(report.findings.some((item) => item.message.includes("template 'tool' is missing agents/openai.yaml"))).toBe(true);
+  });
+
   test('manage-skill create keeps a copied bundle structurally analyzable', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     copyBundleFixture(repoRoot);
@@ -99,6 +113,11 @@ describe('skill system governance', () => {
       const createdRoute = routeMap.routes.find((route) => route.skill === skillName);
       expect(createdRoute.kind).toBe('workflow');
       expect(createdRoute.namespace).toBe('workflow');
+
+      const hostMetadataPath = path.join(repoRoot, 'personal-skill-system', 'skills', 'workflows', skillName, 'agents', 'openai.yaml');
+      const hostMetadata = fs.readFileSync(hostMetadataPath, 'utf8');
+      expect(hostMetadata).toContain(`display_name: "${skillName.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')} Workflow"`);
+      expect(hostMetadata).toContain(`default_prompt: "Use ~/.agents/skills/workflows/${skillName}/SKILL.md as the primary instruction source before acting on ${skillName}."`);
     } finally {
       process.chdir(originalCwd);
     }
@@ -135,6 +154,32 @@ describe('skill system governance', () => {
 
       const ratings = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'capability-ratings.generated.json'), 'utf8'));
       expect(ratings['rating-buckets'].thin).toEqual(expect.arrayContaining(payload['scaffolded-capability-modules']));
+      expect(ratings['next-batch']).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          scope: 'capability-module',
+          module: `${skillName}-decision-rules`,
+          'host-skill': skillName,
+          rating: 'thin',
+          priority: 'upgrade-now'
+        }),
+        expect.objectContaining({
+          scope: 'capability-module',
+          module: `${skillName}-deep-reference-index`,
+          'host-skill': skillName,
+          rating: 'thin',
+          priority: 'upgrade-now'
+        }),
+        expect.objectContaining({
+          scope: 'capability-module',
+          module: `${skillName}-boundaries-and-escalations`,
+          'host-skill': skillName,
+          rating: 'thin',
+          priority: 'upgrade-now'
+        })
+      ]));
+
+      const ratingsDoc = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'docs', 'CAPABILITY_MODULE_RATINGS.md'), 'utf8');
+      expect(ratingsDoc).toContain(`- \`${skillName}-decision-rules\` (\`${skillName}\`, \`thin\`): Replace scaffold placeholders, deepen the reference, and add route evidence before promotion.`);
 
       const report = analyzeSkillSystem(path.join(repoRoot, 'personal-skill-system'));
       const createRelatedErrors = report.findings.filter((item) =>
@@ -159,6 +204,54 @@ describe('skill system governance', () => {
 
       expect(() => manageSkill.main(['create', 'tool', `temp-tool-${Date.now()}`, '--scaffold-modules']))
         .toThrow("capability-module scaffolding is only supported for domain and workflow skills");
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill set-module-rating --skill promotes every module in the host skill and clears next-batch', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-workflow-${Date.now()}`;
+      const createPayload = manageSkill.main(['create', 'workflow', skillName, '--scaffold-modules']);
+      const scaffoldedModules = createPayload['scaffolded-capability-modules'];
+
+      const firstPromotion = manageSkill.main(['set-module-rating', '--skill', skillName, 'strong-but-not-top']);
+      expect(firstPromotion.scope).toBe('skill');
+      expect(firstPromotion.skill).toBe(skillName);
+      expect(firstPromotion.modules).toEqual(scaffoldedModules);
+
+      const secondPromotion = manageSkill.main(['set-module-rating', '--skill', skillName, 'top-ready']);
+      expect(secondPromotion.scope).toBe('skill');
+      expect(secondPromotion.modules).toEqual(scaffoldedModules);
+      expect(secondPromotion.rating).toBe('top-ready');
+
+      const ratings = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'capability-ratings.generated.json'), 'utf8'));
+      for (const moduleId of scaffoldedModules) {
+        expect(ratings['rating-buckets']['top-ready']).toContain(moduleId);
+        expect(ratings['rating-buckets']['strong-but-not-top']).not.toContain(moduleId);
+        expect(ratings['rating-buckets'].thin).not.toContain(moduleId);
+      }
+      expect((ratings['next-batch'] || []).some((item) => scaffoldedModules.includes(item.module))).toBe(false);
+
+      const ratingsDoc = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'docs', 'CAPABILITY_MODULE_RATINGS.md'), 'utf8');
+      for (const moduleId of scaffoldedModules) {
+        expect(ratingsDoc).toContain(`- \`${moduleId}\``);
+      }
+
+      const report = analyzeSkillSystem(path.join(repoRoot, 'personal-skill-system'));
+      const createRelatedErrors = report.findings.filter((item) =>
+        item.severity === 'error'
+        && (item.file.includes(skillName) || item.message.includes(skillName))
+      );
+      expect(createRelatedErrors).toEqual([]);
     } finally {
       process.chdir(originalCwd);
     }
@@ -247,6 +340,55 @@ describe('skill system governance', () => {
 
     const report = analyzeSkillSystem(target);
     expect(report.findings.some((item) => item.message.includes('stable scripted skill should declare at least two runtime proof bullets'))).toBe(true);
+  });
+
+  test('verify-skill-system fails when capability next-batch misses upgrade candidates', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const ratingsPath = path.join(target, 'registry', 'capability-ratings.generated.json');
+    const ratings = JSON.parse(fs.readFileSync(ratingsPath, 'utf8'));
+    ratings['rating-buckets'].thin = ['temp-module'];
+    ratings.counts.thin = 1;
+    ratings.counts.total += 1;
+    ratings['next-batch'] = [];
+    fs.writeFileSync(ratingsPath, JSON.stringify(ratings, null, 2) + '\n', 'utf8');
+
+    const registryPath = path.join(target, 'registry', 'registry.generated.json');
+    const registry = JSON.parse(fs.readFileSync(registryPath, 'utf8'));
+    registry['module-groups'].push({
+      'host-skill': 'manage-skill',
+      'host-kind': 'tool',
+      modules: [
+        {
+          id: 'temp-module',
+          path: 'skills/tools/manage-skill/references/authoritative-skill-rules.md',
+          capability: 'Temporary upgrade candidate.'
+        }
+      ]
+    });
+    fs.writeFileSync(registryPath, JSON.stringify(registry, null, 2) + '\n', 'utf8');
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) => item.message.includes("capability next-batch is missing upgrade candidate 'temp-module'"))).toBe(true);
+  });
+
+  test('verify-skill-system fails when ratings doc next-batch section drifts from generated data', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const docPath = path.join(target, 'docs', 'CAPABILITY_MODULE_RATINGS.md');
+    const original = fs.readFileSync(docPath, 'utf8');
+    const drifted = original.replace(
+      '- `(none; the current bundle is fully promoted in this snapshot)`',
+      '- `wrong-module` (`wrong-skill`, `thin`): stale doc entry'
+    );
+    fs.writeFileSync(docPath, drifted, 'utf8');
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) => item.message.includes("ratings doc 'Next Batch' section is out of sync with capability-ratings.generated.json"))).toBe(true);
   });
 
   test('stable scripted skills require runtime-proof registry coverage', () => {
@@ -401,6 +543,39 @@ describe('skill system governance', () => {
 
     const report = analyzeSkillSystem(target);
     expect(report.findings.some((item) => item.message.includes('host-smoke scorecard is out of sync'))).toBe(true);
+  });
+
+  test('reconcile-host-smoke invalidates drifted artifacts through the governed ledger and clears contract-drift', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['reconcile-host-smoke', 'manage-skill', '--invalidate-drift']);
+      expect(payload.action).toBe('reconcile-host-smoke');
+      expect(payload.invalidated_runs).toBeGreaterThan(0);
+
+      const invalidationPath = path.join(target, 'benchmark', 'host-smoke', 'invalidation.generated.json');
+      const ledger = JSON.parse(fs.readFileSync(invalidationPath, 'utf8'));
+      expect(Array.isArray(ledger.entries)).toBe(true);
+      expect(ledger.entries.some((entry) => entry.skill === 'manage-skill' && entry.reason === 'contract-drift')).toBe(true);
+
+      const scorecardPath = path.join(target, 'benchmark', 'host-smoke', 'scorecard.generated.json');
+      const scorecard = JSON.parse(fs.readFileSync(scorecardPath, 'utf8'));
+      const manageSkillEntry = scorecard.skills.find((item) => item.skill === 'manage-skill');
+      expect(manageSkillEntry['evidence-status']).toBe('missing');
+
+      const report = analyzeSkillSystem(target);
+      expect(report.findings.some((item) => item.message.includes("runtime host-smoke artifacts exist for 'manage-skill' but do not match the current host-smoke contract"))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes('host-smoke invalidation ledger is out of sync'))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
   });
 
   test('verify-skill-system fails when system readiness artifact drifts from current governance state', () => {
@@ -592,6 +767,37 @@ describe('skill system governance', () => {
     const report = analyzeSkillSystem(target);
     expect(report.findings.some((item) => item.message.includes("stable scripted skill 'verify-quality' is still marked 'declared-only'"))).toBe(true);
     expect(report.findings.some((item) => item.message.includes("runtime proof entry for 'verify-quality' should reference at least one evidence test"))).toBe(false);
+  });
+
+  test('stable skills warn when agents/openai.yaml is missing', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const hostMetadataDir = path.join(target, 'skills', 'tools', 'verify-quality', 'agents');
+    fs.rmSync(hostMetadataDir, { recursive: true, force: true });
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) => item.message.includes('stable skill is missing agents/openai.yaml host metadata'))).toBe(true);
+  });
+
+  test('existing host metadata must stay in sync with SKILL metadata', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const skillDir = path.join(target, 'skills', 'tools', 'verify-quality');
+    const hostMetadataPath = path.join(skillDir, 'agents', 'openai.yaml');
+    fs.mkdirSync(path.dirname(hostMetadataPath), { recursive: true });
+    fs.writeFileSync(hostMetadataPath, [
+      'display_name: "Wrong Name"',
+      'short_description: "Wrong description"',
+      'default_prompt: "Use ~/.agents/skills/tools/wrong/SKILL.md as the primary instruction source before acting on wrong."',
+      ''
+    ].join('\n'), 'utf8');
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) => item.message.includes("agents/openai.yaml 'display_name' is out of sync with SKILL.md"))).toBe(true);
   });
 
   test('archive removes runtime-proof coverage for the archived scripted skill', () => {

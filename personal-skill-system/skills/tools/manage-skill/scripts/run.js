@@ -9,11 +9,15 @@ const { collectSkillRecords } = require('../../lib/skill-system-skills');
 const { validateSmokeManifest, probeArtifactWriteAccess, readReferencePaths } = require('../../lib/skill-system-common');
 const {
   normalizeHostSmokeContract,
+  hostSmokeContractsEqual,
   getHostSmokeRuntimeRunsDir,
   getHostSmokeScorecardPath,
+  getHostSmokeInvalidationPath,
   HOST_SMOKE_RUN_SCHEMA_VERSION,
   buildHostSmokeScorecard,
   loadHostSmokeRunIndex,
+  loadHostSmokeInvalidationIndex,
+  writeHostSmokeInvalidationLedger,
   findLatestHostSmokeEvidence,
   evaluateHostSmokeFreshness
 } = require('../../lib/skill-system-host-smoke');
@@ -26,6 +30,9 @@ const {
   normalizeHostSmokeTargetLevel,
   normalizeHostSmokeFreshnessDays
 } = require('../../lib/skill-system-governance');
+const {
+  writeOpenAiMetadataFile
+} = require('../../lib/skill-system-host-metadata');
 
 const VALID_KINDS = new Map([
   ['router', 'routers'],
@@ -84,6 +91,22 @@ const CAPABILITY_MODULE_DESCRIPTION_BY_KIND = {
     'failure-modes': 'Capture recovery rules, abort conditions, and escalation behavior when the workflow breaks down.'
   }
 };
+const CAPABILITY_NEXT_BATCH_POLICY_BY_BUCKET = {
+  thin: {
+    priority: 'upgrade-now',
+    'next-step': 'Replace scaffold placeholders, deepen the reference, and add route evidence before promotion.'
+  },
+  'strong-but-not-top': {
+    priority: 'promote-next',
+    'next-step': 'Close the remaining depth and evidence gaps before TOP-ready promotion.'
+  }
+};
+const EMPTY_NEXT_BATCH_LINE = '- `(none; the current bundle is fully promoted in this snapshot)`';
+const EMPTY_CAPABILITY_MODULE_SECTION_LINE = '- `(none in this snapshot)`';
+const CAPABILITY_RATING_BUCKET_SEQUENCE = ['thin', 'strong-but-not-top', 'top-ready'];
+const CAPABILITY_RATING_BUCKET_INDEX = new Map(
+  CAPABILITY_RATING_BUCKET_SEQUENCE.map((bucketName, index) => [bucketName, index])
+);
 
 function fail(message) {
   throw new Error(message);
@@ -135,6 +158,18 @@ function renderFrontmatter(map) {
 function renderSkillFile(parsed) {
   const body = parsed.parts.body.startsWith('\n') ? parsed.parts.body : `\n${parsed.parts.body}`;
   return `---\n${renderFrontmatter(parsed.map)}\n---${body}`;
+}
+
+function writeSkillHostMetadata(targetDir, parsed) {
+  const hostMetadataFile = path.join(targetDir, 'agents', 'openai.yaml');
+  writeOpenAiMetadataFile(hostMetadataFile, {
+    name: parsed.map.get('name'),
+    title: parsed.map.get('title'),
+    description: parsed.map.get('description'),
+    kind: parsed.map.get('kind')
+  }, {
+    preserveExisting: true
+  });
 }
 
 function parseBoolean(value, fallback = false) {
@@ -238,6 +273,11 @@ function getGeneratedWriteRequirements(projectRoot) {
       path: getHostSmokeScorecardPath(bundleRoot),
       mode: 'rewrite-file',
       label: 'host-smoke scorecard'
+    },
+    {
+      path: getHostSmokeInvalidationPath(bundleRoot),
+      mode: 'create-file',
+      label: 'host-smoke invalidation ledger'
     },
     {
       path: path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json'),
@@ -527,8 +567,16 @@ function recomputeCapabilityRatingCounts(ratings) {
   };
 }
 
+function sortCapabilityRatingBuckets(ratings) {
+  const buckets = normalizeCapabilityRatingBuckets(ratings);
+  buckets['top-ready'].sort();
+  buckets['strong-but-not-top'].sort();
+  buckets.thin.sort();
+}
+
 function syncCapabilityRatingsForModules(ratings, moduleIds, bucketName) {
   if (!Array.isArray(moduleIds) || moduleIds.length < 1) {
+    sortCapabilityRatingBuckets(ratings);
     recomputeCapabilityRatingCounts(ratings);
     return;
   }
@@ -547,6 +595,7 @@ function syncCapabilityRatingsForModules(ratings, moduleIds, bucketName) {
     }
   }
 
+  sortCapabilityRatingBuckets(ratings);
   recomputeCapabilityRatingCounts(ratings);
 }
 
@@ -564,6 +613,132 @@ function getCapabilityModuleIdsForSkill(projectRoot, skillName) {
       .map((module) => String(module && module.id || '').trim())
       .filter(Boolean)
     : [];
+}
+
+function getCapabilityRatingBucketForModule(ratings, moduleId) {
+  const buckets = normalizeCapabilityRatingBuckets(ratings);
+  for (const bucketName of CAPABILITY_RATING_BUCKET_SEQUENCE) {
+    if (buckets[bucketName].includes(moduleId)) {
+      return bucketName;
+    }
+  }
+  return null;
+}
+
+function collectCapabilityModuleMetadata(projectRoot) {
+  const registryPath = getRegistryPath(projectRoot);
+  if (!fs.existsSync(registryPath)) {
+    return new Map();
+  }
+
+  const registry = readJson(registryPath);
+  const groups = Array.isArray(registry['module-groups']) ? registry['module-groups'] : [];
+  const metadata = new Map();
+
+  for (const group of groups) {
+    const modules = Array.isArray(group && group.modules) ? group.modules : [];
+    for (const module of modules) {
+      const moduleId = String(module && module.id || '').trim();
+      if (!moduleId) continue;
+      metadata.set(moduleId, {
+        'host-skill': String(group && group['host-skill'] || '').trim(),
+        'host-kind': String(group && group['host-kind'] || '').trim(),
+        path: String(module && module.path || '').trim(),
+        capability: String(module && module.capability || '').trim()
+      });
+    }
+  }
+
+  return metadata;
+}
+
+function normalizeCapabilityRatingBucketName(bucketName) {
+  const normalized = String(bucketName || '').trim();
+  if (!CAPABILITY_RATING_BUCKET_INDEX.has(normalized)) {
+    fail(`unsupported capability rating bucket '${bucketName}'; expected one of ${CAPABILITY_RATING_BUCKET_SEQUENCE.join(', ')}`);
+  }
+  return normalized;
+}
+
+function validateCapabilityRatingTransition(moduleId, currentBucket, targetBucket, options = {}) {
+  if (currentBucket === targetBucket) {
+    fail(`capability module '${moduleId}' is already rated '${targetBucket}'`);
+  }
+
+  if (options.allowSkip) {
+    return;
+  }
+
+  if (!currentBucket) {
+    if (targetBucket !== 'thin') {
+      fail(`unrated capability module '${moduleId}' can only enter governance at 'thin' without --allow-skip`);
+    }
+    return;
+  }
+
+  const currentIndex = CAPABILITY_RATING_BUCKET_INDEX.get(currentBucket);
+  const targetIndex = CAPABILITY_RATING_BUCKET_INDEX.get(targetBucket);
+  if (Math.abs(currentIndex - targetIndex) !== 1) {
+    fail(`capability module '${moduleId}' can only move one bucket at a time without --allow-skip (${currentBucket} -> ${targetBucket} requested)`);
+  }
+}
+
+function resolveCapabilityRatingTargets(projectRoot, options = {}) {
+  const metadata = collectCapabilityModuleMetadata(projectRoot);
+  const skillName = String(options.skillName || '').trim();
+  if (skillName) {
+    const moduleIds = getCapabilityModuleIdsForSkill(projectRoot, skillName);
+    if (moduleIds.length < 1) {
+      fail(`skill '${skillName}' has no registered capability modules`);
+    }
+    return moduleIds.map((moduleId) => ({
+      module: moduleId,
+      ...(metadata.get(moduleId) || {})
+    }));
+  }
+
+  const moduleId = String(options.moduleId || '').trim();
+  if (!moduleId) {
+    fail('set-module-rating requires a capability module id or --skill <skill-name>');
+  }
+
+  const moduleMetadata = metadata.get(moduleId);
+  if (!moduleMetadata) {
+    fail(`unknown capability module '${moduleId}'`);
+  }
+
+  return [
+    {
+      module: moduleId,
+      ...moduleMetadata
+    }
+  ];
+}
+
+function rebuildCapabilityRatingsNextBatch(projectRoot, ratings) {
+  const buckets = normalizeCapabilityRatingBuckets(ratings);
+  const metadata = collectCapabilityModuleMetadata(projectRoot);
+  const nextBatch = [];
+
+  for (const bucketName of ['thin', 'strong-but-not-top']) {
+    const policy = CAPABILITY_NEXT_BATCH_POLICY_BY_BUCKET[bucketName];
+    for (const moduleId of Array.isArray(buckets[bucketName]) ? buckets[bucketName] : []) {
+      const moduleMetadata = metadata.get(moduleId) || {};
+      nextBatch.push({
+        scope: 'capability-module',
+        module: moduleId,
+        'host-skill': moduleMetadata['host-skill'] || '',
+        'host-kind': moduleMetadata['host-kind'] || '',
+        rating: bucketName,
+        priority: policy.priority,
+        ...(moduleMetadata.path ? { path: moduleMetadata.path } : {}),
+        ...(moduleMetadata.capability ? { capability: moduleMetadata.capability } : {}),
+        'next-step': policy['next-step']
+      });
+    }
+  }
+
+  ratings['next-batch'] = nextBatch;
 }
 
 function syncRatingsOnCreate(projectRoot, skillName, options = {}) {
@@ -616,6 +791,56 @@ function syncRatingsOnRemove(projectRoot, skillName, options = {}) {
   writeRatings(projectRoot, ratings);
 }
 
+function setCapabilityModuleRating(projectRoot, options = {}) {
+  const targetBucket = normalizeCapabilityRatingBucketName(options.bucket);
+  const targets = resolveCapabilityRatingTargets(projectRoot, options);
+  const actionLabel = options.skillName
+    ? `set capability-module ratings for '${options.skillName}'`
+    : `set capability-module rating for '${options.moduleId}'`;
+
+  assertGeneratedArtifactsWritable(projectRoot, actionLabel, {
+    paths: [
+      getRatingsPath(projectRoot)
+    ]
+  });
+
+  const ratings = readJson(getRatingsPath(projectRoot));
+  const previousRatings = targets.map((target) => {
+    const previousBucket = getCapabilityRatingBucketForModule(ratings, target.module);
+    validateCapabilityRatingTransition(target.module, previousBucket, targetBucket, {
+      allowSkip: parseBoolean(options.allowSkip, false)
+    });
+    return {
+      module: target.module,
+      previous_rating: previousBucket || 'unrated',
+      ...(target['host-skill'] ? { 'host-skill': target['host-skill'] } : {}),
+      ...(target['host-kind'] ? { 'host-kind': target['host-kind'] } : {}),
+      ...(target.path ? { path: target.path } : {})
+    };
+  });
+
+  syncCapabilityRatingsForModules(
+    ratings,
+    targets.map((target) => target.module),
+    targetBucket
+  );
+  writeRatings(projectRoot, ratings);
+
+  return {
+    action: 'set-module-rating',
+    scope: options.skillName ? 'skill' : 'module',
+    ...(options.skillName ? { skill: options.skillName } : {}),
+    ...(options.moduleId ? { module: options.moduleId } : {}),
+    modules: targets.map((target) => target.module),
+    rating: targetBucket,
+    'previous-ratings': previousRatings,
+    ...(parseBoolean(options.allowSkip, false) ? { 'allow-skip': true } : {}),
+    follow_up: [
+      'npm run verify:skill-system'
+    ]
+  };
+}
+
 function normalizeRatingsSummary(ratings) {
   const summary = ratings['skill-level-summary'] || {};
   summary['top-level-enough-now'] = Array.isArray(summary['top-level-enough-now']) ? summary['top-level-enough-now'] : [];
@@ -638,8 +863,41 @@ function updateRatingsSummaryEntry(ratings, skillName, status) {
   recomputeSkillLevelSummary(ratings);
 }
 
+function renderCapabilityModuleSection(values) {
+  const modules = Array.isArray(values) ? values : [];
+  if (modules.length < 1) {
+    return EMPTY_CAPABILITY_MODULE_SECTION_LINE;
+  }
+  return modules.map((moduleId) => `- \`${moduleId}\``).join('\n');
+}
+
+function renderCapabilityNextBatchSection(values) {
+  const queue = Array.isArray(values) ? values : [];
+  if (queue.length < 1) {
+    return EMPTY_NEXT_BATCH_LINE;
+  }
+
+  return queue.map((item) => {
+    const moduleId = String(item && item.module || '').trim() || 'unknown-module';
+    const hostSkill = String(item && item['host-skill'] || '').trim() || 'unknown-skill';
+    const rating = String(item && item.rating || '').trim() || 'unknown-rating';
+    const nextStep = String(item && item['next-step'] || '').trim() || 'fill in the next promotion step';
+    return `- \`${moduleId}\` (\`${hostSkill}\`, \`${rating}\`): ${nextStep}`;
+  }).join('\n');
+}
+
+function replaceMarkdownSection(text, heading, body) {
+  const escaped = heading.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const pattern = new RegExp(`(## ${escaped}\\n\\n)([\\s\\S]*?)(?=\\n## |\\s*$)`);
+  if (!pattern.test(text)) {
+    return text;
+  }
+  return text.replace(pattern, (_, prefix) => `${prefix}${String(body || '').trimEnd()}\n`);
+}
+
 function writeRatings(projectRoot, ratings) {
   const ratingsPath = getRatingsPath(projectRoot);
+  rebuildCapabilityRatingsNextBatch(projectRoot, ratings);
   writeJson(ratingsPath, ratings);
   syncCapabilityRatingsDoc(projectRoot);
 }
@@ -1156,6 +1414,9 @@ function describeHostSmokedEvidenceFailure(evaluation) {
 function evaluateHostSmokedEvidence(projectRoot, entry, options = {}) {
   const bundleRoot = options.bundleRoot || getBundleRoot(projectRoot);
   const hostSmokeIndex = options.hostSmokeIndex || loadHostSmokeRunIndex(bundleRoot);
+  if (!hostSmokeIndex.invalidationIndex) {
+    hostSmokeIndex.invalidationIndex = options.invalidationIndex || loadHostSmokeInvalidationIndex(bundleRoot);
+  }
   const hostSmoke = normalizeHostSmokeContract(entry && entry['host-smoke']);
 
   if (!hostSmoke || !hostSmoke.manifest || hostSmoke.commands.length < 1) {
@@ -1166,7 +1427,9 @@ function evaluateHostSmokedEvidence(projectRoot, entry, options = {}) {
     };
   }
 
-  const evidence = findLatestHostSmokeEvidence(hostSmokeIndex, entry.skill, hostSmoke);
+  const evidence = findLatestHostSmokeEvidence(hostSmokeIndex, entry.skill, hostSmoke, {
+    invalidationIndex: hostSmokeIndex.invalidationIndex
+  });
   if (!evidence.latestMatching) {
     return {
       ok: false,
@@ -1325,6 +1588,200 @@ function refreshHostSmokeScorecard(projectRoot, proofs = null) {
 function refreshSystemReadiness(projectRoot) {
   const bundleRoot = getBundleRoot(projectRoot);
   return writeSystemReadiness(bundleRoot).file;
+}
+
+function loadHostSmokeInvalidationEntries(projectRoot) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  const index = loadHostSmokeInvalidationIndex(bundleRoot);
+  return {
+    bundleRoot,
+    index,
+    entries: Array.isArray(index.entries) ? index.entries.map((entry) => ({ ...entry })) : []
+  };
+}
+
+function appendHostSmokeInvalidations(projectRoot, entries, options = {}) {
+  const { bundleRoot, index, entries: existingEntries } = loadHostSmokeInvalidationEntries(projectRoot);
+  const nextEntries = [...existingEntries];
+  const seen = new Set(existingEntries.map((entry) => `${entry.skill}::${entry['run-id']}`));
+  let appended = 0;
+
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const skill = String(entry && entry.skill || '').trim();
+    const runId = String(entry && entry['run-id'] || '').trim();
+    if (!skill || !runId) {
+      continue;
+    }
+    const key = `${skill}::${runId}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    nextEntries.push({
+      skill,
+      'run-id': runId,
+      reason: String(entry.reason || 'manual-reset').trim(),
+      'invalidated-at': String(entry['invalidated-at'] || new Date().toISOString()).trim(),
+      ...(entry.host ? { host: String(entry.host).trim() } : {}),
+      ...(entry.manifest ? { manifest: String(entry.manifest).trim() } : {}),
+      ...(entry.file ? { file: String(entry.file).trim() } : {}),
+      ...(entry['invalidated-by'] ? { 'invalidated-by': String(entry['invalidated-by']).trim() } : {}),
+      ...(entry.note ? { note: String(entry.note).trim() } : {})
+    });
+    appended += 1;
+  }
+
+  if (appended > 0) {
+    writeHostSmokeInvalidationLedger(bundleRoot, nextEntries, options.now);
+  } else if (index.errors.length > 0 && !fs.existsSync(getHostSmokeInvalidationPath(bundleRoot))) {
+    writeHostSmokeInvalidationLedger(bundleRoot, nextEntries, options.now);
+  }
+
+  return {
+    appended,
+    file: getHostSmokeInvalidationPath(bundleRoot),
+    entries: nextEntries
+  };
+}
+
+function reconcileHostSmoke(projectRoot, selection = {}) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  assertGeneratedArtifactsWritable(
+    projectRoot,
+    selection.runAll ? 'reconcile host-smoke for all selected skills' : `reconcile host-smoke for '${selection.skillName}'`,
+    {
+      paths: [
+        getRuntimeProofPath(projectRoot),
+        getHostSmokeScorecardPath(bundleRoot),
+        getHostSmokeInvalidationPath(bundleRoot),
+        path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json')
+      ]
+    }
+  );
+
+  const runtimeProofPath = getRuntimeProofPath(projectRoot);
+  const registry = fs.existsSync(runtimeProofPath)
+    ? readJson(runtimeProofPath)
+    : { 'schema-version': 1, proofs: [] };
+  const proofs = Array.isArray(registry.proofs) ? registry.proofs : [];
+  const skillRecords = collectAllSkillRecords(projectRoot);
+  const recordByName = new Map(skillRecords.map((record) => [record.name, record]));
+  const hostSmokeIndex = loadHostSmokeRunIndex(bundleRoot);
+  hostSmokeIndex.invalidationIndex = loadHostSmokeInvalidationIndex(bundleRoot);
+
+  let selectedProofs = [];
+  if (selection.runAll) {
+    selectedProofs = proofs.filter((proof) => proof && proof['host-smoke']);
+  } else {
+    const proof = proofs.find((item) => item && item.skill === selection.skillName);
+    if (!proof) {
+      fail(`runtime-proof registry has no entry for '${selection.skillName}'`);
+    }
+    selectedProofs = [proof];
+  }
+  if (selectedProofs.length < 1) {
+    fail('no host-smoke-capable runtime-proof entries were selected');
+  }
+
+  const activeProofs = cloneJsonValue(proofs);
+  const invalidationEntries = [];
+  const demotedSkills = [];
+  const reports = [];
+
+  for (const proof of selectedProofs) {
+    const record = recordByName.get(proof.skill);
+    if (!record) {
+      fail(`host-smoke reconciliation references unknown skill '${proof.skill}'`);
+    }
+    const contract = normalizeHostSmokeContract(proof['host-smoke']);
+    const evaluation = evaluateHostSmokedEvidence(projectRoot, proof, {
+      bundleRoot,
+      hostSmokeIndex
+    });
+    const evidence = evaluation.evidence || findLatestHostSmokeEvidence(hostSmokeIndex, proof.skill, contract, {
+      invalidationIndex: hostSmokeIndex.invalidationIndex
+    });
+    const report = {
+      skill: proof.skill,
+      level: proof.level,
+      ok: evaluation.ok === true,
+      status: evaluation.ok ? 'passing' : (evaluation.reason || 'invalid-contract'),
+      reason: evaluation.ok ? null : describeHostSmokedEvidenceFailure(evaluation),
+      latest_any_run: evidence.latestAny ? evidence.latestAny.runId : null,
+      latest_matching_run: evidence.latestMatching ? evidence.latestMatching.runId : null,
+      latest_passing_run: evidence.latestPassing ? evidence.latestPassing.runId : null
+    };
+
+    if (selection.invalidateDrift && evaluation.reason === 'contract-drift' && evidence.latestAny) {
+      const driftArtifacts = evidence.allResults.filter((item) => !hostSmokeContractsEqual(item.contract, contract));
+      for (const artifact of driftArtifacts) {
+        invalidationEntries.push({
+          skill: proof.skill,
+          'run-id': artifact.runId,
+          reason: 'contract-drift',
+          'invalidated-at': new Date().toISOString(),
+          host: artifact.host,
+          manifest: artifact.manifest,
+          file: artifact.file,
+          'invalidated-by': 'manage-skill reconcile-host-smoke',
+          note: 'Current host-smoke contract no longer matches this artifact.'
+        });
+      }
+      report.invalidated_runs = uniqueStrings(driftArtifacts.map((item) => item.runId));
+    }
+
+    if (proof.level === 'host-smoked' && !evaluation.ok) {
+      const nextLevel = defaultRuntimeProofLevelForStatus(record.status);
+      if (proof.level !== nextLevel) {
+        const active = activeProofs.find((item) => item && item.skill === proof.skill);
+        if (active) {
+          active.level = nextLevel;
+        }
+        demotedSkills.push(proof.skill);
+        report.downgraded_to = nextLevel;
+      }
+    }
+
+    reports.push(report);
+  }
+
+  const generatedSnapshot = snapshotGeneratedState(projectRoot);
+  try {
+    const invalidationResult = invalidationEntries.length > 0
+      ? appendHostSmokeInvalidations(projectRoot, invalidationEntries)
+      : { appended: 0, file: getHostSmokeInvalidationPath(bundleRoot) };
+
+    if (demotedSkills.length > 0) {
+      writeRuntimeProofRegistry(projectRoot, activeProofs);
+    } else {
+      refreshHostSmokeScorecard(projectRoot, activeProofs);
+    }
+
+    let rerunResult = null;
+    if (selection.rerun) {
+      rerunResult = runHostSmoke(projectRoot, {
+        host: selection.host || 'codex',
+        runAll: selection.runAll,
+        skillName: selection.runAll ? null : selection.skillName,
+        promoteHostSmoked: selection.promoteHostSmoked === true
+      });
+    }
+
+    return {
+      action: 'reconcile-host-smoke',
+      scope: selection.runAll ? 'all' : 'single',
+      skills: reports.map((item) => item.skill),
+      invalidated_runs: invalidationEntries.length,
+      invalidation_file: toPortablePath(projectRoot, invalidationResult.file),
+      demoted_skills: uniqueStrings(demotedSkills),
+      reports,
+      ...(rerunResult ? { rerun: rerunResult } : {}),
+      follow_up: ['npm run verify:skill-system']
+    };
+  } catch (error) {
+    restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
+    throw error;
+  }
 }
 
 function writeRuntimeProofEntryLevel(projectRoot, skillName, nextLevel) {
@@ -1731,7 +2188,7 @@ function syncCapabilityRatingsDoc(projectRoot) {
 
   text = replaceLine(
     text,
-    /^After the latest uplift round,.*$/m,
+    /^(After the latest uplift round,.*|Current host skills are split across the top-level, strong-uplift, and overlay buckets under the weak-model-uplift standard\.)$/m,
     skillVerdict
   );
   text = replaceLine(
@@ -1754,6 +2211,12 @@ function syncCapabilityRatingsDoc(projectRoot) {
     /^- \d+ of \d+ registered host skills are top-level enough right now$/m,
     hostVerdict
   );
+
+  const buckets = normalizeCapabilityRatingBuckets(ratings);
+  text = replaceMarkdownSection(text, 'Next Batch', renderCapabilityNextBatchSection(ratings['next-batch']));
+  text = replaceMarkdownSection(text, 'TOP-ready', renderCapabilityModuleSection(buckets['top-ready']));
+  text = replaceMarkdownSection(text, 'Strong But Not Top', renderCapabilityModuleSection(buckets['strong-but-not-top']));
+  text = replaceMarkdownSection(text, 'Thin', renderCapabilityModuleSection(buckets.thin));
 
   fs.writeFileSync(docPath, text, 'utf8');
 }
@@ -1825,6 +2288,7 @@ function createSkill(kind, skillName, options = {}) {
     parsed.map.set('status', 'draft');
     const next = renderSkillFile(parsed);
     fs.writeFileSync(skillFile, next, 'utf8');
+    writeSkillHostMetadata(targetDir, parsed);
     const capabilityModules = options.scaffoldModules
       ? buildCapabilityModuleScaffolds(projectRoot, kind, skillName, next, targetDir)
       : [];
@@ -1911,6 +2375,7 @@ function validateLifecycleTransition(skillName, currentStatus, nextStatus) {
 }
 
 function snapshotGeneratedState(projectRoot) {
+  const bundleRoot = getBundleRoot(projectRoot);
   return {
     registry: cloneJsonValue(readJson(getRegistryPath(projectRoot))),
     runtimeProofExists: fs.existsSync(getRuntimeProofPath(projectRoot)),
@@ -1918,11 +2383,14 @@ function snapshotGeneratedState(projectRoot) {
     routeMap: cloneJsonValue(readJson(getRouteMapPath(projectRoot))),
     routeFixtures: cloneJsonValue(readJson(getRouteFixturesPath(projectRoot))),
     ratings: cloneJsonValue(readJson(getRatingsPath(projectRoot))),
-    scorecard: fs.existsSync(getHostSmokeScorecardPath(getBundleRoot(projectRoot)))
-      ? cloneJsonValue(readJson(getHostSmokeScorecardPath(getBundleRoot(projectRoot))))
+    scorecard: fs.existsSync(getHostSmokeScorecardPath(bundleRoot))
+      ? cloneJsonValue(readJson(getHostSmokeScorecardPath(bundleRoot)))
       : null,
-    readiness: fs.existsSync(path.join(getBundleRoot(projectRoot), 'benchmark', 'system-readiness.generated.json'))
-      ? cloneJsonValue(readJson(path.join(getBundleRoot(projectRoot), 'benchmark', 'system-readiness.generated.json')))
+    invalidation: fs.existsSync(getHostSmokeInvalidationPath(bundleRoot))
+      ? cloneJsonValue(readJson(getHostSmokeInvalidationPath(bundleRoot)))
+      : null,
+    readiness: fs.existsSync(path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json'))
+      ? cloneJsonValue(readJson(path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json')))
       : null
   };
 }
@@ -1948,6 +2416,13 @@ function restoreGeneratedState(projectRoot, snapshot) {
     writeJson(scorecardPath, snapshot.scorecard);
   } else if (fs.existsSync(scorecardPath)) {
     fs.rmSync(scorecardPath, { force: true });
+  }
+
+  const invalidationPath = getHostSmokeInvalidationPath(bundleRoot);
+  if (snapshot.invalidation) {
+    writeJson(invalidationPath, snapshot.invalidation);
+  } else if (fs.existsSync(invalidationPath)) {
+    fs.rmSync(invalidationPath, { force: true });
   }
 
   const readinessPath = path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json');
@@ -2122,7 +2597,7 @@ function parseListArgument(value) {
 function main(argv) {
   const [action, arg1, arg2, ...rest] = argv;
   if (!action) {
-    fail('usage: manage-skill <create|show|update|set-status|archive|delete|sync-runtime-proof|run-host-smoke> ...');
+    fail('usage: manage-skill <create|show|update|set-status|set-module-rating|archive|delete|sync-runtime-proof|run-host-smoke|reconcile-host-smoke> ...');
   }
 
   if (action === 'create') {
@@ -2150,6 +2625,46 @@ function main(argv) {
       fail('set-status requires <skill-name> <draft|experimental|stable|deprecated|archived>');
     }
     return setSkillStatus(arg1, arg2);
+  }
+  if (action === 'set-module-rating') {
+    let skillName = null;
+    let allowSkip = false;
+    const positionals = [];
+    const ratingArgs = [arg1, arg2, ...rest].filter(Boolean);
+
+    for (let i = 0; i < ratingArgs.length; i += 1) {
+      if (ratingArgs[i] === '--skill' && ratingArgs[i + 1]) {
+        skillName = ratingArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (ratingArgs[i] === '--allow-skip') {
+        allowSkip = true;
+        continue;
+      }
+      positionals.push(ratingArgs[i]);
+    }
+
+    if (skillName) {
+      if (positionals.length !== 1) {
+        fail('set-module-rating --skill requires <skill-name> <thin|strong-but-not-top|top-ready>');
+      }
+      return setCapabilityModuleRating(getProjectRoot(), {
+        skillName,
+        bucket: positionals[0],
+        allowSkip
+      });
+    }
+
+    if (positionals.length !== 2) {
+      fail('set-module-rating requires <module-id> <thin|strong-but-not-top|top-ready> or --skill <skill-name> <thin|strong-but-not-top|top-ready>');
+    }
+
+    return setCapabilityModuleRating(getProjectRoot(), {
+      moduleId: positionals[0],
+      bucket: positionals[1],
+      allowSkip
+    });
   }
   if (action === 'archive') return archiveSkill(arg1);
   if (action === 'delete') {
@@ -2265,6 +2780,55 @@ function main(argv) {
       promoteHostSmoked
     });
   }
+  if (action === 'reconcile-host-smoke') {
+    const projectRoot = getProjectRoot();
+    let host = 'codex';
+    let runAll = false;
+    let rerun = false;
+    let invalidateDrift = false;
+    let promoteHostSmoked = false;
+    const reconcileArgs = [arg2, ...rest].filter(Boolean);
+
+    for (let i = 0; i < reconcileArgs.length; i += 1) {
+      if (reconcileArgs[i] === '--host' && reconcileArgs[i + 1]) {
+        host = reconcileArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (reconcileArgs[i] === '--all') {
+        runAll = true;
+        continue;
+      }
+      if (reconcileArgs[i] === '--rerun') {
+        rerun = true;
+        continue;
+      }
+      if (reconcileArgs[i] === '--invalidate-drift') {
+        invalidateDrift = true;
+        continue;
+      }
+      if (reconcileArgs[i] === '--promote-host-smoked') {
+        promoteHostSmoked = true;
+      }
+    }
+
+    if (arg1 === '--all' || arg1 === 'all') {
+      runAll = true;
+    }
+
+    if (!runAll && !arg1) {
+      fail('reconcile-host-smoke requires <skill-name> or --all');
+    }
+
+    return reconcileHostSmoke(projectRoot, {
+      host,
+      runAll,
+      skillName: runAll ? null : arg1,
+      rerun,
+      invalidateDrift,
+      promoteHostSmoked
+    });
+  }
 
   fail(`unknown action '${action}'`);
 }
@@ -2285,10 +2849,12 @@ module.exports = {
   showSkill,
   updateSkill,
   setSkillStatus,
+  setCapabilityModuleRating,
   archiveSkill,
   removeSkill,
   syncRuntimeProofEntry,
   syncAllRuntimeProofEntries,
+  reconcileHostSmoke,
   collectJestTestCases,
   suggestEvidenceTests,
 };

@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/benchmark/host-smoke/invalidation.schema.json",
+  "title": "Runtime Host Smoke Invalidation Ledger",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "entries"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated-at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "skill",
+          "run-id",
+          "reason",
+          "invalidated-at"
+        ],
+        "properties": {
+          "skill": {
+            "type": "string",
+            "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+          },
+          "run-id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "contract-drift",
+              "manual-reset",
+              "superseded"
+            ]
+          },
+          "invalidated-at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "host": {
+            "type": "string",
+            "minLength": 1
+          },
+          "manifest": {
+            "type": "string",
+            "pattern": "^skills\\/.+\\/scripts\\/smoke\\.json$"
+          },
+          "file": {
+            "type": "string",
+            "minLength": 1
+          },
+          "invalidated-by": {
+            "type": "string",
+            "minLength": 1
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

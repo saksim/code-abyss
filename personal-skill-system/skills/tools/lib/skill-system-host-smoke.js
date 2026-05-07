@@ -5,12 +5,14 @@ const path = require('path');
 
 const HOST_SMOKE_RUN_SCHEMA_VERSION = 1;
 const HOST_SMOKE_SCORECARD_SCHEMA_VERSION = 1;
+const HOST_SMOKE_INVALIDATION_SCHEMA_VERSION = 1;
 const HOST_SMOKE_RESULT_STATUSES = new Set(['pass', 'fail']);
 const HOST_SMOKE_COMMAND_CWD_MODES = new Set(['skill-dir', 'bundle-root']);
 const HOST_SMOKE_FRESHNESS_UNITS = new Set(['hours', 'days']);
 const HOST_SMOKE_EVIDENCE_STATUSES = new Set(['passing', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract']);
 const HOST_SMOKE_GOVERNANCE_STATUSES = new Set(['satisfied', 'not-host-smoked', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract']);
 const HOST_SMOKE_LEVELS = new Set(['declared-only', 'declared-and-tested', 'host-smoked']);
+const HOST_SMOKE_INVALIDATION_REASONS = new Set(['contract-drift', 'manual-reset', 'superseded']);
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -87,6 +89,14 @@ function getHostSmokeScorecardSchemaPath(bundleRoot) {
   return path.join(bundleRoot, 'benchmark', 'host-smoke', 'scorecard.schema.json');
 }
 
+function getHostSmokeInvalidationPath(bundleRoot) {
+  return path.join(bundleRoot, 'benchmark', 'host-smoke', 'invalidation.generated.json');
+}
+
+function getHostSmokeInvalidationSchemaPath(bundleRoot) {
+  return path.join(bundleRoot, 'benchmark', 'host-smoke', 'invalidation.schema.json');
+}
+
 function portablePath(root, target) {
   return path.relative(root, target).split(path.sep).join('/');
 }
@@ -110,6 +120,164 @@ function parseIsoTimestamp(value) {
     return null;
   }
   return parsed.toISOString();
+}
+
+function normalizeHostSmokeInvalidationEntry(bundleRoot, entry) {
+  if (!isPlainObject(entry)) {
+    return null;
+  }
+
+  const skill = String(entry.skill || '').trim();
+  const runId = String(entry['run-id'] || entry.runId || '').trim();
+  const invalidatedAt = parseIsoTimestamp(entry['invalidated-at'] || entry.invalidatedAt);
+  const reason = String(entry.reason || '').trim();
+  if (!skill || !runId || !invalidatedAt || !HOST_SMOKE_INVALIDATION_REASONS.has(reason)) {
+    return null;
+  }
+
+  const normalized = {
+    skill,
+    'run-id': runId,
+    reason,
+    'invalidated-at': invalidatedAt
+  };
+
+  const host = String(entry.host || '').trim();
+  if (host) {
+    normalized.host = host;
+  }
+
+  const manifest = String(entry.manifest || '').trim();
+  if (manifest) {
+    normalized.manifest = manifest;
+  }
+
+  const file = String(entry.file || '').trim();
+  if (file) {
+    normalized.file = file.includes('\\') ? portablePath(bundleRoot, file) : file;
+  }
+
+  const invalidatedBy = String(entry['invalidated-by'] || entry.invalidatedBy || '').trim();
+  if (invalidatedBy) {
+    normalized['invalidated-by'] = invalidatedBy;
+  }
+
+  const note = String(entry.note || '').trim();
+  if (note) {
+    normalized.note = note;
+  }
+
+  return normalized;
+}
+
+function loadHostSmokeInvalidationIndex(bundleRoot) {
+  const file = getHostSmokeInvalidationPath(bundleRoot);
+  const index = {
+    file,
+    relativeFile: portablePath(bundleRoot, file),
+    entries: [],
+    bySkill: new Map(),
+    byRunId: new Map(),
+    errors: []
+  };
+
+  if (!fs.existsSync(file)) {
+    return index;
+  }
+
+  const parsed = readJsonFile(file);
+  if (parsed.error) {
+    index.errors.push({
+      file: index.relativeFile,
+      message: `parse failed: ${parsed.error}`
+    });
+    return index;
+  }
+
+  const data = parsed.data || {};
+  if (data['schema-version'] !== HOST_SMOKE_INVALIDATION_SCHEMA_VERSION) {
+    index.errors.push({
+      file: index.relativeFile,
+      message: `unsupported schema-version '${data['schema-version']}'`
+    });
+    return index;
+  }
+
+  for (const rawEntry of Array.isArray(data.entries) ? data.entries : []) {
+    const entry = normalizeHostSmokeInvalidationEntry(bundleRoot, rawEntry);
+    if (!entry) {
+      index.errors.push({
+        file: index.relativeFile,
+        message: 'contains an invalid invalidation entry'
+      });
+      continue;
+    }
+
+    const key = `${entry.skill}::${entry['run-id']}`;
+    if (index.byRunId.has(key)) {
+      continue;
+    }
+    index.byRunId.set(key, entry);
+    if (!index.bySkill.has(entry.skill)) {
+      index.bySkill.set(entry.skill, new Map());
+    }
+    index.bySkill.get(entry.skill).set(entry['run-id'], entry);
+    index.entries.push(entry);
+  }
+
+  index.entries.sort((left, right) =>
+    right['invalidated-at'].localeCompare(left['invalidated-at'])
+    || left.skill.localeCompare(right.skill)
+    || left['run-id'].localeCompare(right['run-id'])
+  );
+  return index;
+}
+
+function buildHostSmokeInvalidationLedger(bundleRoot, entries, now = Date.now()) {
+  const normalizedEntries = [];
+  const seen = new Set();
+
+  for (const rawEntry of Array.isArray(entries) ? entries : []) {
+    const entry = normalizeHostSmokeInvalidationEntry(bundleRoot, rawEntry);
+    if (!entry) {
+      continue;
+    }
+    const key = `${entry.skill}::${entry['run-id']}`;
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    normalizedEntries.push(entry);
+  }
+
+  normalizedEntries.sort((left, right) =>
+    left.skill.localeCompare(right.skill)
+    || left['run-id'].localeCompare(right['run-id'])
+  );
+
+  return {
+    'schema-version': HOST_SMOKE_INVALIDATION_SCHEMA_VERSION,
+    'generated-at': new Date(now).toISOString(),
+    entries: normalizedEntries
+  };
+}
+
+function writeHostSmokeInvalidationLedger(bundleRoot, entries, now = Date.now()) {
+  const file = getHostSmokeInvalidationPath(bundleRoot);
+  const payload = buildHostSmokeInvalidationLedger(bundleRoot, entries, now);
+  fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  return file;
+}
+
+function isHostSmokeArtifactInvalidated(invalidationIndex, skillName, runId) {
+  if (!invalidationIndex || !(invalidationIndex.bySkill instanceof Map)) {
+    return false;
+  }
+  const skillEntries = invalidationIndex.bySkill.get(String(skillName || '').trim());
+  if (!(skillEntries instanceof Map)) {
+    return false;
+  }
+  return skillEntries.has(String(runId || '').trim());
 }
 
 function normalizeHostSmokeRunCommand(command) {
@@ -279,13 +447,17 @@ function loadHostSmokeRunIndex(bundleRoot) {
   return index;
 }
 
-function findLatestHostSmokeEvidence(index, skillName, contract) {
-  const results = index && index.bySkill instanceof Map ? (index.bySkill.get(skillName) || []) : [];
+function findLatestHostSmokeEvidence(index, skillName, contract, options = {}) {
+  const allResults = index && index.bySkill instanceof Map ? (index.bySkill.get(skillName) || []) : [];
+  const invalidationIndex = options.invalidationIndex || null;
+  const results = allResults.filter((item) => !isHostSmokeArtifactInvalidated(invalidationIndex, skillName, item.runId));
   const latestAny = results[0] || null;
   const latestMatching = results.find((item) => hostSmokeContractsEqual(item.contract, contract)) || null;
   const latestPassing = results.find((item) => item.status === 'pass' && hostSmokeContractsEqual(item.contract, contract)) || null;
 
   return {
+    allResults,
+    activeResults: results,
     latestAny,
     latestMatching,
     latestPassing
@@ -430,8 +602,9 @@ function buildHostSmokeSkillScorecardEntry(proof, index, now = Date.now()) {
     contract: null
   };
   const contract = normalized.contract;
+  const invalidationIndex = index && index.invalidationIndex ? index.invalidationIndex : null;
   const evidence = contract
-    ? findLatestHostSmokeEvidence(index, normalized.skill, contract)
+    ? findLatestHostSmokeEvidence(index, normalized.skill, contract, { invalidationIndex })
     : { latestAny: null, latestMatching: null, latestPassing: null };
   const freshness = evaluateHostSmokeFreshness(evidence.latestPassing, contract, now);
   const evidenceStatus = classifyHostSmokeEvidenceStatus(contract, evidence, freshness);
@@ -460,6 +633,9 @@ function buildHostSmokeSkillScorecardEntry(proof, index, now = Date.now()) {
 function buildHostSmokeScorecard(bundleRoot, proofs, options = {}) {
   const now = Number.isFinite(options.now) ? options.now : Date.now();
   const index = options.index || loadHostSmokeRunIndex(bundleRoot);
+  if (!index.invalidationIndex) {
+    index.invalidationIndex = loadHostSmokeInvalidationIndex(bundleRoot);
+  }
   const scorecardSkills = (Array.isArray(proofs) ? proofs : [])
     .map((proof) => buildHostSmokeSkillScorecardEntry(proof, index, now))
     .filter((entry) => entry.skill)
@@ -484,7 +660,7 @@ function buildHostSmokeScorecard(bundleRoot, proofs, options = {}) {
     'source-runtime-proof': 'registry/runtime-proof.generated.json',
     'runtime-run-dir': portablePath(bundleRoot, getHostSmokeRuntimeRunsDir(bundleRoot)),
     'run-count': index.runs.length,
-    'artifact-error-count': index.errors.length,
+    'artifact-error-count': index.errors.length + (((index.invalidationIndex && index.invalidationIndex.errors) || []).length),
     ...(index.runs[0]
       ? {
           'latest-run': {
@@ -496,7 +672,7 @@ function buildHostSmokeScorecard(bundleRoot, proofs, options = {}) {
         }
       : {}),
     summary,
-    'artifact-errors': index.errors.map((item) => ({
+    'artifact-errors': [...index.errors, ...((index.invalidationIndex && index.invalidationIndex.errors) || [])].map((item) => ({
       file: String(item.file || '').trim(),
       message: String(item.message || '').trim()
     })),
@@ -507,6 +683,8 @@ function buildHostSmokeScorecard(bundleRoot, proofs, options = {}) {
 module.exports = {
   HOST_SMOKE_RUN_SCHEMA_VERSION,
   HOST_SMOKE_SCORECARD_SCHEMA_VERSION,
+  HOST_SMOKE_INVALIDATION_SCHEMA_VERSION,
+  HOST_SMOKE_INVALIDATION_REASONS,
   normalizeHostSmokeCommands,
   normalizeHostSmokeContract,
   hostSmokeContractsEqual,
@@ -514,7 +692,13 @@ module.exports = {
   getHostSmokeRunSchemaPath,
   getHostSmokeScorecardPath,
   getHostSmokeScorecardSchemaPath,
+  getHostSmokeInvalidationPath,
+  getHostSmokeInvalidationSchemaPath,
   loadHostSmokeRunIndex,
+  loadHostSmokeInvalidationIndex,
+  buildHostSmokeInvalidationLedger,
+  writeHostSmokeInvalidationLedger,
+  isHostSmokeArtifactInvalidated,
   findLatestHostSmokeEvidence,
   getFreshnessWindowMs,
   evaluateHostSmokeFreshness,

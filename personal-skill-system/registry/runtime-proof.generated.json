@@ -43,6 +43,8 @@
       "level": "declared-and-tested",
       "contracts": [
         "`create` updates the authoritative skill tree and generated metadata together instead of leaving registry or route drift behind",
+        "`create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new domain/workflow skills",
+        "`set-module-rating` upgrades or downgrades registered capability modules through a governed path instead of hand-editing rating buckets, `next-batch`, or the mirrored ratings doc",
         "`set-status` updates lifecycle metadata through a governed path instead of allowing raw `status=` edits that can strand runtime-proof, ratings, or readiness artifacts",
         "`archive` and `delete` remove active-route surfaces for the target skill, including route fixtures and ratings summary membership",
         "`sync-runtime-proof` can rebuild or update runtime-proof entries from authoritative skill metadata instead of requiring hand-edited registry drift repair and can suggest or auto-apply matching evidence tests for scripted skills based on existing Jest coverage",
@@ -50,11 +52,16 @@
         "`sync-runtime-proof` treats `host-smoked` as evidence-backed state instead of sticky status and automatically downgrades entries whose contract, pass state, or freshness proof no longer holds",
         "`run-host-smoke` executes the declared host-smoke contract and records append-only pass/fail evidence so `host-smoked` can be proven from artifacts instead of trust",
         "failed host-smoke executions preserve their artifacts and demote any now-invalid `host-smoked` level instead of leaving stale governance claims behind",
-        "host-smoke contract and evidence changes also refresh a bundle-wide scorecard so system-level freshness and governance drift stay inspectable"
+        "host-smoke contract and evidence changes also refresh a bundle-wide scorecard so system-level freshness and governance drift stay inspectable",
+        "`reconcile-host-smoke` invalidates drifted runtime host-smoke artifacts through a governed ledger instead of rewriting append-only run history and can chain directly into a rerun when fresh evidence is needed"
       ],
       "evidence-tests": [
         "test/personal_skill_system_tools.test.js::manage-skill performs authoritative CRUD inside personal-skill-system only",
-        "test/skill_system_governance.test.js::manage-skill create keeps a copied bundle structurally analyzable"
+        "test/personal_skill_system_tools.test.js::manage-skill reconcile-host-smoke reports drift and can invalidate append-only evidence without deleting run files",
+        "test/personal_skill_system_tools.test.js::manage-skill set-module-rating promotes one capability module and syncs next-batch/doc surfaces",
+        "test/skill_system_governance.test.js::manage-skill create keeps a copied bundle structurally analyzable",
+        "test/skill_system_governance.test.js::reconcile-host-smoke invalidates drifted artifacts through the governed ledger and clears contract-drift",
+        "test/skill_system_governance.test.js::manage-skill set-module-rating --skill promotes every module in the host skill and clears next-batch"
       ],
       "host-smoke-policy": {
         "tier": "critical",

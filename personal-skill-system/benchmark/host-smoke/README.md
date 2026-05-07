@@ -30,10 +30,12 @@ These runs are distinct from route/task-set evaluations:
 - they capture pass/fail evidence for stable scripted tools and guards
 - they let `verify-skill-system` distinguish declared smoke contracts from actually executed host-smoke evidence
 - they feed `scorecard.generated.json`, which summarizes bundle-wide host-smoke coverage, freshness, and governance status
+- drift invalidation is tracked separately in `invalidation.generated.json` so append-only run history stays intact while governed reconciliation can retire stale evidence
 
 Operational rule:
 
 1. append a new JSON run artifact for each execution
 2. never overwrite older run files
 3. treat the latest matching passing result for a skill as the current executable evidence surface
-4. refresh `scorecard.generated.json` whenever runtime-proof host-smoke contracts or runtime run artifacts change
+4. record governed invalidations in `invalidation.generated.json` instead of deleting old run files by hand
+5. refresh `scorecard.generated.json` whenever runtime-proof host-smoke contracts, invalidation state, or runtime run artifacts change

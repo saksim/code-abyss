@@ -24,6 +24,11 @@ const {
   deriveHostSmokePolicyFromRecord,
   isGovernedRuntimeProofRecord
 } = require('./skill-system-governance');
+const {
+  OPENAI_METADATA_KEYS,
+  buildOpenAiMetadata,
+  readOpenAiMetadataFile
+} = require('./skill-system-host-metadata');
 
 const TOP_TIER_REFERENCE_FLOOR_BY_KIND = {
   router: 2,
@@ -289,6 +294,41 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
     }
   }
 
+  const openAiMetadataPath = path.join(path.dirname(skillFile), 'agents', 'openai.yaml');
+  const hasHostMetadata = fs.existsSync(openAiMetadataPath);
+  if (hasHostMetadata) {
+    const parsedOpenAiMetadata = readOpenAiMetadataFile(openAiMetadataPath);
+    if (parsedOpenAiMetadata.error) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, openAiMetadataPath),
+        message: `agents/openai.yaml parse failed: ${parsedOpenAiMetadata.error}`
+      });
+    } else {
+      const expectedOpenAiMetadata = buildOpenAiMetadata({
+        name: data.name,
+        title: data.title,
+        description: data.description,
+        kind: data.kind
+      });
+      for (const key of OPENAI_METADATA_KEYS) {
+        if (normalizeValue(parsedOpenAiMetadata.data[key]) !== normalizeValue(expectedOpenAiMetadata[key])) {
+          findings.push({
+            severity: stableLike ? 'error' : 'warning',
+            file: rel(targetDir, openAiMetadataPath),
+            message: `agents/openai.yaml '${key}' is out of sync with SKILL.md`
+          });
+        }
+      }
+    }
+  } else if (stableLike) {
+    findings.push({
+      severity: 'warning',
+      file: relative,
+      message: 'stable skill is missing agents/openai.yaml host metadata'
+    });
+  }
+
   return {
     name: data.name,
     kind: data.kind,
@@ -301,9 +341,14 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
     hostSmokePolicy,
     file: relative,
     runtimeProofItems: readBulletSectionItems(text, 'Runtime Proof'),
+    hasHostMetadata,
     smokeManifestPath: rel(targetDir, getSmokeManifestFile(path.dirname(skillFile))),
     smokeManifest: parseJsonFile(getSmokeManifestFile(path.dirname(skillFile))).data || null
   };
+}
+
+function normalizeValue(value) {
+  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
 }
 
 function collectSkillRecords(targetDir, findings) {

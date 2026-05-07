@@ -151,7 +151,11 @@ For a current or future skill to count as top-tier, it should satisfy all of the
    - Stable scripted tools and guards keep `Runtime Proof` bullets aligned with `runtime-proof.generated.json`.
    - Governed scripted tools and guards declare `host-smoke-tier` and `host-smoke-target-level` in frontmatter; `host-smoke-freshness-days` is required when the target level is `host-smoked`.
 
-5. Proof surface
+5. Governed host metadata
+   - `agents/openai.yaml` should exist for any skill you expect to surface cleanly in host UIs.
+   - `display_name`, `short_description`, and `default_prompt` should mirror `SKILL.md` instead of drifting into a second undocumented source of truth.
+
+6. Proof surface
    - Registry and route-map entries are aligned.
    - Route fixtures cover representative activation paths.
    - Tool and guard behavior has runtime tests when the blast radius justifies it.
@@ -178,6 +182,7 @@ This seeds:
 - a `registry.generated.json` module-group for the new host skill
 - placeholder `expert-modules` on the generated route entry
 - `thin` capability-module ratings for the new reference-backed modules
+- `next-batch` governance entries in `capability-ratings.generated.json` so unfinished module depth is queued explicitly instead of becoming hidden follow-up debt
 
 2. Replace template placeholders:
    - description
@@ -186,6 +191,7 @@ This seeds:
    - owner
    - lifecycle dates
    - reference contents
+   - `agents/openai.yaml`
 
 3. Decide whether the skill should be public, explicit-only, or internal in practice.
 
@@ -224,15 +230,24 @@ node personal-skill-system/benchmark/scripts/generate-system-readiness.js
 
 13. Add or update tests if the skill changes executable behavior or routing semantics.
 
+14. When a domain or workflow module genuinely gets deeper, promote it through the governed capability command instead of hand-editing generated files:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-module-rating <module-id> <thin|strong-but-not-top|top-ready>
+```
+
+Use `--skill <skill-name>` to move all modules owned by one host skill together. Default policy only allows one-bucket moves; require `--allow-skip` for intentional re-baselining.
+
 ### Upgrade an existing skill
 
 Use this order:
 
 1. tighten route surface
 2. deepen references
-3. harden scripted behavior
-4. add route fixtures or runtime tests
-5. move lifecycle status only after evidence exists, using `manage-skill set-status`
+3. promote affected capability modules with `manage-skill set-module-rating` once the deeper reference work is real
+4. harden scripted behavior
+5. add route fixtures or runtime tests
+6. move lifecycle status only after evidence exists, using `manage-skill set-status`
 
 Do not promote a skill to `stable` if the only improvement is more prose.
 

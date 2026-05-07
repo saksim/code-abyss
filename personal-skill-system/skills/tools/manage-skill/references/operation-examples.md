@@ -30,6 +30,24 @@ Move a skill through its lifecycle with generated governance sync:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status review stable
 ```
 
+Promote one capability module by one governance bucket:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-module-rating review-findings-and-severity top-ready
+```
+
+Promote every capability module owned by one skill:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-module-rating --skill review top-ready
+```
+
+Re-baseline a module with an explicit skip:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-module-rating temp-domain-skill-decision-rules top-ready --allow-skip
+```
+
 After promoting a scripted tool or guard to `stable`, also update:
 
 ```bash
@@ -67,6 +85,12 @@ Run host-smoke across the whole governed scripted surface and refresh the scorec
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js run-host-smoke --all --host codex
+```
+
+Invalidate drifted host-smoke artifacts for one skill and rerun immediately:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js reconcile-host-smoke verify-quality --invalidate-drift --rerun --host codex --promote-host-smoked
 ```
 
 Archive a skill:
