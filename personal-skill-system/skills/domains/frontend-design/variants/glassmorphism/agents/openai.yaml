@@ -1,0 +1,3 @@
+display_name: "Glassmorphism Variant"
+short_description: "Glassmorphism design variant for frosted transparency, layered blur, and depth."
+default_prompt: "Use ~/.agents/skills/domains/frontend-design/variants/glassmorphism/SKILL.md as the primary instruction source before acting on glassmorphism."

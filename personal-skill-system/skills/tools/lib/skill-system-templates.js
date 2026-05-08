@@ -19,9 +19,10 @@ const {
   readOpenAiMetadataFile
 } = require('./skill-system-host-metadata');
 
-const TEMPLATE_KINDS = ['domain', 'guard', 'router', 'tool', 'workflow'];
+const TEMPLATE_KINDS = ['adapter', 'domain', 'guard', 'router', 'tool', 'workflow'];
 const SCRIPTED_TEMPLATE_KINDS = new Set(['guard', 'tool']);
 const MIN_TEMPLATE_REFERENCES_BY_KIND = {
+  adapter: 2,
   router: 2,
   domain: 3,
   workflow: 3,

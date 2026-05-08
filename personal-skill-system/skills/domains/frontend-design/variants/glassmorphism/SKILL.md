@@ -7,7 +7,7 @@ description: Glassmorphism design variant for frosted transparency, layered blur
 kind: domain
 visibility: public
 user-invocable: true
-trigger-mode: [manual]
+trigger-mode: [auto, manual]
 trigger-keywords: [glassmorphism, frosted glass, 玻璃拟态, 毛玻璃, glass style, 玻璃风格]
 negative-keywords: [api design, 接口设计]
 priority: 58

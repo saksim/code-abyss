@@ -1,0 +1,3 @@
+display_name: "Claymorphism Variant"
+short_description: "Claymorphism design variant for soft, puffy surfaces, large radii, and tactile depth."
+default_prompt: "Use ~/.agents/skills/domains/frontend-design/variants/claymorphism/SKILL.md as the primary instruction source before acting on claymorphism."

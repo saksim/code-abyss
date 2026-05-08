@@ -1,0 +1,3 @@
+display_name: "Manage Skill Tool"
+short_description: "Create, inspect, update, archive, or delete core skills inside personal-skill-system/skills."
+default_prompt: "Use ~/.agents/skills/tools/manage-skill/SKILL.md as the primary instruction source before acting on manage-skill."

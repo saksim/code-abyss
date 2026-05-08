@@ -78,6 +78,8 @@ Every public skill should belong to one primary layer.
 
 Do not blur these without a strong reason. If a skill both routes and executes, split the routing concern from the execution concern unless doing so would make the system harder to use.
 
+`adapters/` are governed skills, but they are not part of the normal public route surface. Use them for host-specific compatibility notes, translation rules, or capability hints that should remain discoverable and packable without competing in ordinary request routing.
+
 ## Canonical Frontmatter
 
 Bundle skills use schema-version 2 frontmatter.
@@ -157,6 +159,8 @@ For a current or future skill to count as top-tier, it should satisfy all of the
 
 6. Proof surface
    - Registry and route-map entries are aligned.
+   - Route-shared metadata stays governed from `SKILL.md` for `trigger-keywords`, `negative-keywords`, `aliases`, `conflicts-with`, `auto-chain`, `supported-hosts`, and explicit-vs-auto trigger mode.
+   - Route-only tuning fields such as richer rationale, confidence thresholds, fallback prompts, and final route scoring priority may still live in `route-map.generated.json`.
    - Route fixtures cover representative activation paths.
    - Tool and guard behavior has runtime tests when the blast radius justifies it.
    - Runtime-proof evidence points to real test cases, not placeholder claims.
@@ -170,6 +174,9 @@ For a current or future skill to count as top-tier, it should satisfy all of the
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js create <kind> <skill-name>
 ```
+
+Supported scaffold kinds are `router`, `domain`, `workflow`, `tool`, `guard`, and `adapter`.
+Use `adapter` for host-specific import notes, compatibility constraints, or capability hints that belong in the governed skill tree but should stay off the normal routed public surface.
 
 If the new skill is a `domain` or `workflow` and you want future governance surfaces scaffolded immediately, use:
 
@@ -191,7 +198,7 @@ This seeds:
    - owner
    - lifecycle dates
    - reference contents
-   - `agents/openai.yaml`
+   - host metadata will be scaffolded, but rerun governed sync after any metadata edits
 
 3. Decide whether the skill should be public, explicit-only, or internal in practice.
 
@@ -207,6 +214,7 @@ This seeds:
 
 9. If the skill targets `host-smoked`, keep `scripts/smoke.json` freshness aligned with `host-smoke-freshness-days`.
    `host-smoked` is evidence-backed, not sticky: if contract, pass state, or freshness drift, `manage-skill sync-runtime-proof` should downgrade the level back to the default governed state until fresh passing evidence exists again.
+   When the contract itself changes, `sync-runtime-proof` should also invalidate older drifted runtime host-smoke artifacts through `benchmark/host-smoke/invalidation.generated.json` instead of leaving historical warnings behind.
 
 10. Change lifecycle state through the governed command instead of hand-editing `status`:
 
@@ -228,6 +236,8 @@ node personal-skill-system/benchmark/scripts/generate-summary.js
 node personal-skill-system/benchmark/scripts/generate-system-readiness.js
 ```
 
+   `system-readiness.generated.json` is a derived governance snapshot. If the current host cannot rewrite that file but can still rewrite runtime-proof, scorecard, and invalidation artifacts, keep the core runtime-proof and host-smoke sync moving and carry the readiness rewrite failure as explicit follow-up debt instead of blocking all contract governance.
+
 13. Add or update tests if the skill changes executable behavior or routing semantics.
 
 14. When a domain or workflow module genuinely gets deeper, promote it through the governed capability command instead of hand-editing generated files:
@@ -237,6 +247,32 @@ node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-module-r
 ```
 
 Use `--skill <skill-name>` to move all modules owned by one host skill together. Default policy only allows one-bucket moves; require `--allow-skip` for intentional re-baselining.
+
+15. When you edit `name`, `title`, `description`, or anything that affects host-facing labels, regenerate governed host metadata instead of hand-editing `agents/openai.yaml`:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-host-metadata --skill <skill-name>
+```
+
+For migration or debt cleanup across the current stable set:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-host-metadata --all
+```
+
+16. When you edit frontmatter that changes the shared route surface, regenerate governed route metadata instead of hand-editing the matching route entry:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-route-metadata --skill <skill-name>
+```
+
+For migration or debt cleanup across the current governed route surface:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-route-metadata --all
+```
+
+This governed sync also refreshes route `expert-modules` from the skill's registered module-group, so route depth bindings do not drift from the capability-module surface.
 
 ### Upgrade an existing skill
 

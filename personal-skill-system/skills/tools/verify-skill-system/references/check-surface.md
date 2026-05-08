@@ -7,6 +7,7 @@ This tool validates the skill system itself rather than ordinary product code.
 - expected top-level directories exist
 - `personal-skill-system/skills/**/SKILL.md` files are discoverable
 - generated registry files exist and parse
+- admission ledger exists and stays parseable
 - canonical template scaffolds exist and stay valid
 
 ## Skill contract checks
@@ -35,6 +36,7 @@ This tool validates the skill system itself rather than ordinary product code.
 - when a host-smoke contract declares freshness, `host-smoked` should also mean the latest matching passing artifact is still within that allowed age window
 - scripted templates expose `scripts/run.js` where required
 - generated metadata does not reference missing skills
+- governed admission decisions stay uniquely identified and implemented requests point at real created skills
 
 ## What this tool does not prove
 

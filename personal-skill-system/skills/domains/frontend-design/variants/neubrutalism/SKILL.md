@@ -7,7 +7,7 @@ description: Neubrutalism design variant for bold color, thick borders, offset s
 kind: domain
 visibility: public
 user-invocable: true
-trigger-mode: [manual]
+trigger-mode: [auto, manual]
 trigger-keywords: [neubrutalism, brutalist ui, 新粗野主义, 粗野风界面, brutal style, 粗野风格]
 negative-keywords: [api design, 接口设计]
 priority: 65

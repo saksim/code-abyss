@@ -35,8 +35,15 @@ const TOP_TIER_REFERENCE_FLOOR_BY_KIND = {
   domain: 3,
   workflow: 3,
   tool: 2,
-  guard: 2
+  guard: 2,
+  adapter: 2
 };
+
+function normalizeStringList(value) {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+}
 
 function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
   const text = readUtf8(skillFile);
@@ -309,7 +316,8 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
         name: data.name,
         title: data.title,
         description: data.description,
-        kind: data.kind
+        kind: data.kind,
+        skillRelPath: rel(skillsRoot, path.dirname(skillFile))
       });
       for (const key of OPENAI_METADATA_KEYS) {
         if (normalizeValue(parsedOpenAiMetadata.data[key]) !== normalizeValue(expectedOpenAiMetadata[key])) {
@@ -335,6 +343,14 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
     userInvocable: data['user-invocable'] === true,
     status: data.status,
     runtime: data.runtime,
+    priority: Number.isInteger(data.priority) ? data.priority : null,
+    supportedHosts: normalizeStringList(data['supported-hosts']),
+    triggerMode: normalizeStringList(data['trigger-mode']),
+    triggerKeywords: normalizeStringList(data['trigger-keywords']),
+    negativeKeywords: normalizeStringList(data['negative-keywords']),
+    aliases: normalizeStringList(data.aliases),
+    autoChain: normalizeStringList(data['auto-chain']),
+    conflictsWith: normalizeStringList(data['conflicts-with']),
     hostSmokeTier: data['host-smoke-tier'],
     hostSmokeTargetLevel: data['host-smoke-target-level'],
     hostSmokeFreshnessDays: data['host-smoke-freshness-days'],

@@ -72,6 +72,7 @@ function analyzeSkillSystem(targetDir) {
     registrySkills: 0,
     moduleGroups: 0,
     capabilityModules: 0,
+    admissionRequests: 0,
     routeEntries: 0,
     packCount: 0,
     routeFixtures: 0,
@@ -94,6 +95,7 @@ function analyzeSkillSystem(targetDir) {
   summary.registrySkills = generated.registrySkills.length;
   summary.moduleGroups = generated.moduleGroups.length;
   summary.capabilityModules = generated.moduleNames.size;
+  summary.admissionRequests = generated.admissionLedger.entries.length;
   summary.routeEntries = generated.routes.length;
   summary.routeFixtures = generated.fixtures.length;
   summary.runtimeProofs = generated.runtimeProof.proofs.length;
@@ -103,7 +105,7 @@ function analyzeSkillSystem(targetDir) {
     tool: 'verify-skill-system',
     target: targetDir,
     status: summarizeStatus(findings),
-    summary: `Audited ${summary.skillFiles} skill files, ${summary.registrySkills} registry entries, ${summary.capabilityModules} capability modules, ${summary.routeEntries} route entries, and ${summary.runtimeProofs} runtime proof entries.`,
+    summary: `Audited ${summary.skillFiles} skill files, ${summary.registrySkills} registry entries, ${summary.capabilityModules} capability modules, ${summary.admissionRequests} admission requests, ${summary.routeEntries} route entries, and ${summary.runtimeProofs} runtime proof entries.`,
     findings,
     metrics: summary,
     nextSteps: [

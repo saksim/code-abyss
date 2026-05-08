@@ -1,13 +1,14 @@
 {
   "name": "personal-core",
   "version": "0.1.0",
-  "description": "Portable baseline pack for personal router/domain/workflow/tool skills.",
+  "description": "Portable baseline pack for personal router/domain/workflow/tool/guard/adapter skills.",
   "includes": [
     "skills/routers",
     "skills/domains",
     "skills/workflows",
     "skills/tools",
-    "skills/guards"
+    "skills/guards",
+    "skills/adapters"
   ],
   "targets": [
     "codex",

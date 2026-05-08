@@ -535,7 +535,137 @@ function chooseRouteFromFixtures(query, routeMap) {
   return explainRouteSelection(query, routeMap).selectedSkill;
 }
 
-function validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, skillRecords, moduleNames, findings, rel) {
+function normalizeStringList(value) {
+  return (Array.isArray(value) ? value : [])
+    .map((item) => String(item || '').trim())
+    .filter(Boolean);
+}
+
+function uniqueSorted(values) {
+  return [...new Set(normalizeStringList(values))].sort((a, b) => a.localeCompare(b));
+}
+
+function listDifference(source, required) {
+  const available = new Set(uniqueSorted(source));
+  return uniqueSorted(required).filter((item) => !available.has(item));
+}
+
+function arraysEqual(left, right) {
+  const a = Array.isArray(left) ? left : [];
+  const b = Array.isArray(right) ? right : [];
+  if (a.length !== b.length) return false;
+  for (let index = 0; index < a.length; index += 1) {
+    if (a[index] !== b[index]) return false;
+  }
+  return true;
+}
+
+function isGovernedRouteFixture(fixture) {
+  if (!fixture || typeof fixture !== 'object') {
+    return false;
+  }
+  if (fixture.governed === true) {
+    return true;
+  }
+  return String(fixture.name || '').trim().startsWith('placeholder-route-');
+}
+
+function routeFixtureReferencesSkill(fixture, skillName) {
+  const normalizedSkill = String(skillName || '').trim().toLowerCase();
+  if (!normalizedSkill) {
+    return false;
+  }
+  if (String(fixture && fixture.expect || '').trim().toLowerCase() === normalizedSkill) {
+    return true;
+  }
+  return String(fixture && fixture['expect-fallback-question-contains'] || '').trim().toLowerCase().includes(normalizedSkill);
+}
+
+function hasRouteFixtureEvidence(skillName, fixtures, options = {}) {
+  const includeGoverned = options.includeGoverned !== false;
+  return (Array.isArray(fixtures) ? fixtures : []).some((fixture) => {
+    if (!includeGoverned && isGovernedRouteFixture(fixture)) {
+      return false;
+    }
+    return routeFixtureReferencesSkill(fixture, skillName);
+  });
+}
+
+function normalizeGovernedFixtureToken(value) {
+  return String(value || '')
+    .trim()
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ');
+}
+
+function isAsciiLikeFixtureToken(value) {
+  return /^[a-z0-9 ]+$/i.test(String(value || '').trim());
+}
+
+function collectGovernedFixtureTokens(skillName, values) {
+  const skillToken = normalizeGovernedFixtureToken(skillName).toLowerCase();
+  const preferred = [];
+  const fallback = [];
+  const seen = new Set();
+
+  for (const raw of Array.isArray(values) ? values : []) {
+    if (/-signal$|-trigger$/i.test(String(raw || '').trim())) {
+      continue;
+    }
+    const normalized = normalizeGovernedFixtureToken(raw);
+    if (!normalized) {
+      continue;
+    }
+    const key = normalized.toLowerCase();
+    if (key === skillToken || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    if (isAsciiLikeFixtureToken(normalized)) {
+      preferred.push(normalized);
+    } else {
+      fallback.push(normalized);
+    }
+  }
+
+  return preferred.length > 0 ? preferred : fallback;
+}
+
+function buildGovernedRouteFixture(routeDescriptor) {
+  const skillName = String(routeDescriptor && (routeDescriptor.skill || routeDescriptor.name) || '').trim();
+  const terms = collectGovernedFixtureTokens(skillName, [
+    ...(Array.isArray(routeDescriptor && routeDescriptor.triggerKeywords) ? routeDescriptor.triggerKeywords : []),
+    ...(Array.isArray(routeDescriptor && routeDescriptor.aliases) ? routeDescriptor.aliases : [])
+  ]);
+  const firstTerm = terms[0] || '';
+  let query = `Run ${skillName} for this request.`;
+
+  if (firstTerm) {
+    query = `Run ${skillName} for this ${firstTerm} request.`;
+  }
+
+  return {
+    name: `placeholder-route-${skillName}`,
+    query,
+    expect: skillName,
+    'expect-no-fallback': true,
+    governed: true
+  };
+}
+
+function shouldRequireExplicitInvocation(record) {
+  return !normalizeStringList(record && record.triggerMode).includes('auto');
+}
+
+function isRoutedSkillRecord(record) {
+  return !!record
+    && record.userInvocable
+    && record.kind !== 'router'
+    && record.kind !== 'adapter'
+    && record.status !== 'archived';
+}
+
+function validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, skillRecords, moduleNames, moduleGroups, findings, rel) {
   const routes = Array.isArray(routeMapData && routeMapData.routes) ? routeMapData.routes : [];
   const routeNames = new Set();
 
@@ -549,11 +679,93 @@ function validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, 
     if (record && route.kind !== record.kind) {
       findings.push({ severity: 'error', file: rel(targetDir, routeMapPath), message: `route '${route.skill}' declares kind '${route.kind}' but skill metadata says '${record.kind}'` });
     }
-    if (record && (!record.userInvocable || record.kind === 'router')) {
+    if (record && (!record.userInvocable || record.kind === 'router' || record.kind === 'adapter')) {
       findings.push({ severity: 'error', file: rel(targetDir, routeMapPath), message: `skill '${route.skill}' should not appear on the active route surface` });
     }
     if (record && record.status === 'archived') {
       findings.push({ severity: 'error', file: rel(targetDir, routeMapPath), message: `archived skill '${route.skill}' must not remain on the active route surface` });
+    }
+
+    if (record) {
+      const activation = route.activation || {};
+      const missingHosts = listDifference(route['supported-hosts'], record.supportedHosts);
+      if (missingHosts.length > 0) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' is missing supported-hosts declared in SKILL metadata: ${missingHosts.join(', ')}`
+        });
+      }
+
+      const missingTriggerKeywords = listDifference(activation['trigger-keywords'], record.triggerKeywords);
+      if (missingTriggerKeywords.length > 0) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' is missing trigger-keywords declared in SKILL metadata: ${missingTriggerKeywords.join(', ')}`
+        });
+      }
+
+      const missingNegativeKeywords = listDifference(activation['negative-keywords'], record.negativeKeywords);
+      if (missingNegativeKeywords.length > 0) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' is missing negative-keywords declared in SKILL metadata: ${missingNegativeKeywords.join(', ')}`
+        });
+      }
+
+      const missingAliases = listDifference(route.aliases, record.aliases);
+      if (missingAliases.length > 0) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' is missing aliases declared in SKILL metadata: ${missingAliases.join(', ')}`
+        });
+      }
+
+      const missingAutoChain = listDifference(route['auto-chain'], record.autoChain);
+      if (missingAutoChain.length > 0) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' is missing auto-chain entries declared in SKILL metadata: ${missingAutoChain.join(', ')}`
+        });
+      }
+
+      const missingConflicts = listDifference(route['conflicts-with'], record.conflictsWith);
+      if (missingConflicts.length > 0) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' is missing conflicts-with entries declared in SKILL metadata: ${missingConflicts.join(', ')}`
+        });
+      }
+
+      const expectedExplicitInvocation = shouldRequireExplicitInvocation(record);
+      if (Boolean(activation['requires-explicit-invocation']) !== expectedExplicitInvocation) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' requires-explicit-invocation '${Boolean(activation['requires-explicit-invocation'])}' is out of sync with SKILL trigger-mode`
+        });
+      }
+
+      const governedExpertModules = (Array.isArray(moduleGroups) ? moduleGroups : [])
+        .find((group) => group && group['host-skill'] === route.skill);
+      const expectedExpertModules = Array.isArray(governedExpertModules && governedExpertModules.modules)
+        ? governedExpertModules.modules
+            .map((module) => String(module && module.id || '').trim())
+            .filter(Boolean)
+        : [];
+      const actualExpertModules = Array.isArray(route['expert-modules']) ? route['expert-modules'] : [];
+      if (expectedExpertModules.length > 0 && !arraysEqual(actualExpertModules, expectedExpertModules)) {
+        findings.push({
+          severity: 'error',
+          file: rel(targetDir, routeMapPath),
+          message: `route '${route.skill}' expert-modules are out of sync with registry.generated.json module-group`
+        });
+      }
     }
 
     if (Array.isArray(route['auto-chain'])) {
@@ -574,12 +786,12 @@ function validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, 
   }
 
   for (const record of skillRecords) {
-    if (record.userInvocable && record.kind !== 'router' && record.status !== 'archived' && !routeNames.has(record.name)) {
+    if (isRoutedSkillRecord(record) && !routeNames.has(record.name)) {
       findings.push({ severity: 'error', file: record.file, message: `user-invocable skill '${record.name}' is missing from route-map.generated.json` });
     }
   }
 
-  if (routes.length !== skillRecords.filter(item => item.userInvocable && item.kind !== 'router' && item.status !== 'archived').length) {
+  if (routes.length !== skillRecords.filter((item) => isRoutedSkillRecord(item)).length) {
     findings.push({
       severity: 'warning',
       file: rel(targetDir, routeMapPath),
@@ -682,17 +894,60 @@ function validateRouteFixtures(targetDir, fixturesPath, fixturesData, routeMapDa
   return fixtures;
 }
 
+function validateGovernedRouteFixtures(targetDir, fixturesPath, fixturesData, skillRecords, findings, rel) {
+  const fixtures = Array.isArray(fixturesData && fixturesData.cases) ? fixturesData.cases : [];
+  const recordsByName = new Map((Array.isArray(skillRecords) ? skillRecords : []).map((record) => [record.name, record]));
+
+  for (const fixture of fixtures) {
+    if (!isGovernedRouteFixture(fixture)) {
+      continue;
+    }
+
+    const skillName = String(fixture && fixture.expect || '').trim();
+    const record = recordsByName.get(skillName);
+    if (!record || !isRoutedSkillRecord(record)) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, fixturesPath),
+        message: `governed route fixture '${String(fixture && fixture.name || '').trim() || 'unknown'}' points to a non-routed or unknown skill '${skillName || 'unknown'}'`
+      });
+      continue;
+    }
+
+    const expected = buildGovernedRouteFixture({
+      skill: record.name,
+      triggerKeywords: record.triggerKeywords,
+      aliases: record.aliases,
+      requiresExplicitInvocation: shouldRequireExplicitInvocation(record)
+    });
+
+    const comparableActual = {
+      name: String(fixture.name || '').trim(),
+      query: String(fixture.query || '').trim(),
+      expect: String(fixture.expect || '').trim(),
+      'expect-no-fallback': fixture['expect-no-fallback'] === true,
+      governed: fixture.governed === true
+    };
+    const comparableExpected = {
+      ...expected
+    };
+
+    if (JSON.stringify(comparableActual) !== JSON.stringify(comparableExpected)) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, fixturesPath),
+        message: `governed route fixture '${expected.name}' is out of sync with current skill metadata`
+      });
+    }
+  }
+}
+
 function validateStableRouteEvidence(targetDir, fixturesPath, fixturesData, skillRecords, findings, rel) {
   const fixtures = Array.isArray(fixturesData && fixturesData.cases) ? fixturesData.cases : [];
-  const stableRecords = skillRecords.filter((record) => record.status === 'stable' && record.userInvocable && record.kind !== 'router');
+  const stableRecords = skillRecords.filter((record) => record.status === 'stable' && isRoutedSkillRecord(record));
 
   for (const record of stableRecords) {
-    const directCoverage = fixtures.some((fixture) => fixture.expect === record.name);
-    const fallbackCoverage = fixtures.some((fixture) => {
-      const question = String(fixture['expect-fallback-question-contains'] || '').toLowerCase();
-      return question.includes(record.name.toLowerCase());
-    });
-    if (!directCoverage && !fallbackCoverage) {
+    if (!hasRouteFixtureEvidence(record.name, fixtures, { includeGoverned: false })) {
       findings.push({
         severity: 'warning',
         file: record.file,
@@ -707,7 +962,12 @@ module.exports = {
   explainRouteSelection,
   generateRouteCandidates,
   selectBestRouteCandidate,
+  buildGovernedRouteFixture,
+  hasRouteFixtureEvidence,
+  isGovernedRouteFixture,
+  routeFixtureReferencesSkill,
   validateRouteMap,
   validateRouteFixtures,
+  validateGovernedRouteFixtures,
   validateStableRouteEvidence
 };

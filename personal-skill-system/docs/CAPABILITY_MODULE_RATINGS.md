@@ -28,7 +28,7 @@ After the latest uplift round, every currently registered host skill is rated to
 ## Current Verdict
 
 - all 100 registered capability modules are TOP-ready
-- all 34 registered host skills are now rated top-level enough
+- 34 of 34 routed host skills are top-level enough right now
 - next work shifts from catching up to drift control and periodic recalibration
 
 ## Next Batch
@@ -95,6 +95,7 @@ After the latest uplift round, every currently registered host skill is rated to
 - `chart-visualization-g2-shared-tooltip-and-navigation`
 - `chart-visualization-s2-advanced-table-features`
 - `chart-visualization-s2-customization-and-extensions`
+- `skill-management-authoritative-crud`
 - `frontend-design-information-architecture-and-interaction`
 - `frontend-design-information-architecture`
 - `frontend-design-interaction-patterns`
@@ -144,3 +145,32 @@ After the latest uplift round, every currently registered host skill is rated to
 ## Thin
 
 - `(none in this snapshot)`
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

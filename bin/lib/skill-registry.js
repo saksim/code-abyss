@@ -20,6 +20,7 @@ function inferSkillKind(relPath) {
   if (head === 'routers') return 'router';
   if (head === 'workflows') return 'workflow';
   if (head === 'guards') return 'guard';
+  if (head === 'adapters') return 'adapter';
   if (head === 'orchestration') return 'orchestration';
   return 'root';
 }

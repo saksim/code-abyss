@@ -1,0 +1,3 @@
+display_name: "Review Workflow"
+short_description: "Findings-first review workflow for bugs, regressions, security risk, and missing tests."
+default_prompt: "Use ~/.agents/skills/workflows/review/SKILL.md as the primary instruction source before acting on review."

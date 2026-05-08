@@ -10,7 +10,8 @@ const LAYER_BY_KIND = {
   domain: 'domains',
   workflow: 'workflows',
   tool: 'tools',
-  guard: 'guards'
+  guard: 'guards',
+  adapter: 'adapters'
 };
 
 function slugToTitle(slug) {
@@ -35,12 +36,22 @@ function deriveShortDescription(description) {
   return withoutTriggerGuidance || normalized;
 }
 
-function buildDefaultPrompt(kind, skillName) {
+function normalizeSkillRelPath(skillRelPath) {
+  return String(skillRelPath || '')
+    .replace(/\\/g, '/')
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '');
+}
+
+function buildDefaultPrompt(kind, skillName, options = {}) {
   const layer = LAYER_BY_KIND[kind];
   if (!layer) {
     throw new Error(`cannot build host metadata for unsupported kind '${kind}'`);
   }
-  return `Use ~/.agents/skills/${layer}/${skillName}/SKILL.md as the primary instruction source before acting on ${skillName}.`;
+
+  const relPath = normalizeSkillRelPath(options.skillRelPath);
+  const runtimePath = relPath || `${layer}/${skillName}`;
+  return `Use ~/.agents/skills/${runtimePath}/SKILL.md as the primary instruction source before acting on ${skillName}.`;
 }
 
 function buildOpenAiMetadata(skill) {
@@ -48,11 +59,12 @@ function buildOpenAiMetadata(skill) {
   const title = normalizeText(skill && skill.title);
   const description = normalizeText(skill && skill.description);
   const kind = normalizeText(skill && skill.kind);
+  const skillRelPath = normalizeText(skill && skill.skillRelPath);
 
   return {
     display_name: title || slugToTitle(name),
     short_description: deriveShortDescription(description),
-    default_prompt: buildDefaultPrompt(kind, name)
+    default_prompt: buildDefaultPrompt(kind, name, { skillRelPath })
   };
 }
 
@@ -158,6 +170,7 @@ module.exports = {
   buildOpenAiMetadata,
   buildDefaultPrompt,
   deriveShortDescription,
+  normalizeSkillRelPath,
   parseSimpleYaml,
   readOpenAiMetadataFile,
   renderSimpleYaml,

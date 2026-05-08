@@ -14,7 +14,7 @@ const {
   buildHostSmokeInvalidationLedger,
   getHostSmokeInvalidationPath
 } = require('./skill-system-host-smoke');
-const { validateRouteMap, validateRouteFixtures, validateStableRouteEvidence } = require('./skill-system-routing');
+const { validateRouteMap, validateRouteFixtures, validateGovernedRouteFixtures, validateStableRouteEvidence } = require('./skill-system-routing');
 const {
   validateBenchmarkSummary,
   validateSystemReadiness
@@ -46,6 +46,76 @@ function validateRegistryEntries(targetDir, registryPath, registryData, skillRec
     registrySkills,
     registryNames
   };
+}
+
+function validateAdmissionLedger(targetDir, skillRecords, findings) {
+  const ledgerPath = path.join(targetDir, 'registry', 'admission-ledger.generated.json');
+  const parsed = parseJsonFile(ledgerPath);
+  if (parsed.error) {
+    findings.push({
+      severity: 'error',
+      file: rel(targetDir, ledgerPath),
+      message: `admission ledger parse failed: ${parsed.error}`
+    });
+    return { entries: [] };
+  }
+
+  const data = parsed.data || {};
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  const requestIds = new Set();
+  const skillNames = new Set((Array.isArray(skillRecords) ? skillRecords : []).map((record) => record.name));
+
+  if (data['schema-version'] !== 1) {
+    findings.push({
+      severity: 'error',
+      file: rel(targetDir, ledgerPath),
+      message: `admission ledger has unsupported schema-version '${data['schema-version']}'`
+    });
+  }
+
+  for (const entry of entries) {
+    const requestId = String(entry && entry['request-id'] || '').trim();
+    const request = String(entry && entry.request || '').trim();
+    const recordedAt = String(entry && entry['recorded-at'] || '').trim();
+    const decisionAction = String(entry && entry.decision && entry.decision.action || '').trim();
+    const status = String(entry && entry.status || '').trim();
+
+    if (!requestId) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: 'admission ledger entry is missing request-id' });
+      continue;
+    }
+    if (requestIds.has(requestId)) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger duplicates request-id '${requestId}'` });
+      continue;
+    }
+    requestIds.add(requestId);
+
+    if (!request) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' is missing request text` });
+    }
+    if (!decisionAction) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' is missing decision.action` });
+    }
+    if (!recordedAt || Number.isNaN(Date.parse(recordedAt))) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' has invalid recorded-at` });
+    }
+    if (entry && entry['resolved-at'] && Number.isNaN(Date.parse(String(entry['resolved-at'])))) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' has invalid resolved-at` });
+    }
+    if (status === 'implemented') {
+      const createdSkill = String(entry && entry['created-skill'] || '').trim();
+      if (!createdSkill) {
+        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented admission ledger entry '${requestId}' is missing created-skill` });
+      } else if (!skillNames.has(createdSkill)) {
+        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented admission ledger entry '${requestId}' references unknown created-skill '${createdSkill}'` });
+      }
+    }
+    if (decisionAction === 'create-new-skill' && status === 'open') {
+      findings.push({ severity: 'warning', file: rel(targetDir, ledgerPath), message: `admission request '${requestId}' still recommends creating a new skill and remains open` });
+    }
+  }
+
+  return { entries };
 }
 
 function validateModuleGroups(targetDir, registryPath, registryData, registryNames, findings) {
@@ -81,12 +151,26 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
   const ratings = parseJsonFile(ratingsPath);
   if (ratings.error) {
     findings.push({ severity: 'warning', file: rel(targetDir, ratingsPath), message: `capability ratings parse failed: ${ratings.error}` });
-    return { ratingsPath, ratedModules: new Set() };
+    return { ratingsPath, ratedModules: new Set(), moduleRatingsBySkill: new Map() };
   }
 
   const data = ratings.data || {};
   const buckets = data['rating-buckets'] || {};
   const ratedModules = new Set();
+  const moduleRatingsBySkill = new Map();
+  const moduleGroups = new Map(
+    (Array.isArray(parseJsonFile(path.join(targetDir, 'registry', 'registry.generated.json')).data?.['module-groups'])
+      ? parseJsonFile(path.join(targetDir, 'registry', 'registry.generated.json')).data['module-groups']
+      : []
+    ).map((group) => [
+      String(group && group['host-skill'] || '').trim(),
+      Array.isArray(group && group.modules)
+        ? group.modules
+            .map((module) => String(module && module.id || '').trim())
+            .filter(Boolean)
+        : []
+    ])
+  );
   for (const bucketName of ['top-ready', 'strong-but-not-top', 'thin']) {
     for (const moduleId of Array.isArray(buckets[bucketName]) ? buckets[bucketName] : []) {
       if (ratedModules.has(moduleId)) {
@@ -97,6 +181,37 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
       if (!moduleNames.has(moduleId)) {
         findings.push({ severity: 'error', file: rel(targetDir, ratingsPath), message: `capability ratings reference unknown module '${moduleId}'` });
       }
+    }
+  }
+
+  for (const record of skillRecords.filter((item) => item.status === 'stable')) {
+    const ownedModules = moduleGroups.get(record.name) || [];
+    if (ownedModules.length < 1) {
+      continue;
+    }
+    const nonTopModules = ownedModules
+      .map((moduleId) => {
+        if ((Array.isArray(buckets['top-ready']) ? buckets['top-ready'] : []).includes(moduleId)) {
+          return { module: moduleId, rating: 'top-ready' };
+        }
+        if ((Array.isArray(buckets['strong-but-not-top']) ? buckets['strong-but-not-top'] : []).includes(moduleId)) {
+          return { module: moduleId, rating: 'strong-but-not-top' };
+        }
+        if ((Array.isArray(buckets.thin) ? buckets.thin : []).includes(moduleId)) {
+          return { module: moduleId, rating: 'thin' };
+        }
+        return { module: moduleId, rating: 'unrated' };
+      })
+      .filter((item) => item.rating !== 'top-ready');
+
+    moduleRatingsBySkill.set(record.name, ownedModules);
+
+    if (nonTopModules.length > 0) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: `stable skill '${record.name}' has non-top-ready capability modules: ${nonTopModules.map((item) => `${item.module} (${item.rating})`).join(', ')}`
+      });
     }
   }
 
@@ -117,7 +232,8 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
 
   return {
     ratingsPath,
-    ratedModules
+    ratedModules,
+    moduleRatingsBySkill
   };
 }
 
@@ -128,7 +244,7 @@ function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRec
     return;
   }
 
-  const activeSkills = skillRecords.filter((record) => record.status !== 'archived');
+  const activeSkills = skillRecords.filter((record) => record.status !== 'archived' && record.kind !== 'adapter');
   const activeNames = new Set(activeSkills.map((record) => record.name));
   const bucketNames = [
     'top-level-enough-now',
@@ -858,6 +974,11 @@ function validateHostSmokeInvalidationLedger(targetDir, findings, hostSmokeIndex
 function validateGeneratedArtifactWriteability(targetDir, findings) {
   const probes = [
     {
+      path: path.join(targetDir, 'registry', 'admission-ledger.generated.json'),
+      mode: 'rewrite-file',
+      label: 'admission ledger registry'
+    },
+    {
       path: path.join(targetDir, 'registry', 'runtime-proof.generated.json'),
       mode: 'rewrite-file',
       label: 'runtime-proof registry'
@@ -906,6 +1027,7 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
   const registry = parseJsonFile(registryPath);
   const routeMap = parseJsonFile(routeMapPath);
   const routeFixtures = parseJsonFile(routeFixturesPath);
+  const admissionLedger = validateAdmissionLedger(targetDir, skillRecords, findings);
 
   if (registry.error) {
     findings.push({ severity: 'error', file: rel(targetDir, registryPath), message: `registry parse failed: ${registry.error}` });
@@ -920,8 +1042,9 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
   const { registrySkills, registryNames } = validateRegistryEntries(targetDir, registryPath, registry.data, skillRecords, findings);
   const { moduleGroups, moduleNames } = validateModuleGroups(targetDir, registryPath, registry.data, registryNames, findings);
   const capabilityRatings = validateCapabilityRatings(targetDir, skillRecords, moduleNames, findings);
-  const routes = validateRouteMap(targetDir, routeMapPath, routeMap.data, registryNames, skillRecords, moduleNames, findings, rel);
+  const routes = validateRouteMap(targetDir, routeMapPath, routeMap.data, registryNames, skillRecords, moduleNames, moduleGroups, findings, rel);
   const fixtures = validateRouteFixtures(targetDir, routeFixturesPath, routeFixtures.data, routeMap.data, registryNames, findings, rel);
+  validateGovernedRouteFixtures(targetDir, routeFixturesPath, routeFixtures.data, skillRecords, findings, rel);
   validateStableRouteEvidence(targetDir, routeFixturesPath, routeFixtures.data, skillRecords, findings, rel);
   const runtimeProof = validateRuntimeProofRegistry(targetDir, skillRecords, findings);
   validateBenchmarkSummary(targetDir, findings);
@@ -938,6 +1061,7 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
     moduleNames,
     capabilityRatings,
     runtimeProof,
+    admissionLedger,
     routes,
     fixtures
   };

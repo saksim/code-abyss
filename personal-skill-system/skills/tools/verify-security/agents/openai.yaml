@@ -1,0 +1,3 @@
+display_name: "Verify Security Tool"
+short_description: "Rule-based security scan for dangerous patterns, trust-boundary violations, and common vulnerability clues."
+default_prompt: "Use ~/.agents/skills/tools/verify-security/SKILL.md as the primary instruction source before acting on verify-security."

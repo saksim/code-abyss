@@ -54,7 +54,7 @@ function analyzePackManifests(targetDir, findings, rel) {
     }
 
     if (dir.name === 'personal-core') {
-      const required = ['skills/routers', 'skills/domains', 'skills/workflows', 'skills/tools', 'skills/guards'];
+      const required = ['skills/routers', 'skills/domains', 'skills/workflows', 'skills/tools', 'skills/guards', 'skills/adapters'];
       for (const requiredInclude of required) {
         if (!includes.includes(requiredInclude)) {
           findings.push({ severity: 'warning', file: rel(targetDir, manifestPath), message: `personal-core is missing expected include '${requiredInclude}'` });

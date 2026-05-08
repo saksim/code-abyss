@@ -2,11 +2,6 @@
   "schema-version": 1,
   "skills": [
     {
-      "name": "sage",
-      "kind": "router",
-      "path": "skills/routers/sage/SKILL.md"
-    },
-    {
       "name": "ai",
       "kind": "domain",
       "path": "skills/domains/ai/SKILL.md"
@@ -15,6 +10,36 @@
       "name": "architecture",
       "kind": "domain",
       "path": "skills/domains/architecture/SKILL.md"
+    },
+    {
+      "name": "architecture-decision",
+      "kind": "workflow",
+      "path": "skills/workflows/architecture-decision/SKILL.md"
+    },
+    {
+      "name": "bugfix",
+      "kind": "workflow",
+      "path": "skills/workflows/bugfix/SKILL.md"
+    },
+    {
+      "name": "chart-visualization",
+      "kind": "domain",
+      "path": "skills/domains/chart-visualization/SKILL.md"
+    },
+    {
+      "name": "claude-host",
+      "kind": "adapter",
+      "path": "skills/adapters/claude/SKILL.md"
+    },
+    {
+      "name": "claymorphism",
+      "kind": "domain",
+      "path": "skills/domains/frontend-design/variants/claymorphism/SKILL.md"
+    },
+    {
+      "name": "codex-host",
+      "kind": "adapter",
+      "path": "skills/adapters/codex/SKILL.md"
     },
     {
       "name": "data-engineering",
@@ -37,34 +62,14 @@
       "path": "skills/domains/frontend-design/SKILL.md"
     },
     {
-      "name": "infrastructure",
-      "kind": "domain",
-      "path": "skills/domains/infrastructure/SKILL.md"
+      "name": "gemini-host",
+      "kind": "adapter",
+      "path": "skills/adapters/gemini/SKILL.md"
     },
     {
-      "name": "mobile",
-      "kind": "domain",
-      "path": "skills/domains/mobile/SKILL.md"
-    },
-    {
-      "name": "orchestration",
-      "kind": "domain",
-      "path": "skills/domains/orchestration/SKILL.md"
-    },
-    {
-      "name": "security",
-      "kind": "domain",
-      "path": "skills/domains/security/SKILL.md"
-    },
-    {
-      "name": "chart-visualization",
-      "kind": "domain",
-      "path": "skills/domains/chart-visualization/SKILL.md"
-    },
-    {
-      "name": "claymorphism",
-      "kind": "domain",
-      "path": "skills/domains/frontend-design/variants/claymorphism/SKILL.md"
+      "name": "gen-docs",
+      "kind": "tool",
+      "path": "skills/tools/gen-docs/SKILL.md"
     },
     {
       "name": "glassmorphism",
@@ -72,24 +77,9 @@
       "path": "skills/domains/frontend-design/variants/glassmorphism/SKILL.md"
     },
     {
-      "name": "liquid-glass",
+      "name": "infrastructure",
       "kind": "domain",
-      "path": "skills/domains/frontend-design/variants/liquid-glass/SKILL.md"
-    },
-    {
-      "name": "neubrutalism",
-      "kind": "domain",
-      "path": "skills/domains/frontend-design/variants/neubrutalism/SKILL.md"
-    },
-    {
-      "name": "architecture-decision",
-      "kind": "workflow",
-      "path": "skills/workflows/architecture-decision/SKILL.md"
-    },
-    {
-      "name": "bugfix",
-      "kind": "workflow",
-      "path": "skills/workflows/bugfix/SKILL.md"
+      "path": "skills/domains/infrastructure/SKILL.md"
     },
     {
       "name": "investigate",
@@ -97,14 +87,59 @@
       "path": "skills/workflows/investigate/SKILL.md"
     },
     {
+      "name": "liquid-glass",
+      "kind": "domain",
+      "path": "skills/domains/frontend-design/variants/liquid-glass/SKILL.md"
+    },
+    {
+      "name": "manage-skill",
+      "kind": "tool",
+      "path": "skills/tools/manage-skill/SKILL.md"
+    },
+    {
+      "name": "mobile",
+      "kind": "domain",
+      "path": "skills/domains/mobile/SKILL.md"
+    },
+    {
       "name": "multi-agent",
       "kind": "workflow",
       "path": "skills/workflows/multi-agent/SKILL.md"
     },
     {
+      "name": "neubrutalism",
+      "kind": "domain",
+      "path": "skills/domains/frontend-design/variants/neubrutalism/SKILL.md"
+    },
+    {
+      "name": "orchestration",
+      "kind": "domain",
+      "path": "skills/domains/orchestration/SKILL.md"
+    },
+    {
+      "name": "pre-commit-gate",
+      "kind": "guard",
+      "path": "skills/guards/pre-commit-gate/SKILL.md"
+    },
+    {
+      "name": "pre-merge-gate",
+      "kind": "guard",
+      "path": "skills/guards/pre-merge-gate/SKILL.md"
+    },
+    {
       "name": "review",
       "kind": "workflow",
       "path": "skills/workflows/review/SKILL.md"
+    },
+    {
+      "name": "sage",
+      "kind": "router",
+      "path": "skills/routers/sage/SKILL.md"
+    },
+    {
+      "name": "security",
+      "kind": "domain",
+      "path": "skills/domains/security/SKILL.md"
     },
     {
       "name": "ship",
@@ -117,14 +152,14 @@
       "path": "skills/workflows/skill-evolution/SKILL.md"
     },
     {
-      "name": "gen-docs",
-      "kind": "tool",
-      "path": "skills/tools/gen-docs/SKILL.md"
-    },
-    {
       "name": "verify-change",
       "kind": "tool",
       "path": "skills/tools/verify-change/SKILL.md"
+    },
+    {
+      "name": "verify-chart-spec",
+      "kind": "tool",
+      "path": "skills/tools/verify-chart-spec/SKILL.md"
     },
     {
       "name": "verify-module",
@@ -137,39 +172,19 @@
       "path": "skills/tools/verify-quality/SKILL.md"
     },
     {
-      "name": "verify-security",
-      "kind": "tool",
-      "path": "skills/tools/verify-security/SKILL.md"
-    },
-    {
-      "name": "verify-chart-spec",
-      "kind": "tool",
-      "path": "skills/tools/verify-chart-spec/SKILL.md"
-    },
-    {
       "name": "verify-s2-config",
       "kind": "tool",
       "path": "skills/tools/verify-s2-config/SKILL.md"
     },
     {
+      "name": "verify-security",
+      "kind": "tool",
+      "path": "skills/tools/verify-security/SKILL.md"
+    },
+    {
       "name": "verify-skill-system",
       "kind": "tool",
       "path": "skills/tools/verify-skill-system/SKILL.md"
-    },
-    {
-      "name": "manage-skill",
-      "kind": "tool",
-      "path": "skills/tools/manage-skill/SKILL.md"
-    },
-    {
-      "name": "pre-commit-gate",
-      "kind": "guard",
-      "path": "skills/guards/pre-commit-gate/SKILL.md"
-    },
-    {
-      "name": "pre-merge-gate",
-      "kind": "guard",
-      "path": "skills/guards/pre-merge-gate/SKILL.md"
     }
   ],
   "module-groups": [

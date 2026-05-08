@@ -7,7 +7,7 @@ description: Claymorphism design variant for soft, puffy surfaces, large radii, 
 kind: domain
 visibility: public
 user-invocable: true
-trigger-mode: [manual]
+trigger-mode: [auto, manual]
 trigger-keywords: [claymorphism, soft ui, 粘土风, 软拟态, soft neumorphism, 软拟物]
 negative-keywords: [api design, 接口设计]
 priority: 58

@@ -133,8 +133,11 @@ describe('skill source policy', () => {
       codex: 'personal-skill-system/skills',
       gemini: 'personal-skill-system/skills',
     });
-    expect(report.metrics.authoritativeSkillCount).toBe(34);
+    expect(report.metrics.authoritativeSkillCount).toBe(37);
     expect(report.gaps.missingSkillPaths).toEqual(expect.arrayContaining([
+      'adapters/claude',
+      'adapters/codex',
+      'adapters/gemini',
       'routers/sage',
       'workflows/review',
     ]));

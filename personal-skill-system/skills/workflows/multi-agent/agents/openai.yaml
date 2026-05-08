@@ -1,0 +1,3 @@
+display_name: "Multi-Agent Workflow"
+short_description: "Parallel execution planning with explicit ownership, write boundaries, dependency order, and integration rules."
+default_prompt: "Use ~/.agents/skills/workflows/multi-agent/SKILL.md as the primary instruction source before acting on multi-agent."

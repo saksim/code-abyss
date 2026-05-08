@@ -30,7 +30,8 @@ const MIN_REFERENCE_FILES_BY_KIND = {
   domain: 2,
   workflow: 2,
   tool: 2,
-  guard: 2
+  guard: 2,
+  adapter: 2
 };
 
 const KIND_BY_LAYER = {
@@ -38,7 +39,8 @@ const KIND_BY_LAYER = {
   domains: 'domain',
   workflows: 'workflow',
   tools: 'tool',
-  guards: 'guard'
+  guards: 'guard',
+  adapters: 'adapter'
 };
 
 const SMOKE_CWD_MODES = new Set(['skill-dir', 'bundle-root']);

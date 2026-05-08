@@ -127,6 +127,15 @@ describe('skill registry', () => {
     expect(skills[0].allowedTools).toEqual(['Read', 'Glob', 'Bash']);
   });
 
+  test('collectSkills recognizes adapter layer skills', () => {
+    makeSkill('adapters/codex-host', 'name: codex-host\ndescription: host adapter\nuser-invocable: false', false);
+
+    const skills = collectSkills(tmpDir);
+    expect(skills).toHaveLength(1);
+    expect(skills[0].category).toBe('adapter');
+    expect(skills[0].relPath).toBe(path.join('adapters', 'codex-host'));
+  });
+
   test('collectInvocableSkills 只返回 user-invocable skills', () => {
     makeSkill('tools/gen-docs', 'name: gen-docs\ndescription: docs\nuser-invocable: true', true);
     makeSkill('domains/frontend-design', 'name: frontend-design\ndescription: design\nuser-invocable: false', false);

@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-06T19:13:15.192Z",
+  "generated-at": "2026-05-08T10:28:30.111Z",
   "source-runtime-proof": "registry/runtime-proof.generated.json",
   "runtime-run-dir": "benchmark/host-smoke/runtime-runs",
   "run-count": 10,
@@ -22,8 +22,8 @@
       "passing": 7,
       "stale": 0,
       "failing": 1,
-      "missing": 0,
-      "contract-drift": 1,
+      "missing": 1,
+      "contract-drift": 0,
       "invalid-contract": 0
     },
     "governance-status": {
@@ -93,16 +93,10 @@
         "ageMs": null,
         "maxAgeMs": 604800000
       },
-      "evidence-status": "contract-drift",
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked",
-      "latest-any-matches-contract": false,
-      "latest-any": {
-        "run-id": "host-smoke-20260506T173725661Z-codex",
-        "executed-at": "2026-05-06T17:37:25.661Z",
-        "host": "codex",
-        "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725661Z-codex.json"
-      },
+      "latest-any-matches-contract": null,
+      "latest-any": null,
       "latest-matching": null,
       "latest-passing": null
     },
@@ -272,7 +266,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 5749522,
+        "ageMs": 147064441,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",

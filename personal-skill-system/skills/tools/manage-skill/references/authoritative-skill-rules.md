@@ -14,6 +14,7 @@ Never edit:
 
 Operation rules:
 
+0. before adding a new skill, prefer `admission-check` so add / merge / deepen decisions flow through one governed entry point
 1. create from the canonical template for the selected kind
 2. keep public user-invocable skills routable and registry-backed
 3. prefer `archive` over immediate destructive deletion when history may matter

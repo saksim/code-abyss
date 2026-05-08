@@ -1,0 +1,3 @@
+display_name: "Pre-Commit Gate"
+short_description: "Commit-time gate that consumes validation results before a change is finalized locally."
+default_prompt: "Use ~/.agents/skills/guards/pre-commit-gate/SKILL.md as the primary instruction source before acting on pre-commit-gate."

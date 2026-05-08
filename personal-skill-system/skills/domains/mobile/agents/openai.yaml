@@ -1,0 +1,3 @@
+display_name: "Mobile Domain"
+short_description: "Mobile application design and implementation constraints: iOS, Android, React Native, Flutter, lifecycle, offline behavior, and permissions."
+default_prompt: "Use ~/.agents/skills/domains/mobile/SKILL.md as the primary instruction source before acting on mobile."

@@ -7,7 +7,7 @@ description: Liquid glass design variant for Apple-like translucent surfaces and
 kind: domain
 visibility: public
 user-invocable: true
-trigger-mode: [manual]
+trigger-mode: [auto, manual]
 trigger-keywords: [liquid-glass, apple glass, liquid interface, 液态玻璃, 苹果玻璃, 液态界面, liquid style, 液态风格]
 negative-keywords: [api design, 接口设计]
 priority: 57

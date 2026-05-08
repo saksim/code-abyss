@@ -1,0 +1,3 @@
+display_name: "Generate Docs Tool"
+short_description: "Generate module documentation scaffolds such as README and DESIGN seeds."
+default_prompt: "Use ~/.agents/skills/tools/gen-docs/SKILL.md as the primary instruction source before acting on gen-docs."

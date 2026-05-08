@@ -1,5 +1,39 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-07T00:00:00.000Z",
-  "entries": []
+  "generated-at": "2026-05-08T03:22:26.049Z",
+  "entries": [
+    {
+      "skill": "manage-skill",
+      "run-id": "host-smoke-20260506T141445Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-08T03:22:26.044Z",
+      "host": "codex",
+      "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T141445Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "manage-skill",
+      "run-id": "host-smoke-20260506T170342Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-08T03:22:26.044Z",
+      "host": "codex",
+      "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T170342Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "manage-skill",
+      "run-id": "host-smoke-20260506T173725661Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-08T03:22:26.044Z",
+      "host": "codex",
+      "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725661Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    }
+  ]
 }

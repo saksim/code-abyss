@@ -36,7 +36,7 @@ personal-skill-system/
 - `workflows/`: multi-step execution chains
 - `tools/`: deterministic checks and generators
 - `guards/`: risk gates attached downstream
-- `adapters/`: host-specific import notes and capability hints
+- `adapters/`: host-specific import notes and capability hints; governed and packable, but not part of the normal public route surface
 - `references/` under each skill: deep content loaded only when needed
 
 ## Design principles

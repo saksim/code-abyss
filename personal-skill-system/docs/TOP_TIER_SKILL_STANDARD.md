@@ -57,6 +57,8 @@ Promote a skill to `stable` only when all of the following are true.
 - review rhythm is present
 - lifecycle status is current
 - generated metadata remains aligned
+- `stable` / top-tier promotion must pass the governed `manage-skill assess-top-tier` gate rather than relying on manual judgement alone
+- if a skill owns capability modules, every owned module must already be `top-ready` before the skill itself can truthfully claim top-tier / `stable`
 
 ## Current-Skill Upgrade Ladder
 

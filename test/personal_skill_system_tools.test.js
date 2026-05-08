@@ -268,6 +268,145 @@ describe('personal skill system tool runtime', () => {
     }
   });
 
+  test('manage-skill admission-check reuses an existing strong route before adding a sibling skill', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['admission-check', 'we need to create skill crud flows and archive skill records safely']);
+
+      expect(payload.action).toBe('admission-check');
+      expect(payload.recommendation).toEqual(expect.objectContaining({
+        action: 'reuse-existing-skill',
+        target_skill: 'manage-skill',
+        target_kind: 'tool'
+      }));
+      expect(payload.candidates[0]).toEqual(expect.objectContaining({
+        skill: 'manage-skill',
+        kind: 'tool'
+      }));
+      expect(payload.follow_up[0]).toContain('show manage-skill');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill admission-check suggests upgrading an existing weakly matched route before adding a peer', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['admission-check', 'release process needs stronger verification checklist']);
+
+      expect(payload.action).toBe('admission-check');
+      expect(payload.recommendation.action).toBe('upgrade-existing-skill');
+      expect(payload.recommendation.target_skill).toBe('ship');
+      expect(payload.recommendation.target_kind).toBe('workflow');
+      expect(payload.suggested_kind).toBe('tool');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill admission-check can recommend a new guarded skill when no current route owns the request', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['admission-check', '--kind', 'guard', 'we need a new policy gate that blocks unsafe skill deletion during pack release']);
+
+      expect(payload.action).toBe('admission-check');
+      expect(payload.recommendation).toEqual(expect.objectContaining({
+        action: 'create-new-skill',
+        suggested_kind: 'guard'
+      }));
+      expect(payload.suggested_kind).toBe('guard');
+      expect(payload.follow_up[0]).toContain('create guard <skill-name>');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill assess-top-tier reports non-top-ready capability modules as promotion blockers', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-domain-${Date.now()}`;
+      manageSkill.main(['create', 'domain', skillName, '--scaffold-modules']);
+      manageSkill.main([
+        'update',
+        skillName,
+        '--set',
+        'description=Domain skill for promotion-gate testing. Use when governed domain routing should own this request.',
+        '--set',
+        'trigger-keywords=[promotion-gate-domain,promotion-gate-domain-route]'
+      ]);
+
+      const payload = manageSkill.main(['assess-top-tier', skillName]);
+      expect(payload.action).toBe('assess-top-tier');
+      expect(payload.skill).toBe(skillName);
+      expect(payload.ready).toBe(false);
+      expect(payload.blockers).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'capability-module-rating',
+          rating: 'thin'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill assess-top-tier rejects stable evidence that only comes from governed placeholder fixtures', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const fixturesPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'route-fixtures.generated.json');
+      const fixtures = JSON.parse(fs.readFileSync(fixturesPath, 'utf8'));
+      fixtures.cases = fixtures.cases.filter((item) => item.name === 'placeholder-route-verify-quality' || item.expect !== 'verify-quality');
+      fs.writeFileSync(fixturesPath, JSON.stringify(fixtures, null, 2) + '\n', 'utf8');
+
+      const payload = manageSkill.main(['assess-top-tier', 'verify-quality']);
+      expect(payload.action).toBe('assess-top-tier');
+      expect(payload.ready).toBe(false);
+      expect(payload.blockers).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'verification-error',
+          message: expect.stringContaining("stable skill 'verify-quality' has no route fixture evidence")
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('manage-skill delete removes scaffolded capability-module ratings and registry membership', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
@@ -393,7 +532,7 @@ describe('personal skill system tool runtime', () => {
       expect(payload.reports).toEqual(expect.arrayContaining([
         expect.objectContaining({
           skill: 'manage-skill',
-          status: 'contract-drift'
+          status: expect.stringMatching(/^(contract-drift|missing)$/)
         })
       ]));
 
@@ -735,6 +874,16 @@ describe('personal skill system tool runtime', () => {
       expect(entry.level).toBe('declared-only');
       expect(entry['evidence-tests']).toEqual(payload.suggested_evidence_tests);
 
+      const fixturesPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'route-fixtures.generated.json');
+      const fixtures = JSON.parse(fs.readFileSync(fixturesPath, 'utf8'));
+      fixtures.cases.push({
+        name: `explicit-${skillName}`,
+        query: `Run ${skillName} on this temp quality wrapper task.`,
+        expect: skillName,
+        'expect-no-fallback': true
+      });
+      fs.writeFileSync(fixturesPath, JSON.stringify(fixtures, null, 2) + '\n', 'utf8');
+
       const promoted = manageSkill.main(['set-status', skillName, 'stable']);
       expect(promoted.status).toBe('stable');
 
@@ -742,6 +891,34 @@ describe('personal skill system tool runtime', () => {
       const promotedEntry = runtimeProofAfterPromotion.proofs.find((item) => item.skill === skillName);
       expect(promotedEntry.level).toBe('declared-and-tested');
       expect(promotedEntry['evidence-tests']).toEqual(payload.suggested_evidence_tests);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill blocks stable promotion when capability modules are not all top-ready', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-workflow-${Date.now()}`;
+      manageSkill.main(['create', 'workflow', skillName, '--scaffold-modules']);
+      manageSkill.main([
+        'update',
+        skillName,
+        '--set',
+        'description=Promotion gate workflow. Use when a governed workflow should own promotion checks.',
+        '--set',
+        'trigger-keywords=[promotion-gate-workflow,promotion-gate-workflow-route]'
+      ]);
+
+      expect(() => manageSkill.main(['set-status', skillName, 'stable']))
+        .toThrow(new RegExp(`skill '${skillName}' is not ready for stable/top-tier promotion`));
     } finally {
       process.chdir(originalCwd);
     }

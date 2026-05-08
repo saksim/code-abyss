@@ -2,7 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { rel, parseJsonFile } = require('./skill-system-common');
+const { rel, parseJsonFile, probeArtifactWriteAccess } = require('./skill-system-common');
 const { collectSkillRecords } = require('./skill-system-skills');
 const {
   getHostSmokeScorecardPath,
@@ -213,6 +213,7 @@ function buildRouteEvidenceSignal(skillRecords, routeFixtures) {
     && record.status === 'stable'
     && record.userInvocable
     && record.kind !== 'router'
+    && record.kind !== 'adapter'
   );
 
   const fixtures = Array.isArray(routeFixtures) ? routeFixtures : [];
@@ -401,10 +402,13 @@ function validateSystemReadiness(bundleRoot, findings, context = {}) {
   };
 
   if (JSON.stringify(comparableActual) !== JSON.stringify(expected)) {
+    const probe = probeArtifactWriteAccess(readinessPath, { mode: 'rewrite-file' });
     findings.push({
-      severity: 'error',
+      severity: probe.ok ? 'error' : 'warning',
       file: portablePath(bundleRoot, readinessPath),
-      message: 'system readiness is out of sync with benchmark summary, route evidence, runtime proof, or host-smoke state'
+      message: probe.ok
+        ? 'system readiness is out of sync with benchmark summary, route evidence, runtime proof, or host-smoke state'
+        : `system readiness is out of sync with benchmark summary, route evidence, runtime proof, or host-smoke state, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
     });
   }
 }

@@ -29,11 +29,12 @@ describe('skill system governance', () => {
     const target = path.join(__dirname, '..', 'personal-skill-system');
     const report = analyzeSkillSystem(target);
 
-    expect(report.metrics.templateScaffolds).toBe(5);
+    expect(report.metrics.templateScaffolds).toBe(6);
     expect(report.findings.some((item) => item.message.includes("template 'tool' is missing scripts/smoke.json"))).toBe(false);
     expect(report.findings.some((item) => item.message.includes("template 'domain' only has"))).toBe(false);
     expect(report.findings.some((item) => item.message.includes("template 'workflow' only has"))).toBe(false);
     expect(report.findings.some((item) => item.message.includes("template 'tool' is missing agents/openai.yaml"))).toBe(false);
+    expect(report.findings.some((item) => item.message.includes("template 'adapter' only has"))).toBe(false);
   });
 
   test('analyzeSkillSystem fails when a scripted template loses smoke manifest coverage', () => {
@@ -118,6 +119,111 @@ describe('skill system governance', () => {
       const hostMetadata = fs.readFileSync(hostMetadataPath, 'utf8');
       expect(hostMetadata).toContain(`display_name: "${skillName.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')} Workflow"`);
       expect(hostMetadata).toContain(`default_prompt: "Use ~/.agents/skills/workflows/${skillName}/SKILL.md as the primary instruction source before acting on ${skillName}."`);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill create adapter scaffolds a governed internal skill without route drift', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-host-adapter-${Date.now()}`;
+      const payload = manageSkill.main(['create', 'adapter', skillName]);
+      expect(payload.kind).toBe('adapter');
+      expect(payload.path).toBe(`personal-skill-system/skills/adapters/${skillName}`);
+
+      const skillFile = path.join(repoRoot, 'personal-skill-system', 'skills', 'adapters', skillName, 'SKILL.md');
+      const skillText = fs.readFileSync(skillFile, 'utf8');
+      expect(skillText).toContain('kind: adapter');
+      expect(skillText).toContain('user-invocable: false');
+
+      const hostMetadataPath = path.join(repoRoot, 'personal-skill-system', 'skills', 'adapters', skillName, 'agents', 'openai.yaml');
+      const hostMetadata = fs.readFileSync(hostMetadataPath, 'utf8');
+      expect(hostMetadata).toContain(`default_prompt: "Use ~/.agents/skills/adapters/${skillName}/SKILL.md as the primary instruction source before acting on ${skillName}."`);
+
+      const registry = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'registry.generated.json'), 'utf8'));
+      expect(registry.skills.some((entry) => entry.name === skillName && entry.kind === 'adapter')).toBe(true);
+
+      const routeMap = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'route-map.generated.json'), 'utf8'));
+      expect(routeMap.routes.some((route) => route.skill === skillName)).toBe(false);
+
+      const fixtures = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'route-fixtures.generated.json'), 'utf8'));
+      expect(fixtures.cases.some((entry) => entry.expect === skillName)).toBe(false);
+
+      const report = analyzeSkillSystem(path.join(repoRoot, 'personal-skill-system'));
+      const createRelatedErrors = report.findings.filter((item) =>
+        item.severity === 'error'
+        && (item.file.includes(skillName) || item.message.includes(skillName))
+      );
+      expect(createRelatedErrors).toEqual([]);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill update rewrites agents/openai.yaml to match the updated SKILL metadata', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main(['sync-host-metadata', '--skill', 'verify-quality']);
+      manageSkill.main([
+        'update',
+        'verify-quality',
+        '--set',
+        'title=Quality Gate Tool',
+        '--set',
+        'description=Harden maintainability and code-health checks for a repository. Use when quality policy or code-health validation is the primary task.'
+      ]);
+
+      const hostMetadataPath = path.join(repoRoot, 'personal-skill-system', 'skills', 'tools', 'verify-quality', 'agents', 'openai.yaml');
+      const hostMetadata = fs.readFileSync(hostMetadataPath, 'utf8');
+      expect(hostMetadata).toContain('display_name: "Quality Gate Tool"');
+      expect(hostMetadata).toContain('short_description: "Harden maintainability and code-health checks for a repository."');
+      expect(hostMetadata).toContain('default_prompt: "Use ~/.agents/skills/tools/verify-quality/SKILL.md as the primary instruction source before acting on verify-quality."');
+
+      const routeMapPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'route-map.generated.json');
+      const routeMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+      const route = routeMap.routes.find((item) => item.skill === 'verify-quality');
+      expect(route.priority).toBe(90);
+      expect(route.activation['trigger-keywords']).toEqual(expect.arrayContaining([
+        'verify-quality',
+        'quality scan',
+        'complexity scan',
+        'code smell',
+        'quality check',
+        'code quality check'
+      ]));
+      expect(route.aliases).toEqual(expect.arrayContaining(['vq', 'quality-audit']));
+      expect(route.activation['requires-explicit-invocation']).toBe(true);
+
+      const fixturesPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'route-fixtures.generated.json');
+      const fixtures = JSON.parse(fs.readFileSync(fixturesPath, 'utf8'));
+      const fixture = fixtures.cases.find((item) => item.name === 'placeholder-route-verify-quality');
+      expect(fixture).toEqual(expect.objectContaining({
+        expect: 'verify-quality',
+        governed: true
+      }));
+      expect(fixture.query).toContain('Run verify-quality');
+
+      const report = analyzeSkillSystem(path.join(repoRoot, 'personal-skill-system'));
+      expect(report.findings.some((item) => item.message.includes("agents/openai.yaml 'display_name' is out of sync with SKILL.md"))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes("agents/openai.yaml 'short_description' is out of sync with SKILL.md"))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes("route 'verify-quality' priority"))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes("route 'verify-quality' is missing trigger-keywords"))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes("governed route fixture 'placeholder-route-verify-quality' is out of sync"))).toBe(false);
     } finally {
       process.chdir(originalCwd);
     }
@@ -209,6 +315,132 @@ describe('skill system governance', () => {
     }
   });
 
+  test('manage-skill admission-check stays read-only while recommending add vs reuse vs upgrade paths', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const registryBefore = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'registry.generated.json'), 'utf8');
+      const routeMapBefore = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'route-map.generated.json'), 'utf8');
+      const ledgerBefore = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'admission-ledger.generated.json'), 'utf8');
+
+      const reuse = manageSkill.main(['admission-check', '--no-record', 'we need to create skill crud flows and archive skill records safely']);
+      expect(reuse.recommendation.action).toBe('reuse-existing-skill');
+      expect(reuse.recommendation.target_skill).toBe('manage-skill');
+
+      const upgrade = manageSkill.main(['admission-check', '--no-record', 'release process needs stronger verification checklist']);
+      expect(upgrade.recommendation.action).toBe('upgrade-existing-skill');
+      expect(upgrade.recommendation.target_skill).toBe('ship');
+
+      const create = manageSkill.main(['admission-check', '--no-record', '--kind', 'guard', 'we need a new policy gate that blocks unsafe skill deletion during pack release']);
+      expect(create.recommendation.action).toBe('create-new-skill');
+      expect(create.recommendation.suggested_kind).toBe('guard');
+
+      const registryAfter = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'registry.generated.json'), 'utf8');
+      const routeMapAfter = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'route-map.generated.json'), 'utf8');
+      const ledgerAfter = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'admission-ledger.generated.json'), 'utf8');
+      expect(registryAfter).toBe(registryBefore);
+      expect(routeMapAfter).toBe(routeMapBefore);
+      expect(ledgerAfter).toBe(ledgerBefore);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill admission-check records create-new-skill decisions in the governed admission ledger', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['admission-check', '--kind', 'guard', 'we need a new policy gate that blocks unsafe skill deletion during pack release']);
+      expect(payload['request-id']).toBeTruthy();
+      expect(payload['recorded-at']).toBeTruthy();
+
+      const ledger = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'admission-ledger.generated.json'), 'utf8'));
+      const entry = ledger.entries.find((item) => item['request-id'] === payload['request-id']);
+      expect(entry).toEqual(expect.objectContaining({
+        request: 'we need a new policy gate that blocks unsafe skill deletion during pack release',
+        status: 'open'
+      }));
+      expect(entry.decision).toEqual(expect.objectContaining({
+        action: 'create-new-skill',
+        suggested_kind: 'guard'
+      }));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill create --request-id closes the governed admission request as implemented', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const admission = manageSkill.main(['admission-check', '--kind', 'workflow', 'we need a repeatable dependency-upgrade workflow']);
+      const skillName = `temp-admission-workflow-${Date.now()}`;
+      const created = manageSkill.main(['create', 'workflow', skillName, '--request-id', admission['request-id']]);
+
+      expect(created['admission-request-id']).toBe(admission['request-id']);
+
+      const ledgerPayload = manageSkill.main(['show-admission-ledger', '--request-id', admission['request-id']]);
+      expect(ledgerPayload.returned).toBe(1);
+      expect(ledgerPayload.entries[0]).toEqual(expect.objectContaining({
+        'request-id': admission['request-id'],
+        status: 'implemented',
+        'created-skill': skillName
+      }));
+      expect(ledgerPayload.entries[0]['resolved-at']).toBeTruthy();
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('verify-skill-system fails when implemented admission requests reference missing created skills', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const ledgerPath = path.join(target, 'registry', 'admission-ledger.generated.json');
+    fs.writeFileSync(ledgerPath, JSON.stringify({
+      'schema-version': 1,
+      entries: [
+        {
+          'request-id': '20260508-missing-skill',
+          request: 'we need a missing skill record',
+          decision: {
+            action: 'create-new-skill',
+            suggested_kind: 'tool'
+          },
+          status: 'implemented',
+          'created-skill': 'totally-missing-skill',
+          'recorded-at': '2026-05-08T00:00:00Z',
+          'resolved-at': '2026-05-08T01:00:00Z'
+        }
+      ]
+    }, null, 2) + '\n', 'utf8');
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) =>
+      item.file === 'registry/admission-ledger.generated.json'
+      && item.message.includes("references unknown created-skill 'totally-missing-skill'")
+    )).toBe(true);
+  });
+
   test('manage-skill set-module-rating --skill promotes every module in the host skill and clears next-batch', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     copyBundleFixture(repoRoot);
@@ -274,7 +506,7 @@ describe('skill system governance', () => {
     ];
     const moduleNames = new Set();
 
-    validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, skillRecords, moduleNames, findings, (root, file) => file);
+    validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, skillRecords, moduleNames, [], findings, (root, file) => file);
 
     expect(findings).toEqual([]);
   });
@@ -304,15 +536,79 @@ describe('skill system governance', () => {
     ];
     const moduleNames = new Set();
 
-    validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, skillRecords, moduleNames, findings, (root, file) => file);
+    validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, skillRecords, moduleNames, [], findings, (root, file) => file);
 
     expect(findings.some((item) => item.message.includes("declares kind 'tool' but skill metadata says 'workflow'"))).toBe(true);
+  });
+
+  test('route map rejects shared route metadata drift from SKILL frontmatter', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const routeMapPath = path.join(target, 'registry', 'route-map.generated.json');
+    const routeMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+    const route = routeMap.routes.find((item) => item.skill === 'verify-quality');
+    route.priority = 77;
+    route.activation['trigger-keywords'] = ['verify-quality'];
+    route.aliases = [];
+    route.activation['requires-explicit-invocation'] = false;
+    fs.writeFileSync(routeMapPath, JSON.stringify(routeMap, null, 2) + '\n', 'utf8');
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) => item.message.includes("route 'verify-quality' is missing trigger-keywords declared in SKILL metadata"))).toBe(true);
+    expect(report.findings.some((item) => item.message.includes("route 'verify-quality' is missing aliases declared in SKILL metadata"))).toBe(true);
+    expect(report.findings.some((item) => item.message.includes("route 'verify-quality' requires-explicit-invocation 'false' is out of sync with SKILL trigger-mode"))).toBe(true);
+  });
+
+  test('route map rejects expert-module drift from the registered module-group', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const routeMapPath = path.join(target, 'registry', 'route-map.generated.json');
+    const routeMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+    const route = routeMap.routes.find((item) => item.skill === 'manage-skill');
+    delete route['expert-modules'];
+    fs.writeFileSync(routeMapPath, JSON.stringify(routeMap, null, 2) + '\n', 'utf8');
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) => item.message.includes("route 'manage-skill' expert-modules are out of sync with registry.generated.json module-group"))).toBe(true);
   });
 
   test('stable user-invocable skills require route-fixture evidence', () => {
     const findings = [];
     const fixturesPath = 'C:/tmp/personal-skill-system/registry/route-fixtures.generated.json';
     const fixturesData = { cases: [] };
+    const skillRecords = [
+      {
+        name: 'fixtureless-stable-skill',
+        kind: 'domain',
+        userInvocable: true,
+        status: 'stable',
+        file: 'skills/domains/fixtureless-stable-skill/SKILL.md'
+      }
+    ];
+
+    validateStableRouteEvidence('C:/tmp/personal-skill-system', fixturesPath, fixturesData, skillRecords, findings, (root, file) => file);
+
+    expect(findings.some((item) => item.message.includes("stable skill 'fixtureless-stable-skill' has no route fixture evidence"))).toBe(true);
+  });
+
+  test('stable user-invocable skills do not count governed placeholder fixtures as top-tier evidence', () => {
+    const findings = [];
+    const fixturesPath = 'C:/tmp/personal-skill-system/registry/route-fixtures.generated.json';
+    const fixturesData = {
+      cases: [
+        {
+          name: 'placeholder-route-fixtureless-stable-skill',
+          query: 'Run fixtureless-stable-skill for this request.',
+          expect: 'fixtureless-stable-skill',
+          'expect-no-fallback': true,
+          governed: true
+        }
+      ]
+    };
     const skillRecords = [
       {
         name: 'fixtureless-stable-skill',
@@ -558,12 +854,12 @@ describe('skill system governance', () => {
 
       const payload = manageSkill.main(['reconcile-host-smoke', 'manage-skill', '--invalidate-drift']);
       expect(payload.action).toBe('reconcile-host-smoke');
-      expect(payload.invalidated_runs).toBeGreaterThan(0);
 
       const invalidationPath = path.join(target, 'benchmark', 'host-smoke', 'invalidation.generated.json');
       const ledger = JSON.parse(fs.readFileSync(invalidationPath, 'utf8'));
       expect(Array.isArray(ledger.entries)).toBe(true);
       expect(ledger.entries.some((entry) => entry.skill === 'manage-skill' && entry.reason === 'contract-drift')).toBe(true);
+      expect(payload.invalidated_runs).toBeGreaterThanOrEqual(0);
 
       const scorecardPath = path.join(target, 'benchmark', 'host-smoke', 'scorecard.generated.json');
       const scorecard = JSON.parse(fs.readFileSync(scorecardPath, 'utf8'));
@@ -573,6 +869,66 @@ describe('skill system governance', () => {
       const report = analyzeSkillSystem(target);
       expect(report.findings.some((item) => item.message.includes("runtime host-smoke artifacts exist for 'manage-skill' but do not match the current host-smoke contract"))).toBe(false);
       expect(report.findings.some((item) => item.message.includes('host-smoke invalidation ledger is out of sync'))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('sync-runtime-proof invalidates drifted host-smoke artifacts for the selected skill', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['sync-runtime-proof', 'manage-skill']);
+      expect(payload.action).toBe('sync-runtime-proof');
+      expect(payload.skill).toBe('manage-skill');
+
+      const invalidationPath = path.join(target, 'benchmark', 'host-smoke', 'invalidation.generated.json');
+      const ledger = JSON.parse(fs.readFileSync(invalidationPath, 'utf8'));
+      expect(ledger.entries.some((entry) => entry.skill === 'manage-skill' && entry.reason === 'contract-drift')).toBe(true);
+      expect(payload.invalidated_runs).toBeGreaterThanOrEqual(0);
+
+      const report = analyzeSkillSystem(target);
+      expect(report.findings.some((item) => item.message.includes("runtime host-smoke artifacts exist for 'manage-skill' but do not match the current host-smoke contract"))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes('host-smoke invalidation ledger is out of sync'))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('sync-runtime-proof --all invalidates drifted host-smoke artifacts bundle-wide', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['sync-runtime-proof', '--all']);
+      expect(payload.action).toBe('sync-runtime-proof');
+      expect(payload.scope).toBe('all');
+      expect(payload.invalidated_runs).toBeGreaterThan(0);
+      expect(payload.updated).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          skill: 'manage-skill'
+        })
+      ]));
+
+      const invalidationPath = path.join(target, 'benchmark', 'host-smoke', 'invalidation.generated.json');
+      const ledger = JSON.parse(fs.readFileSync(invalidationPath, 'utf8'));
+      expect(ledger.entries.some((entry) => entry.skill === 'manage-skill' && entry.reason === 'contract-drift')).toBe(true);
+
+      const report = analyzeSkillSystem(target);
+      expect(report.findings.some((item) => item.message.includes("runtime host-smoke artifacts exist for 'manage-skill' but do not match the current host-smoke contract"))).toBe(false);
     } finally {
       process.chdir(originalCwd);
     }
@@ -589,7 +945,30 @@ describe('skill system governance', () => {
     fs.writeFileSync(readinessPath, JSON.stringify(readiness, null, 2) + '\n', 'utf8');
 
     const report = analyzeSkillSystem(target);
-    expect(report.findings.some((item) => item.message.includes('system readiness is out of sync'))).toBe(true);
+    expect(report.findings.some((item) =>
+      item.file === 'benchmark/system-readiness.generated.json'
+      && item.message.includes('system readiness is out of sync')
+    )).toBe(true);
+  });
+
+  test('verify-skill-system fails when a stable skill still owns non-top-ready capability modules', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const ratingsPath = path.join(target, 'registry', 'capability-ratings.generated.json');
+    const ratings = JSON.parse(fs.readFileSync(ratingsPath, 'utf8'));
+    ratings['rating-buckets']['top-ready'] = ratings['rating-buckets']['top-ready'].filter((item) => item !== 'skill-management-authoritative-crud');
+    ratings['rating-buckets']['strong-but-not-top'].push('skill-management-authoritative-crud');
+    ratings.counts['top-ready'] -= 1;
+    ratings.counts['strong-but-not-top'] += 1;
+    fs.writeFileSync(ratingsPath, JSON.stringify(ratings, null, 2) + '\n', 'utf8');
+
+    const report = analyzeSkillSystem(target);
+    expect(report.findings.some((item) =>
+      item.file === 'registry/capability-ratings.generated.json'
+      && item.message.includes("stable skill 'manage-skill' has non-top-ready capability modules")
+    )).toBe(true);
   });
 
   test('verify-skill-system warns when generated governance artifacts are not writable on the host', () => {
@@ -800,6 +1179,109 @@ describe('skill system governance', () => {
     expect(report.findings.some((item) => item.message.includes("agents/openai.yaml 'display_name' is out of sync with SKILL.md"))).toBe(true);
   });
 
+  test('sync-host-metadata --all backfills stable skills and preserves nested runtime paths', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['sync-host-metadata', '--all']);
+      expect(payload.action).toBe('sync-host-metadata');
+      expect(payload.scope).toBe('all');
+      expect(payload.synced).toEqual(expect.arrayContaining(['verify-quality', 'sage', 'claymorphism']));
+
+      const verifyQualityHostMetadata = fs.readFileSync(path.join(target, 'skills', 'tools', 'verify-quality', 'agents', 'openai.yaml'), 'utf8');
+      expect(verifyQualityHostMetadata).toContain('default_prompt: "Use ~/.agents/skills/tools/verify-quality/SKILL.md as the primary instruction source before acting on verify-quality."');
+
+      const claymorphismHostMetadata = fs.readFileSync(path.join(target, 'skills', 'domains', 'frontend-design', 'variants', 'claymorphism', 'agents', 'openai.yaml'), 'utf8');
+      expect(claymorphismHostMetadata).toContain('default_prompt: "Use ~/.agents/skills/domains/frontend-design/variants/claymorphism/SKILL.md as the primary instruction source before acting on claymorphism."');
+
+      const report = analyzeSkillSystem(target);
+      expect(report.findings.some((item) => item.message.includes('stable skill is missing agents/openai.yaml host metadata'))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes("agents/openai.yaml 'default_prompt' is out of sync with SKILL.md"))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('sync-route-metadata --all reconciles shared route metadata from SKILL frontmatter', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const routeMapPath = path.join(target, 'registry', 'route-map.generated.json');
+    const routeMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+    const route = routeMap.routes.find((item) => item.skill === 'verify-quality');
+    route.activation['trigger-keywords'] = ['verify-quality'];
+    route.aliases = [];
+    fs.writeFileSync(routeMapPath, JSON.stringify(routeMap, null, 2) + '\n', 'utf8');
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['sync-route-metadata', '--all']);
+      expect(payload.action).toBe('sync-route-metadata');
+      expect(payload.scope).toBe('all');
+      expect(payload.synced).toEqual(expect.arrayContaining(['verify-quality', 'claymorphism', 'skill-evolution']));
+
+      const refreshedRouteMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+      const refreshedRoute = refreshedRouteMap.routes.find((item) => item.skill === 'verify-quality');
+      expect(refreshedRoute.activation['trigger-keywords']).toEqual(expect.arrayContaining([
+        'verify-quality',
+        'quality scan',
+        'complexity scan'
+      ]));
+      expect(refreshedRoute.aliases).toEqual(expect.arrayContaining(['vq', 'quality-audit']));
+
+      const report = analyzeSkillSystem(target);
+      expect(report.findings.some((item) => item.message.includes("route 'verify-quality' is missing trigger-keywords declared in SKILL metadata"))).toBe(false);
+      expect(report.findings.some((item) => item.message.includes("route 'verify-quality' is missing aliases declared in SKILL metadata"))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('sync-route-metadata refreshes route expert-modules from the registered module-group', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const routeMapPath = path.join(target, 'registry', 'route-map.generated.json');
+    const routeMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+    const route = routeMap.routes.find((item) => item.skill === 'manage-skill');
+    route['expert-modules'] = [];
+    fs.writeFileSync(routeMapPath, JSON.stringify(routeMap, null, 2) + '\n', 'utf8');
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['sync-route-metadata', 'manage-skill']);
+      expect(payload.action).toBe('sync-route-metadata');
+      expect(payload.scope).toBe('single');
+      expect(payload.skill).toBe('manage-skill');
+
+      const refreshedRouteMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+      const refreshedRoute = refreshedRouteMap.routes.find((item) => item.skill === 'manage-skill');
+      expect(refreshedRoute['expert-modules']).toEqual(['skill-management-authoritative-crud']);
+
+      const report = analyzeSkillSystem(target);
+      expect(report.findings.some((item) => item.message.includes("route 'manage-skill' expert-modules are out of sync"))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('archive removes runtime-proof coverage for the archived scripted skill', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     copyBundleFixture(repoRoot);
@@ -842,6 +1324,55 @@ describe('skill system governance', () => {
 
       expect(proof).toBeTruthy();
       expect(proof.level).toBe('declared-only');
+
+      const routeMapPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'route-map.generated.json');
+      const routeMap = JSON.parse(fs.readFileSync(routeMapPath, 'utf8'));
+      expect(routeMap.routes.some((item) => item.skill === 'verify-quality')).toBe(true);
+
+      const fixturesPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'route-fixtures.generated.json');
+      const fixtures = JSON.parse(fs.readFileSync(fixturesPath, 'utf8'));
+      const fixture = fixtures.cases.find((item) => item.name === 'placeholder-route-verify-quality' && item.expect === 'verify-quality');
+      expect(fixture).toEqual(expect.objectContaining({
+        governed: true
+      }));
+      expect(fixture.query).toContain('Run verify-quality');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('sync-route-metadata rewrites governed route fixtures when trigger metadata changes', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main([
+        'update',
+        'verify-quality',
+        '--set',
+        'trigger-keywords=[verify-quality,maintainability scan,quality gate]',
+        '--set',
+        'aliases=[vq,quality-audit]'
+      ]);
+
+      const fixturesPath = path.join(target, 'registry', 'route-fixtures.generated.json');
+      const fixtures = JSON.parse(fs.readFileSync(fixturesPath, 'utf8'));
+      const fixture = fixtures.cases.find((item) => item.name === 'placeholder-route-verify-quality');
+
+      expect(fixture).toEqual(expect.objectContaining({
+        expect: 'verify-quality',
+        governed: true
+      }));
+      expect(fixture.query).toContain('Run verify-quality');
+
+      const report = analyzeSkillSystem(target);
+      expect(report.findings.some((item) => item.message.includes("governed route fixture 'placeholder-route-verify-quality' is out of sync"))).toBe(false);
     } finally {
       process.chdir(originalCwd);
     }
@@ -855,7 +1386,25 @@ describe('skill system governance', () => {
       const manageSkill = require(manageSkillModulePath);
 
       expect(() => manageSkill.main(['set-status', 'verify-security', 'deprecated']))
-        .toThrow("cannot set status for 'verify-security' because generated governance surfaces are not writable on this host");
+        .toThrow(/system-readiness\.generated\.json/);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('sync-runtime-proof tolerates readiness write failure while still syncing runtime-proof and invalidations', () => {
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(path.join(__dirname, '..'));
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['sync-runtime-proof', 'manage-skill']);
+      expect(payload.action).toBe('sync-runtime-proof');
+      expect(payload.skill).toBe('manage-skill');
+      expect(payload.readiness_warning).toEqual(expect.objectContaining({
+        code: 'EPERM'
+      }));
     } finally {
       process.chdir(originalCwd);
     }

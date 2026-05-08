@@ -1,0 +1,3 @@
+display_name: "Pre-Merge Gate"
+short_description: "Merge and release gate that consumes verification results before a risky change is landed."
+default_prompt: "Use ~/.agents/skills/guards/pre-merge-gate/SKILL.md as the primary instruction source before acting on pre-merge-gate."

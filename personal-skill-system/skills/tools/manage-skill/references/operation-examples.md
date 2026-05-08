@@ -1,5 +1,29 @@
 # Operation Examples
 
+Check whether a proposed capability should become a new skill:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check "we need a repeatable workflow for upgrading the skill system itself"
+```
+
+Check admission with an explicit target kind:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --kind tool "we need a validator for stale skill metadata and route drift"
+```
+
+Inspect recorded admission decisions:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-admission-ledger --status open
+```
+
+Resolve an admission request after a governed skill create:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js resolve-admission 20260508-skill-gap --status implemented --created-skill reliability-governance
+```
+
 Create a workflow:
 
 ```bash
@@ -18,6 +42,12 @@ Show a skill:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js show review
 ```
 
+Check whether a skill is genuinely ready for top-tier / `stable` promotion:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier review
+```
+
 Update frontmatter fields:
 
 ```bash
@@ -29,6 +59,12 @@ Move a skill through its lifecycle with generated governance sync:
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status review stable
 ```
+
+Before moving to `stable`, make sure:
+
+- `assess-top-tier` reports `ready: true`
+- every capability module owned by the skill is already `top-ready`
+- scripted stable skills already have runtime-proof evidence tests and a valid `scripts/smoke.json`
 
 Promote one capability module by one governance bucket:
 
