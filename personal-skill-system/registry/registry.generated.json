@@ -77,6 +77,11 @@
       "path": "skills/domains/frontend-design/variants/glassmorphism/SKILL.md"
     },
     {
+      "name": "host-governance",
+      "kind": "domain",
+      "path": "skills/domains/host-governance/SKILL.md"
+    },
+    {
       "name": "infrastructure",
       "kind": "domain",
       "path": "skills/domains/infrastructure/SKILL.md"
@@ -125,6 +130,11 @@
       "name": "pre-merge-gate",
       "kind": "guard",
       "path": "skills/guards/pre-merge-gate/SKILL.md"
+    },
+    {
+      "name": "reliability-governance",
+      "kind": "domain",
+      "path": "skills/domains/reliability-governance/SKILL.md"
     },
     {
       "name": "review",
@@ -563,6 +573,27 @@
       ]
     },
     {
+      "host-skill": "host-governance",
+      "host-kind": "domain",
+      "modules": [
+        {
+          "id": "host-governance-decision-rules",
+          "path": "skills/domains/host-governance/references/decision-rules.md",
+          "capability": "Define fail-vs-degrade-vs-reroute judgement for sandbox, permission, and host capability limits."
+        },
+        {
+          "id": "host-governance-deep-reference-index",
+          "path": "skills/domains/host-governance/references/deep-reference-index.md",
+          "capability": "Map the deeper adapter, runtime-proof, portability, and governed mutation surfaces behind host constraints."
+        },
+        {
+          "id": "host-governance-boundaries-and-escalations",
+          "path": "skills/domains/host-governance/references/boundaries-and-escalations.md",
+          "capability": "Declare when host constraints belong here and when they should hand off to adapters, manage-skill, verify-skill-system, architecture, or devops."
+        }
+      ]
+    },
+    {
       "host-skill": "mobile",
       "host-kind": "domain",
       "modules": [
@@ -793,6 +824,27 @@
           "id": "skill-management-authoritative-crud",
           "path": "skills/tools/manage-skill/references/authoritative-skill-rules.md",
           "capability": "Keep all core skill create/read/update/delete operations inside the authoritative personal-skill-system/skills tree."
+        }
+      ]
+    },
+    {
+      "host-skill": "reliability-governance",
+      "host-kind": "domain",
+      "modules": [
+        {
+          "id": "reliability-governance-decision-rules",
+          "path": "skills/domains/reliability-governance/references/decision-rules.md",
+          "capability": "Capture the domain's default judgement rules, tradeoffs, and anti-pattern boundaries."
+        },
+        {
+          "id": "reliability-governance-deep-reference-index",
+          "path": "skills/domains/reliability-governance/references/deep-reference-index.md",
+          "capability": "Map the deeper subtopics and expansion points behind the domain surface."
+        },
+        {
+          "id": "reliability-governance-boundaries-and-escalations",
+          "path": "skills/domains/reliability-governance/references/boundaries-and-escalations.md",
+          "capability": "Declare abstention rules, edge conditions, and handoff triggers for adjacent skills."
         }
       ]
     }

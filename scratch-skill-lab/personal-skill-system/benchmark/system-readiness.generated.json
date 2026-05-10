@@ -1,0 +1,193 @@
+{
+  "schema-version": 1,
+  "generated-at": "2026-05-09T08:12:53.438Z",
+  "sources": {
+    "benchmark-summary": "benchmark/summary.generated.json",
+    "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",
+    "runtime-proof": "registry/runtime-proof.generated.json",
+    "route-fixtures": "registry/route-fixtures.generated.json",
+    "review-queue": "registry/review-queue.generated.json",
+    "skill-opportunity-queue": "registry/skill-opportunity-queue.generated.json",
+    "skill-investment-backlog": "registry/skill-investment-backlog.generated.json"
+  },
+  "status": "attention",
+  "signals": {
+    "benchmark": {
+      "status": "ready",
+      "file": "benchmark/summary.generated.json",
+      "summary_status": "ok",
+      "run_count": 1
+    },
+    "route-evidence": {
+      "status": "ready",
+      "stable_skills": 30,
+      "covered_skills": 30
+    },
+    "runtime-proof": {
+      "status": "ready",
+      "live_scripted_skills": 9,
+      "runtime_proof_entries": 9
+    },
+    "host-smoke": {
+      "status": "attention",
+      "host_smoke_capable_skills": 9,
+      "satisfied": 1,
+      "passing": 7,
+      "missing": 1,
+      "failing": 1,
+      "stale": 0,
+      "contract_drift": 0,
+      "policy": {
+        "tiers": {
+          "critical": 3,
+          "standard": 6,
+          "experimental": 0
+        },
+        "statuses": {
+          "ready": 7,
+          "attention": 2,
+          "blocked": 0
+        }
+      }
+    },
+    "review-cadence": {
+      "status": "ready",
+      "governed-skills": 34,
+      "overdue": 0,
+      "due-soon": 0,
+      "scheduled": 34,
+      "missing-metadata": 0,
+      "stable-overdue": 0,
+      "stable-missing-metadata": 0
+    },
+    "investment-backlog": {
+      "status": "attention",
+      "total": 3,
+      "critical": 0,
+      "high": 3,
+      "normal": 0
+    }
+  },
+  "host-smoke-policy": [
+    {
+      "skill": "gen-docs",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "manage-skill",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "attention",
+      "level": "declared-and-tested",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "missing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "pre-commit-gate",
+      "kind": "guard",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "pre-merge-gate",
+      "kind": "guard",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-change",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-module",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-quality",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "ready",
+      "level": "host-smoked",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "passing",
+      "governance-status": "satisfied"
+    },
+    {
+      "skill": "verify-security",
+      "kind": "tool",
+      "tier": "standard",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "passing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "verify-skill-system",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "attention",
+      "level": "declared-and-tested",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "failing",
+      "governance-status": "not-host-smoked"
+    }
+  ],
+  "summary": {
+    "live-scripted-skills": 9,
+    "stable-user-invocable-skills": 30,
+    "route-evidence-covered-skills": 30,
+    "runtime-proof-entries": 9,
+    "host-smoke-capable-skills": 9,
+    "review-governed-skills": 34,
+    "review-overdue-skills": 0,
+    "review-due-soon-skills": 0,
+    "review-missing-metadata-skills": 0,
+    "investment-backlog-items": 3,
+    "investment-backlog-critical": 0,
+    "investment-backlog-high": 3
+  },
+  "notes": [
+    "Generated from benchmark summary, route fixtures, runtime proof registry, host-smoke scorecard, review queue, skill opportunity queue, and skill investment backlog.",
+    "Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter."
+  ]
+}

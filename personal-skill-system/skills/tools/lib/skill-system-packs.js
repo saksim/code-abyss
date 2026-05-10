@@ -6,6 +6,18 @@ const { parseJsonFile } = require('./skill-system-common');
 
 const EXPECTED_PACK_MODES = new Set(['copy', 'overlay']);
 const RESERVED_EMPTY_PACKS = new Set(['project-overlay', 'work-private']);
+const PERSONAL_CORE_REQUIRED_INCLUDES = [
+  'docs',
+  'registry',
+  'skills/routers',
+  'skills/domains',
+  'skills/workflows',
+  'skills/tools',
+  'skills/guards',
+  'skills/adapters',
+  'templates',
+  'benchmark'
+];
 
 function analyzePackManifests(targetDir, findings, rel) {
   const packsRoot = path.join(targetDir, 'packs');
@@ -54,10 +66,9 @@ function analyzePackManifests(targetDir, findings, rel) {
     }
 
     if (dir.name === 'personal-core') {
-      const required = ['skills/routers', 'skills/domains', 'skills/workflows', 'skills/tools', 'skills/guards', 'skills/adapters'];
-      for (const requiredInclude of required) {
+      for (const requiredInclude of PERSONAL_CORE_REQUIRED_INCLUDES) {
         if (!includes.includes(requiredInclude)) {
-          findings.push({ severity: 'warning', file: rel(targetDir, manifestPath), message: `personal-core is missing expected include '${requiredInclude}'` });
+          findings.push({ severity: 'warning', file: rel(targetDir, manifestPath), message: `personal-core is missing required self-evolving include '${requiredInclude}'` });
         }
       }
     }
@@ -67,5 +78,6 @@ function analyzePackManifests(targetDir, findings, rel) {
 }
 
 module.exports = {
-  analyzePackManifests
+  analyzePackManifests,
+  PERSONAL_CORE_REQUIRED_INCLUDES
 };

@@ -40,16 +40,25 @@
     {
       "skill": "manage-skill",
       "kind": "tool",
-      "level": "declared-and-tested",
+      "level": "host-smoked",
       "contracts": [
         "`admission-check` evaluates proposed skill additions against the live route surface and existing governed skills so future growth is routed through one repeatable add/merge/upgrade decision path instead of ad-hoc judgement",
+        "`record-opportunity` creates a governed queue for future skills that do not yet deserve full admission, keeping long-horizon portfolio demand visible and structured instead of burying it in docs or chat history",
+        "`admission-check --opportunity-id` upgrades a governed future-skill opportunity into a traceable admission request, preserving the originating opportunity id and moving queue state forward without manual ledger patching",
+        "linked opportunity escalation also resolves whether the original demand should stay active, move to planned, or close as reuse/upgrade advice, so the opportunity queue and admission ledger cannot silently diverge",
+        "`evolution-check` evaluates existing-skill lifecycle moves against current routing, module depth, and top-tier blockers so promote/deprecate/archive/delete work is also routed through a repeatable governed decision path",
         "`assess-top-tier` turns \"this skill is top-tier enough\" into a governed read-only check instead of a hand-waved label by inspecting capability-module ratings and stable-surface blockers together",
         "`create` updates the authoritative skill tree and generated metadata together instead of leaving registry or route drift behind",
+        "`create` also records which canonical scaffold and template version seeded the new skill so future scaffold upgrades become governable drift instead of tribal knowledge",
+        "`sync-scaffold-lineage` upgrades pre-lineage historical skills into the same canonical scaffold tracking model as newly created skills without hand-editing every frontmatter block",
         "`create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new domain/workflow skills",
         "`set-module-rating` upgrades or downgrades registered capability modules through a governed path instead of hand-editing rating buckets, `next-batch`, or the mirrored ratings doc",
         "`set-status` updates lifecycle metadata through a governed path instead of allowing raw `status=` edits that can strand runtime-proof, ratings, or readiness artifacts",
         "`set-status stable` now reuses the same top-tier readiness gate as `assess-top-tier`, so \"stable\" cannot drift away from the skill system's claimed top-tier standard",
+        "`assess-top-tier` also treats expired stable review cadence as a real blocker instead of allowing stale `stable` claims to persist forever",
         "`archive` and `delete` remove active-route surfaces for the target skill, including route fixtures and ratings summary membership",
+        "`merge` turns a merge recommendation into an executable lifecycle move without inventing ad-hoc archive + ledger edits: the source skill is archived, active-route surfaces are removed, and the evolution ledger records which target inherited ownership",
+        "lifecycle mutations can also resolve recorded evolution requests so governance history follows the executed promote/deprecate/archive/delete action instead of staying as oral history",
         "`sync-host-metadata` keeps `agents/openai.yaml` governed from authoritative skill metadata instead of allowing host UI labels or default prompts to drift, including nested runtime paths such as variant skills",
         "`sync-route-metadata` keeps the shared route surface governed from authoritative frontmatter for trigger keywords, negative keywords, aliases, conflicts, auto-chain, supported hosts, and explicit-vs-auto routing mode while leaving richer route-only rationale/confidence/fallback tuning intact",
         "`sync-route-metadata` also keeps route `expert-modules` aligned with the capability modules registered for that skill so depth bindings do not drift after governance edits",
@@ -61,7 +70,12 @@
         "`run-host-smoke` executes the declared host-smoke contract and records append-only pass/fail evidence so `host-smoked` can be proven from artifacts instead of trust",
         "failed host-smoke executions preserve their artifacts and demote any now-invalid `host-smoked` level instead of leaving stale governance claims behind",
         "host-smoke contract and evidence changes also refresh a bundle-wide scorecard so system-level freshness and governance drift stay inspectable",
-        "`reconcile-host-smoke` invalidates drifted runtime host-smoke artifacts through a governed ledger instead of rewriting append-only run history and can chain directly into a rerun when fresh evidence is needed"
+        "`reconcile-host-smoke` invalidates drifted runtime host-smoke artifacts through a governed ledger instead of rewriting append-only run history and can chain directly into a rerun when fresh evidence is needed",
+        "`mark-reviewed` refreshes one skill's review metadata and the governed review queue together so long-lived top-tier skills can stay current without hand-editing queue artifacts",
+        "`show-investment-backlog` gives the bundle a first-class portfolio view for future skill additions, upgrades, deprecations, and template refreshes instead of relying on memory or stale roadmap docs",
+        "`create --opportunity-id` can close a governed future-skill opportunity at the same time as the concrete skill scaffold is created, so portfolio intent and shipped artifact stay linked",
+        "`create --defer-when-host-blocked` preserves the exact scaffold payload, host constraint, and rerun command in a governed pending scaffold registry instead of reducing blocked future-skill work to an opaque note",
+        "`materialize-pending-scaffold` reuses that governed payload on a writable host so deferred future-skill creation stays deterministic and audit-friendly"
       ],
       "evidence-tests": [
         "test/personal_skill_system_tools.test.js::manage-skill performs authoritative CRUD inside personal-skill-system only",
@@ -332,10 +346,11 @@
     {
       "skill": "verify-skill-system",
       "kind": "tool",
-      "level": "declared-and-tested",
+      "level": "host-smoked",
       "contracts": [
         "`node scripts/run.js --target ./personal-skill-system --json` returns a structured bundle-health report with findings and metrics",
-        "governance drift in registry, route fixtures, stable skill standards, runtime host-smoke evidence, or template integrity is reported as explicit findings"
+        "governance drift in registry, route fixtures, future opportunity queue, investment backlog, stable skill standards, runtime host-smoke evidence, host writeability, or template integrity is reported as explicit findings",
+        "`node scripts/run.js --target ./personal-skill-system --self-smoke --json` validates the tool on a temporary writable copy, so host-smoke can prove bundle-audit correctness even when the live host cannot rewrite every generated artifact in place"
       ],
       "evidence-tests": [
         "test/personal_skill_system_tools.test.js::analyzeSkillSystem passes on the portable bundle",
@@ -360,6 +375,7 @@
               "skills/tools/verify-skill-system/scripts/run.js",
               "--target",
               ".",
+              "--self-smoke",
               "--json"
             ],
             "expect": {

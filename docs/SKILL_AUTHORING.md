@@ -12,6 +12,32 @@ Use this document when you add, upgrade, deprecate, archive, or delete skills in
 
 It describes the real contracts enforced by the repository today, not a loose writing guide.
 
+## Single Charter
+
+Treat [`personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md`](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md) as the canonical charter.
+
+This file is the execution guide for satisfying that charter inside this repository.
+
+## First Classify The Work
+
+Before editing a skill, decide which path you are on:
+
+- `current-skill hardening`
+  The capability already exists and should be tightened, deepened, proven, or promoted.
+- `future-skill admission`
+  The capability does not yet exist clearly enough, or may deserve reuse instead of a new sibling.
+- `lifecycle retirement`
+  The capability should be deprecated, archived, merged, or deleted cleanly.
+
+Use the governed entry point that matches the path:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check <skill-name>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier <skill-name>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js record-opportunity --name <capability-name> --kind <kind>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --name <capability-name> --kind <kind>
+```
+
 ## Two Enforcement Layers
 
 Skill work in this repository is governed by two different checks.
@@ -165,11 +191,26 @@ For a current or future skill to count as top-tier, it should satisfy all of the
    - Tool and guard behavior has runtime tests when the blast radius justifies it.
    - Runtime-proof evidence points to real test cases, not placeholder claims.
 
+This repository treats "top-tier now" and "easy to evolve later" as one requirement, not two separate goals.
+
+- existing skills should harden through governed evolution and proof
+- future skills should enter through opportunity or admission flow before direct creation
+- removals should leave clean history, not silent disappearance
+
 ## Recommended Authoring Flow
 
 ### Add a new skill
 
-1. Use the canonical scaffold path:
+0. If the boundary is still fuzzy, record the demand before creating anything:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js record-opportunity --name <capability-name> --kind <domain|workflow|tool|guard|router|adapter>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --name <capability-name> --kind <domain|workflow|tool|guard|router|adapter>
+```
+
+Use `admission-check --opportunity-id <id>` when the future-skill demand already exists in the governed queue.
+
+1. Use the canonical scaffold path only after the boundary is sharp:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js create <kind> <skill-name>
@@ -276,6 +317,13 @@ This governed sync also refreshes route `expert-modules` from the skill's regist
 
 ### Upgrade an existing skill
 
+Start from governed diagnosis rather than prose-first editing:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check <skill-name>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier <skill-name>
+```
+
 Use this order:
 
 1. tighten route surface
@@ -288,6 +336,12 @@ Use this order:
 Do not promote a skill to `stable` if the only improvement is more prose.
 
 ### Deprecate or archive a skill
+
+Prefer governed lifecycle evaluation before mutating status:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check <skill-name>
+```
 
 1. mark lifecycle status
 2. remove or narrow active routing as appropriate
@@ -308,6 +362,7 @@ Delete only after archive is unnecessary and generated surfaces can be safely up
 
 - treating `SKILL.md` body as metadata instead of frontmatter
 - creating a broad public route for a thin or weak skill
+- creating a new sibling skill before checking whether an existing route should simply become deeper
 - hiding essential operating rules in external docs not copied into the bundle
 - adding new public skills instead of deepening references behind an existing stable route
 - keeping archived skills on the active route surface

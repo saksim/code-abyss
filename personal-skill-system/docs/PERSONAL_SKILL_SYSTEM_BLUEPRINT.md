@@ -111,7 +111,9 @@ The default should be to keep tiers 1 and 2 small and move density into tier 3.
 
 ## Pack model
 
-- `personal-core`: reusable baseline bundle
+- `personal-core`: reusable self-evolving baseline bundle
+  It should carry the minimum closed loop required to route, scaffold, validate, and govern future skill changes on another host:
+  `skills/`, `templates/`, `registry/`, `benchmark/`, and the core bundle docs that explain the operating model.
 - `project-overlay`: project-specific local constraints
 - `work-private`: private assets and internal knowledge
 - `experimental`: unstable ideas and staging area for promotion

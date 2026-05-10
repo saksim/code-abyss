@@ -20,6 +20,18 @@ Keep generated artifacts for:
 
 Generated files should describe the bundle honestly, not a partial subset.
 
+## Single-charter rule
+
+Keep the following surfaces aligned:
+
+- the top-tier standard
+- authoring rules
+- canonical templates
+- governed manage-skill flows
+- governed verify-skill-system checks
+
+If these surfaces disagree, future skill growth becomes expensive even if the current bundle still appears to work.
+
 ## Pack rules
 
 Use packs to separate:
@@ -43,3 +55,14 @@ For every serious iteration:
 For core skill CRUD, the structural source step should go through `skills/tools/manage-skill/` instead of ad hoc file edits spread across the repo.
 
 If metadata drifts from the real skill set, the bundle becomes untrustworthy.
+
+## Current vs future work
+
+Use different governed paths for different change classes:
+
+- current-skill hardening
+  Use evolution, capability, review, route, runtime-proof, and host-smoke flows.
+- future-skill admission
+  Use opportunity and admission flows before direct creation.
+- lifecycle retirement
+  Use deprecate, merge, archive, or delete flow so history remains inspectable.

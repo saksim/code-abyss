@@ -6,7 +6,13 @@ const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
 const { collectSkillRecords } = require('../../lib/skill-system-skills');
-const { validateSmokeManifest, probeArtifactWriteAccess, readReferencePaths } = require('../../lib/skill-system-common');
+const {
+  validateSmokeManifest,
+  probeArtifactWriteAccess,
+  probeDirectoryCreateAccess,
+  readReferencePaths,
+  collectGeneratedArtifactWriteability
+} = require('../../lib/skill-system-common');
 const {
   explainRouteSelection,
   buildGovernedRouteFixture,
@@ -19,10 +25,10 @@ const {
   getHostSmokeRuntimeRunsDir,
   getHostSmokeScorecardPath,
   getHostSmokeInvalidationPath,
+  loadHostSmokeInvalidationIndex,
   HOST_SMOKE_RUN_SCHEMA_VERSION,
   buildHostSmokeScorecard,
   loadHostSmokeRunIndex,
-  loadHostSmokeInvalidationIndex,
   writeHostSmokeInvalidationLedger,
   findLatestHostSmokeEvidence,
   evaluateHostSmokeFreshness
@@ -42,6 +48,36 @@ const {
   readOpenAiMetadataFile,
   writeOpenAiMetadataFile
 } = require('../../lib/skill-system-host-metadata');
+const {
+  getReviewQueuePath,
+  buildReviewQueue,
+  readReviewQueue,
+  normalizeReviewDate,
+  normalizeReviewCycleDays
+} = require('../../lib/skill-review-governance');
+const {
+  getSkillInvestmentBacklogPath,
+  buildSkillInvestmentBacklog
+} = require('../../lib/skill-investment-governance');
+const {
+  SKILL_OPPORTUNITY_QUEUE_SCHEMA_VERSION,
+  getSkillOpportunityQueuePath,
+  normalizeOpportunityEntries,
+  normalizeOpportunityPriority,
+  normalizeOpportunityStatus,
+  normalizeOpportunityHorizon,
+  buildSkillOpportunityQueue
+} = require('../../lib/skill-opportunity-governance');
+const {
+  SCAFFOLD_ORIGIN_FIELD,
+  SCAFFOLD_VERSION_FIELD,
+  readTemplateLineage
+} = require('../../lib/skill-system-templates');
+const {
+  getPendingScaffoldRegistryPath,
+  buildPendingScaffoldRegistry,
+  normalizePendingScaffoldStatus
+} = require('../../lib/skill-pending-scaffold-governance');
 
 const VALID_KINDS = new Map([
   ['router', 'routers'],
@@ -124,6 +160,8 @@ const CAPABILITY_RATING_BUCKET_INDEX = new Map(
   CAPABILITY_RATING_BUCKET_SEQUENCE.map((bucketName, index) => [bucketName, index])
 );
 const ADMISSION_LEDGER_SCHEMA_VERSION = 1;
+const EVOLUTION_LEDGER_SCHEMA_VERSION = 1;
+const OPPORTUNITY_IMPLEMENTED_CREATE_STATUSES = new Set(['implemented', 'created']);
 const STABLE_REFERENCE_FLOOR_BY_KIND = {
   router: 2,
   domain: 3,
@@ -132,6 +170,21 @@ const STABLE_REFERENCE_FLOOR_BY_KIND = {
   guard: 2,
   adapter: 2
 };
+const EVOLUTION_DECISION_ACTIONS = new Set([
+  'status-already-correct',
+  'upgrade-existing-skill',
+  'promote-to-stable',
+  'deprecate-skill',
+  'archive-skill',
+  'delete-skill',
+  'merge-into-skill'
+]);
+const EVOLUTION_ACTION_DEFAULT_TARGET_STATUS = new Map([
+  ['promote-to-stable', 'stable'],
+  ['deprecate-skill', 'deprecated'],
+  ['archive-skill', 'archived'],
+  ['delete-skill', 'deleted']
+]);
 
 function fail(message) {
   throw new Error(message);
@@ -272,6 +325,14 @@ function normalizeStringList(value) {
     .filter(Boolean);
 }
 
+function normalizeString(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function isPlainObject(value) {
+  return !!value && typeof value === 'object' && !Array.isArray(value);
+}
+
 function uniqueSorted(values) {
   return [...new Set(normalizeStringList(values))].sort((a, b) => a.localeCompare(b));
 }
@@ -383,36 +444,11 @@ function getGeneratedWriteRequirements(projectRoot) {
       mode: 'rewrite-file',
       label: 'capability ratings registry'
     },
-    {
-      path: getAdmissionLedgerPath(projectRoot),
-      mode: 'rewrite-file',
-      label: 'admission ledger registry'
-    },
-    {
-      path: getRuntimeProofPath(projectRoot),
-      mode: 'rewrite-file',
-      label: 'runtime-proof registry'
-    },
-    {
-      path: getHostSmokeScorecardPath(bundleRoot),
-      mode: 'rewrite-file',
-      label: 'host-smoke scorecard'
-    },
-    {
-      path: getHostSmokeInvalidationPath(bundleRoot),
-      mode: 'create-file',
-      label: 'host-smoke invalidation ledger'
-    },
-    {
-      path: path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json'),
-      mode: 'rewrite-file',
-      label: 'system readiness artifact'
-    },
-    {
-      path: path.join(bundleRoot, 'benchmark', 'host-smoke', 'runtime-runs'),
-      mode: 'write-dir',
-      label: 'host-smoke runtime-runs directory'
-    }
+    ...collectGeneratedArtifactWriteability(bundleRoot).map((artifact) => ({
+      path: artifact.path,
+      mode: artifact.mode,
+      label: artifact.label
+    }))
   ];
 }
 
@@ -420,6 +456,9 @@ function assertGeneratedArtifactsWritable(projectRoot, actionLabel, options = {}
   const requestedPaths = Array.isArray(options.paths) && options.paths.length > 0
     ? new Set(options.paths.map((item) => path.resolve(item)))
     : null;
+  const optionalPaths = Array.isArray(options.optionalPaths) && options.optionalPaths.length > 0
+    ? new Set(options.optionalPaths.map((item) => path.resolve(item)))
+    : new Set();
   const failures = [];
 
   for (const requirement of getGeneratedWriteRequirements(projectRoot)) {
@@ -428,6 +467,9 @@ function assertGeneratedArtifactsWritable(projectRoot, actionLabel, options = {}
     }
     const probe = probeArtifactWriteAccess(requirement.path, { mode: requirement.mode });
     if (!probe.ok) {
+      if (optionalPaths.has(path.resolve(requirement.path))) {
+        continue;
+      }
       failures.push({
         ...requirement,
         code: probe.code || 'UNKNOWN'
@@ -443,6 +485,42 @@ function assertGeneratedArtifactsWritable(projectRoot, actionLabel, options = {}
     .map((item) => `${item.label} (${toPortablePath(projectRoot, item.path)}: ${item.code})`)
     .join('; ');
   fail(`cannot ${actionLabel} because generated governance surfaces are not writable on this host: ${details}`);
+}
+
+function getDirectoryCreateConstraint(projectRoot, targetDir, actionLabel) {
+  const resolvedPath = path.resolve(targetDir);
+  const parentDir = path.dirname(resolvedPath);
+  const writeProbe = probeArtifactWriteAccess(path.join(parentDir, '.codex-write-probe.tmp'), { mode: 'create-file' });
+  if (!writeProbe.ok) {
+    return {
+      type: 'parent-write-blocked',
+      mode: 'create-file',
+      path: resolvedPath,
+      parent: parentDir,
+      code: writeProbe.code || 'UNKNOWN',
+      message: `cannot ${actionLabel} because the authoritative skill tree parent is not writable on this host: ${toPortablePath(projectRoot, parentDir)} (${writeProbe.code || 'UNKNOWN'})`
+    };
+  }
+  const createProbe = probeDirectoryCreateAccess(resolvedPath);
+  if (createProbe.ok) {
+    return null;
+  }
+  return {
+    type: 'child-directory-blocked',
+    mode: 'create-child-directory',
+    path: resolvedPath,
+    parent: parentDir,
+    code: createProbe.code || 'UNKNOWN',
+    message: `cannot ${actionLabel} because the authoritative skill tree cannot create child directories on this host: ${toPortablePath(projectRoot, parentDir)} (${createProbe.code || 'UNKNOWN'})`
+  };
+}
+
+function assertDirectoryCreatable(targetDir, actionLabel) {
+  const constraint = getDirectoryCreateConstraint(getProjectRoot(), targetDir, actionLabel);
+  if (!constraint) {
+    return;
+  }
+  fail(constraint.message);
 }
 
 function cloneJsonValue(value) {
@@ -492,6 +570,26 @@ function getAdmissionLedgerPath(projectRoot) {
   return path.join(projectRoot, 'personal-skill-system', 'registry', 'admission-ledger.generated.json');
 }
 
+function getEvolutionLedgerPath(projectRoot) {
+  return path.join(projectRoot, 'personal-skill-system', 'registry', 'evolution-ledger.generated.json');
+}
+
+function getReviewQueueRegistryPath(projectRoot) {
+  return getReviewQueuePath(getBundleRoot(projectRoot));
+}
+
+function getSkillOpportunityQueueRegistryPath(projectRoot) {
+  return getSkillOpportunityQueuePath(getBundleRoot(projectRoot));
+}
+
+function getSkillInvestmentBacklogRegistryPath(projectRoot) {
+  return getSkillInvestmentBacklogPath(getBundleRoot(projectRoot));
+}
+
+function getPendingScaffoldRegistryFilePath(projectRoot) {
+  return getPendingScaffoldRegistryPath(getBundleRoot(projectRoot));
+}
+
 function getRatingsDocPath(projectRoot) {
   return path.join(projectRoot, 'personal-skill-system', 'docs', 'CAPABILITY_MODULE_RATINGS.md');
 }
@@ -502,6 +600,21 @@ function getRuntimeProofPath(projectRoot) {
 
 function getBundleRoot(projectRoot) {
   return path.join(projectRoot, 'personal-skill-system');
+}
+
+const ACTIVE_ADMISSION_STATUSES = new Set(['open', 'planned', 'in-progress', 'blocked', 'deferred']);
+const TERMINAL_ADMISSION_STATUSES = new Set(['implemented', 'cancelled', 'resolved', 'advised-reuse', 'advised-noop']);
+
+function normalizeAdmissionStatus(value, fallback = 'open') {
+  const normalized = String(value || '').trim();
+  if (ACTIVE_ADMISSION_STATUSES.has(normalized) || TERMINAL_ADMISSION_STATUSES.has(normalized)) {
+    return normalized;
+  }
+  return fallback;
+}
+
+function isActiveAdmissionStatus(value) {
+  return ACTIVE_ADMISSION_STATUSES.has(normalizeAdmissionStatus(value));
 }
 
 function getHostSmokeProofsFromRegistry(projectRoot) {
@@ -532,13 +645,15 @@ function normalizeAdmissionLedgerEntries(entries) {
     }
     seen.add(key);
 
-    normalized.push({
+    const status = normalizeAdmissionStatus(entry.status || 'open');
+    const normalizedEntry = {
       'request-id': requestId,
       request,
       ...(entry['suggested-kind'] ? { 'suggested-kind': String(entry['suggested-kind']).trim() } : {}),
       ...(Array.isArray(entry['inferred-intent-tags'])
         ? { 'inferred-intent-tags': [...new Set(entry['inferred-intent-tags'].map((item) => String(item || '').trim()).filter(Boolean))].sort() }
         : {}),
+      ...(entry['opportunity-id'] ? { 'opportunity-id': String(entry['opportunity-id']).trim() } : {}),
       decision: {
         action: decisionAction,
         ...(entry.decision.target_skill ? { target_skill: String(entry.decision.target_skill).trim() } : {}),
@@ -547,12 +662,15 @@ function normalizeAdmissionLedgerEntries(entries) {
         ...(entry.decision.competing_skill ? { competing_skill: String(entry.decision.competing_skill).trim() } : {}),
         ...(entry.decision.suggested_kind ? { suggested_kind: String(entry.decision.suggested_kind).trim() } : {})
       },
-      status: String(entry.status || '').trim() || 'open',
+      status,
       'recorded-at': recordedAt,
-      ...(entry['resolved-at'] ? { 'resolved-at': String(entry['resolved-at']).trim() } : {}),
       ...(entry['created-skill'] ? { 'created-skill': String(entry['created-skill']).trim() } : {}),
       ...(entry.note ? { note: String(entry.note).trim() } : {})
-    });
+    };
+    if (!isActiveAdmissionStatus(status) && entry['resolved-at']) {
+      normalizedEntry['resolved-at'] = String(entry['resolved-at']).trim();
+    }
+    normalized.push(normalizedEntry);
   }
 
   normalized.sort((left, right) => {
@@ -602,6 +720,226 @@ function appendAdmissionLedgerEntry(projectRoot, entry) {
   return writeAdmissionLedger(projectRoot, ledger);
 }
 
+function normalizeEvolutionLedgerEntries(entries) {
+  const seen = new Set();
+  const normalized = [];
+
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      continue;
+    }
+
+    const requestId = String(entry['request-id'] || '').trim();
+    const skill = String(entry.skill || '').trim();
+    const request = normalizeAdmissionText(entry.request);
+    const decisionAction = String(entry.decision && entry.decision.action || '').trim();
+    const recordedAt = String(entry['recorded-at'] || '').trim();
+    const key = requestId || `${skill}::${request}::${recordedAt}`;
+    if (!requestId || !skill || !request || !decisionAction || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+
+    normalized.push({
+      'request-id': requestId,
+      skill,
+      request,
+      decision: {
+        action: decisionAction,
+        ...(entry.decision.target_status ? { target_status: String(entry.decision.target_status).trim() } : {}),
+        ...(entry.decision.target_skill ? { target_skill: String(entry.decision.target_skill).trim() } : {}),
+        ...(entry.decision.note ? { note: String(entry.decision.note).trim() } : {})
+      },
+      status: String(entry.status || '').trim() || 'open',
+      'recorded-at': recordedAt,
+      ...(entry['resolved-at'] ? { 'resolved-at': String(entry['resolved-at']).trim() } : {}),
+      ...(entry['executed-action'] ? { 'executed-action': String(entry['executed-action']).trim() } : {}),
+      ...(entry['result-status'] ? { 'result-status': String(entry['result-status']).trim() } : {}),
+      ...(entry['merged-into'] ? { 'merged-into': String(entry['merged-into']).trim() } : {}),
+      ...(entry.note ? { note: String(entry.note).trim() } : {})
+    });
+  }
+
+  normalized.sort((left, right) => {
+    const leftTime = Date.parse(left['recorded-at']) || 0;
+    const rightTime = Date.parse(right['recorded-at']) || 0;
+    if (leftTime !== rightTime) {
+      return rightTime - leftTime;
+    }
+    return left['request-id'].localeCompare(right['request-id']);
+  });
+
+  return normalized;
+}
+
+function readEvolutionLedger(projectRoot) {
+  const ledgerPath = getEvolutionLedgerPath(projectRoot);
+  if (!fs.existsSync(ledgerPath)) {
+    return {
+      'schema-version': EVOLUTION_LEDGER_SCHEMA_VERSION,
+      entries: []
+    };
+  }
+
+  const raw = readJsonSafe(ledgerPath);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    fail(`evolution ledger is unreadable or invalid: ${ledgerPath}`);
+  }
+
+  return {
+    'schema-version': EVOLUTION_LEDGER_SCHEMA_VERSION,
+    entries: normalizeEvolutionLedgerEntries(raw.entries)
+  };
+}
+
+function writeEvolutionLedger(projectRoot, ledger) {
+  const nextLedger = {
+    'schema-version': EVOLUTION_LEDGER_SCHEMA_VERSION,
+    entries: normalizeEvolutionLedgerEntries(ledger && ledger.entries)
+  };
+  writeJson(getEvolutionLedgerPath(projectRoot), nextLedger);
+  return nextLedger;
+}
+
+function appendEvolutionLedgerEntry(projectRoot, entry) {
+  const ledger = readEvolutionLedger(projectRoot);
+  ledger.entries.push(entry);
+  return writeEvolutionLedger(projectRoot, ledger);
+}
+
+function readOpportunityQueue(projectRoot) {
+  const queuePath = getSkillOpportunityQueueRegistryPath(projectRoot);
+  if (!fs.existsSync(queuePath)) {
+    return buildSkillOpportunityQueue([], { now: Date.now() });
+  }
+
+  const raw = readJsonSafe(queuePath);
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    fail(`skill opportunity queue is unreadable or invalid: ${queuePath}`);
+  }
+
+  return buildSkillOpportunityQueue(raw.entries, {
+    now: Date.parse(String(raw['generated-at'] || '').trim()) || Date.now()
+  });
+}
+
+function writeOpportunityQueue(projectRoot, queue) {
+  const nextQueue = buildSkillOpportunityQueue(queue && queue.entries, {
+    now: Date.parse(String(queue && queue['generated-at'] || '').trim()) || Date.now()
+  });
+  writeJson(getSkillOpportunityQueueRegistryPath(projectRoot), nextQueue);
+  return nextQueue;
+}
+
+function appendOpportunityQueueEntry(projectRoot, entry) {
+  const queue = readOpportunityQueue(projectRoot);
+  queue.entries.push(entry);
+  return writeOpportunityQueue(projectRoot, queue);
+}
+
+function findOpportunityQueueEntry(projectRoot, opportunityId) {
+  const normalizedId = normalizeString(opportunityId);
+  if (!normalizedId) {
+    fail('opportunity id is required');
+  }
+
+  const queue = readOpportunityQueue(projectRoot);
+  const entry = queue.entries.find((item) => item['opportunity-id'] === normalizedId) || null;
+  if (!entry) {
+    fail(`unknown skill opportunity '${normalizedId}'`);
+  }
+
+  return {
+    queue,
+    entry
+  };
+}
+
+function resolveOpportunity(projectRoot, opportunityId, resolution = {}) {
+  const normalizedId = String(opportunityId || '').trim();
+  if (!normalizedId) {
+    fail('resolve-opportunity requires a non-empty opportunity id');
+  }
+
+  const queue = readOpportunityQueue(projectRoot);
+  const index = queue.entries.findIndex((entry) => entry['opportunity-id'] === normalizedId);
+  if (index === -1) {
+    fail(`unknown skill opportunity '${normalizedId}'`);
+  }
+
+  const existing = queue.entries[index];
+  const nextStatus = normalizeOpportunityStatus(resolution.status || existing.status || 'implemented');
+  queue.entries[index] = {
+    ...existing,
+    status: nextStatus,
+    ...(resolution.createdSkill ? { 'created-skill': String(resolution.createdSkill).trim() } : existing['created-skill'] ? { 'created-skill': existing['created-skill'] } : {}),
+    ...(resolution.admissionRequestId ? { 'admission-request-id': String(resolution.admissionRequestId).trim() } : existing['admission-request-id'] ? { 'admission-request-id': existing['admission-request-id'] } : {}),
+    ...(resolution.note ? { note: String(resolution.note).trim() } : existing.note ? { note: existing.note } : {}),
+    ...(!['open', 'planned', 'in-progress', 'blocked', 'deferred'].includes(nextStatus)
+      ? { 'resolved-at': String(resolution['resolved-at'] || new Date().toISOString()).trim() }
+      : {})
+  };
+  const nextQueue = writeOpportunityQueue(projectRoot, queue);
+  refreshSkillInvestmentBacklog(projectRoot, {
+    opportunityQueueData: nextQueue
+  });
+  refreshSystemReadiness(projectRoot, { bestEffort: true });
+  return nextQueue.entries.find((entry) => entry['opportunity-id'] === normalizedId) || queue.entries[index];
+}
+
+function syncOpportunityQueueOnAdmissionDecision(projectRoot, result, options = {}) {
+  const opportunityId = normalizeString(options.opportunityId);
+  if (!opportunityId) {
+    return null;
+  }
+
+  const queue = readOpportunityQueue(projectRoot);
+  const index = queue.entries.findIndex((entry) => entry['opportunity-id'] === opportunityId);
+  if (index === -1) {
+    fail(`unknown skill opportunity '${opportunityId}'`);
+  }
+
+  const existing = queue.entries[index];
+  const recommendationAction = normalizeString(result && result.recommendation && result.recommendation.action);
+  const admissionRequestId = normalizeString(result && result['request-id']);
+  let nextStatus = normalizeOpportunityStatus(existing.status || 'open');
+  let note = normalizeString(existing.note);
+
+  if (recommendationAction === 'create-new-skill') {
+    nextStatus = 'planned';
+    note = `escalated to admission request '${admissionRequestId}' with create-new-skill recommendation`;
+  } else if (recommendationAction === 'clarify-or-merge-boundary') {
+    nextStatus = 'blocked';
+    note = `escalated to admission request '${admissionRequestId}' and blocked on route-boundary clarification`;
+  } else if (recommendationAction === 'reuse-existing-skill') {
+    nextStatus = 'cancelled';
+    note = `resolved by reusing existing skill '${normalizeString(result.recommendation.target_skill) || 'unknown'}' via admission request '${admissionRequestId}'`;
+  } else if (recommendationAction === 'upgrade-existing-skill') {
+    nextStatus = 'cancelled';
+    note = `resolved by upgrading existing skill '${normalizeString(result.recommendation.target_skill) || 'unknown'}' via admission request '${admissionRequestId}'`;
+  }
+
+  queue.entries[index] = {
+    ...existing,
+    status: nextStatus,
+    ...(admissionRequestId ? { 'admission-request-id': admissionRequestId } : {}),
+    ...(note ? { note } : {}),
+    ...(['open', 'planned', 'in-progress', 'blocked', 'deferred'].includes(nextStatus)
+      ? {}
+      : { 'resolved-at': new Date().toISOString() })
+  };
+
+  if (['open', 'planned', 'in-progress', 'blocked', 'deferred'].includes(nextStatus)) {
+    delete queue.entries[index]['resolved-at'];
+  }
+
+  const nextQueue = writeOpportunityQueue(projectRoot, queue);
+  refreshSkillInvestmentBacklog(projectRoot, {
+    opportunityQueueData: nextQueue
+  });
+  return nextQueue.entries.find((entry) => entry['opportunity-id'] === opportunityId) || null;
+}
+
 function resolveAdmissionDecision(projectRoot, requestId, resolution = {}) {
   const normalizedId = String(requestId || '').trim();
   if (!normalizedId) {
@@ -615,14 +953,54 @@ function resolveAdmissionDecision(projectRoot, requestId, resolution = {}) {
   }
 
   const existing = ledger.entries[index];
+  const nextStatus = normalizeAdmissionStatus(resolution.status || existing.status || 'resolved', 'resolved');
+  const nextEntry = {
+    ...existing,
+    status: nextStatus,
+    ...(resolution.createdSkill ? { 'created-skill': String(resolution.createdSkill).trim() } : existing['created-skill'] ? { 'created-skill': existing['created-skill'] } : {}),
+    ...(resolution.note ? { note: String(resolution.note).trim() } : existing.note ? { note: existing.note } : {})
+  };
+  if (isActiveAdmissionStatus(nextStatus)) {
+    delete nextEntry['resolved-at'];
+  } else {
+    nextEntry['resolved-at'] = String(resolution['resolved-at'] || new Date().toISOString()).trim();
+  }
+  ledger.entries[index] = nextEntry;
+  writeAdmissionLedger(projectRoot, ledger);
+  refreshSkillInvestmentBacklog(projectRoot, {
+    admissionLedgerData: ledger
+  });
+  refreshSystemReadiness(projectRoot, { bestEffort: true });
+  return ledger.entries[index];
+}
+
+function resolveEvolutionDecision(projectRoot, requestId, resolution = {}) {
+  const normalizedId = String(requestId || '').trim();
+  if (!normalizedId) {
+    fail('resolve-evolution requires a non-empty request id');
+  }
+
+  const ledger = readEvolutionLedger(projectRoot);
+  const index = ledger.entries.findIndex((entry) => entry['request-id'] === normalizedId);
+  if (index === -1) {
+    fail(`unknown evolution request '${normalizedId}'`);
+  }
+
+  const existing = ledger.entries[index];
   ledger.entries[index] = {
     ...existing,
     status: String(resolution.status || existing.status || 'resolved').trim() || 'resolved',
-    ...(resolution.createdSkill ? { 'created-skill': String(resolution.createdSkill).trim() } : existing['created-skill'] ? { 'created-skill': existing['created-skill'] } : {}),
+    ...(resolution.executedAction ? { 'executed-action': String(resolution.executedAction).trim() } : existing['executed-action'] ? { 'executed-action': existing['executed-action'] } : {}),
+    ...(resolution.resultStatus ? { 'result-status': String(resolution.resultStatus).trim() } : existing['result-status'] ? { 'result-status': existing['result-status'] } : {}),
+    ...(resolution.mergedInto ? { 'merged-into': String(resolution.mergedInto).trim() } : existing['merged-into'] ? { 'merged-into': existing['merged-into'] } : {}),
     ...(resolution.note ? { note: String(resolution.note).trim() } : existing.note ? { note: existing.note } : {}),
     'resolved-at': String(resolution['resolved-at'] || new Date().toISOString()).trim()
   };
-  writeAdmissionLedger(projectRoot, ledger);
+  writeEvolutionLedger(projectRoot, ledger);
+  refreshSkillInvestmentBacklog(projectRoot, {
+    evolutionLedgerData: ledger
+  });
+  refreshSystemReadiness(projectRoot, { bestEffort: true });
   return ledger.entries[index];
 }
 
@@ -657,7 +1035,7 @@ function buildCapabilityModuleDescription(kind, refPath) {
   return `Scaffolded capability module for ${titleFromSlug(slug)} inside ${kind} '${refPath}'.`;
 }
 
-function buildCapabilityModuleScaffolds(projectRoot, kind, skillName, skillText, targetDir) {
+function buildCapabilityModuleScaffolds(projectRoot, kind, skillName, skillText, targetDir, outputTargetDir = targetDir) {
   if (!CAPABILITY_MODULE_SCAFFOLD_KINDS.has(kind)) {
     fail(`capability-module scaffolding is only supported for domain and workflow skills, not '${kind}'`);
   }
@@ -676,10 +1054,101 @@ function buildCapabilityModuleScaffolds(projectRoot, kind, skillName, skillText,
     const slug = slugFromReferencePath(refPath);
     return {
       id: `${skillName}-${slug}`,
-      path: toPortablePath(getBundleRoot(projectRoot), absoluteRefPath),
+      path: toPortablePath(getBundleRoot(projectRoot), path.join(outputTargetDir, refPath)),
       capability: buildCapabilityModuleDescription(kind, refPath)
     };
   });
+}
+
+function readPendingScaffoldRegistry(projectRoot) {
+  const file = getPendingScaffoldRegistryFilePath(projectRoot);
+  if (!fs.existsSync(file)) {
+    return buildPendingScaffoldRegistry([]);
+  }
+  return readJson(file);
+}
+
+function writePendingScaffoldRegistry(projectRoot, registry) {
+  writeJson(getPendingScaffoldRegistryFilePath(projectRoot), buildPendingScaffoldRegistry(registry.entries || []));
+}
+
+function buildScaffoldPlan(projectRoot, kind, skillName, options = {}) {
+  const templateDir = path.join(projectRoot, 'personal-skill-system', 'templates', 'skill', kind);
+  const targetDir = path.join(getAuthoritativeSkillsRoot(), VALID_KINDS.get(kind), skillName);
+  const authoritativeSkillRelPath = path.relative(getAuthoritativeSkillsRoot(), targetDir).split(path.sep).join('/');
+  const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), `pss-scaffold-${skillName}-`));
+  const stagedDir = path.join(tempRoot, skillName);
+  try {
+    fs.mkdirSync(stagedDir, { recursive: true });
+    fs.cpSync(templateDir, stagedDir, { recursive: true });
+
+    const skillFile = path.join(stagedDir, 'SKILL.md');
+    const parsed = parseFrontmatterMap(fs.readFileSync(skillFile, 'utf8'));
+    const templateLineage = readTemplateLineage(path.join(projectRoot, 'personal-skill-system'), kind);
+    parsed.map.set('name', skillName);
+    parsed.map.set('title', `${slugToTitle(skillName)} ${slugToTitle(kind)}`);
+    parsed.map.set('description', `TODO: describe ${skillName}. Use when this ${kind} is the correct primary route.`);
+    parsed.map.set('status', 'draft');
+    if (templateLineage) {
+      parsed.map.set(SCAFFOLD_ORIGIN_FIELD, templateLineage.origin);
+      parsed.map.set(SCAFFOLD_VERSION_FIELD, String(templateLineage.version));
+    }
+    const renderedSkill = renderSkillFile(parsed);
+    fs.writeFileSync(skillFile, renderedSkill, 'utf8');
+    writeOpenAiMetadataFile(path.join(stagedDir, 'agents', 'openai.yaml'), {
+      name: parsed.map.get('name'),
+      title: parsed.map.get('title'),
+      description: parsed.map.get('description'),
+      kind: parsed.map.get('kind'),
+      skillRelPath: authoritativeSkillRelPath
+    });
+
+    const capabilityModules = options.scaffoldModules
+      ? buildCapabilityModuleScaffolds(projectRoot, kind, skillName, renderedSkill, stagedDir, targetDir)
+      : [];
+    const createPlaceholderRoute = kind !== 'router' && kind !== 'adapter' && parseBoolean(parsed.map.get('user-invocable'), true);
+    const shared = parseRouteSharedMetadata(parsed);
+    const files = [];
+    const stack = [stagedDir];
+    while (stack.length > 0) {
+      const current = stack.pop();
+      for (const entry of fs.readdirSync(current, { withFileTypes: true })) {
+        const full = path.join(current, entry.name);
+        if (entry.isDirectory()) {
+          stack.push(full);
+          continue;
+        }
+        files.push({
+          path: path.relative(stagedDir, full).split(path.sep).join('/'),
+          content: fs.readFileSync(full, 'utf8')
+        });
+      }
+    }
+    files.sort((left, right) => left.path.localeCompare(right.path));
+
+    return {
+      kind,
+      skill: skillName,
+      targetDir,
+      templateDir,
+      files,
+      capabilityModules,
+      createPlaceholderRoute,
+      shared,
+      templateLineage
+    };
+  } finally {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function materializeScaffoldPlan(targetDir, plan) {
+  fs.mkdirSync(targetDir, { recursive: true });
+  for (const file of Array.isArray(plan.files) ? plan.files : []) {
+    const targetFile = path.join(targetDir, String(file.path || '').replace(/\//g, path.sep));
+    fs.mkdirSync(path.dirname(targetFile), { recursive: true });
+    fs.writeFileSync(targetFile, String(file.content == null ? '' : file.content), 'utf8');
+  }
 }
 
 function syncRegistryOnCreate(projectRoot, kind, skillName, options = {}) {
@@ -1365,10 +1834,16 @@ function collectTopTierBlockersForSkill(projectRoot, record, options = {}) {
   const runtimeProof = fs.existsSync(runtimeProofPath)
     ? readJson(runtimeProofPath)
     : { proofs: [] };
+  const hostSmokeScorecardPath = getHostSmokeScorecardPath(bundleRoot);
+  const hostSmokeScorecard = fs.existsSync(hostSmokeScorecardPath)
+    ? readJson(hostSmokeScorecardPath)
+    : { skills: [] };
   const route = (Array.isArray(routeMap.routes) ? routeMap.routes : []).find((item) => item && item.skill === record.name) || null;
   const fixtures = Array.isArray(routeFixtures.cases) ? routeFixtures.cases : [];
   const stableReferenceFloor = STABLE_REFERENCE_FLOOR_BY_KIND[record.kind] || 0;
   const proofEntry = (Array.isArray(runtimeProof.proofs) ? runtimeProof.proofs : []).find((item) => item && item.skill === record.name) || null;
+  const hostSmokeScorecardEntry = (Array.isArray(hostSmokeScorecard.skills) ? hostSmokeScorecard.skills : [])
+    .find((item) => item && item.skill === record.name) || null;
   const expectedExplicitInvocation = !Array.isArray(record.triggerMode) || !record.triggerMode.includes('auto');
   const referenceDir = path.join(skillDir, 'references');
   const referenceFiles = fs.existsSync(referenceDir)
@@ -1578,6 +2053,32 @@ function collectTopTierBlockersForSkill(projectRoot, record, options = {}) {
           message: String(error && error.message ? error.message : error)
         });
       }
+
+      const hostSmokePolicy = normalizeHostSmokePolicy(proofEntry['host-smoke-policy']);
+      if (hostSmokePolicy && hostSmokePolicy['target-level'] === 'host-smoked') {
+        if (!hostSmokeScorecardEntry) {
+          blockers.push({
+            type: 'host-smoke-scorecard-missing',
+            file: 'benchmark/host-smoke/scorecard.generated.json',
+            message: `host-smoke scorecard is missing an entry for '${record.name}'`
+          });
+        } else {
+          if (hostSmokeScorecardEntry.level !== 'host-smoked') {
+            blockers.push({
+              type: 'host-smoke-level',
+              file: 'benchmark/host-smoke/scorecard.generated.json',
+              message: `critical host-smoke policy for '${record.name}' requires level 'host-smoked'`
+            });
+          }
+          if (hostSmokeScorecardEntry['governance-status'] !== 'satisfied') {
+            blockers.push({
+              type: 'host-smoke-governance',
+              file: 'benchmark/host-smoke/scorecard.generated.json',
+              message: `critical host-smoke policy for '${record.name}' is not yet satisfied (${hostSmokeScorecardEntry['governance-status'] || 'unknown'})`
+            });
+          }
+        }
+      }
     }
   }
 
@@ -1594,6 +2095,20 @@ function collectTopTierBlockersForSkill(projectRoot, record, options = {}) {
       file: record.file,
       message: "status 'stable' should declare review-cycle-days"
     });
+  }
+  if (record.lastReviewed && record.reviewCycleDays != null) {
+    const reviewedAt = new Date(`${record.lastReviewed}T00:00:00Z`);
+    if (!Number.isNaN(reviewedAt.getTime())) {
+      const nextDue = new Date(reviewedAt.getTime());
+      nextDue.setUTCDate(nextDue.getUTCDate() + record.reviewCycleDays);
+      if (Date.now() > nextDue.getTime()) {
+        blockers.push({
+          type: 'review-cadence-expired',
+          file: record.file,
+          message: `stable skill review cadence expired on ${nextDue.toISOString().slice(0, 10)}`
+        });
+      }
+    }
   }
 
   return blockers;
@@ -1656,6 +2171,7 @@ function enforceTopTierReadinessForStable(projectRoot, skillName) {
 function syncRuntimeProofOnRemove(projectRoot, skillName) {
   const runtimeProofPath = getRuntimeProofPath(projectRoot);
   if (!fs.existsSync(runtimeProofPath)) {
+    refreshSkillInvestmentBacklog(projectRoot);
     refreshSystemReadiness(projectRoot);
     return;
   }
@@ -1673,6 +2189,44 @@ function collectAllSkillRecords(projectRoot) {
     fail(`cannot sync runtime proof while skill records contain structural errors: ${findings.map((item) => item.message).join('; ')}`);
   }
   return skillRecords;
+}
+
+function refreshReviewQueue(projectRoot, options = {}) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  const skillRecords = Array.isArray(options.skillRecords) ? options.skillRecords : collectAllSkillRecords(projectRoot);
+  const result = buildReviewQueue(bundleRoot, skillRecords);
+  writeJson(getReviewQueueRegistryPath(projectRoot), result);
+  return {
+    file: getReviewQueueRegistryPath(projectRoot),
+    payload: result
+  };
+}
+
+function refreshSkillInvestmentBacklog(projectRoot, options = {}) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  const skillRecords = Array.isArray(options.skillRecords) ? options.skillRecords : collectAllSkillRecords(projectRoot);
+  const registryData = options.registryData || readJson(getRegistryPath(projectRoot));
+  const ratingsData = options.ratingsData || readJson(getRatingsPath(projectRoot));
+  const reviewQueueData = options.reviewQueueData || readJson(getReviewQueueRegistryPath(projectRoot));
+  const opportunityQueueData = options.opportunityQueueData || readOpportunityQueue(projectRoot);
+  const admissionLedgerData = options.admissionLedgerData || readAdmissionLedger(projectRoot);
+  const evolutionLedgerData = options.evolutionLedgerData || readEvolutionLedger(projectRoot);
+  const routeFixturesData = options.routeFixturesData || readJson(getRouteFixturesPath(projectRoot));
+  const result = buildSkillInvestmentBacklog(bundleRoot, {
+    skillRecords,
+    registryData,
+    ratingsData,
+    reviewQueueData,
+    opportunityQueueData,
+    admissionLedgerData,
+    evolutionLedgerData,
+    routeFixturesData
+  });
+  writeJson(getSkillInvestmentBacklogRegistryPath(projectRoot), result);
+  return {
+    file: getSkillInvestmentBacklogRegistryPath(projectRoot),
+    payload: result
+  };
 }
 
 function normalizeEvidenceTests(values) {
@@ -2342,6 +2896,7 @@ function refreshHostSmokeScorecard(projectRoot, proofs = null, options = {}) {
   const scorecardPath = getHostSmokeScorecardPath(bundleRoot);
   const scorecard = buildHostSmokeScorecard(bundleRoot, nextProofs);
   writeJson(scorecardPath, scorecard);
+  refreshSkillInvestmentBacklog(projectRoot);
   const readiness = refreshSystemReadiness(projectRoot, {
     bestEffort: options.bestEffortReadiness === true,
     returnDetails: options.returnDetails === true || options.bestEffortReadiness === true
@@ -2349,6 +2904,7 @@ function refreshHostSmokeScorecard(projectRoot, proofs = null, options = {}) {
   if (options.returnDetails === true) {
     return {
       file: scorecardPath,
+      payload: scorecard,
       readiness
     };
   }
@@ -2605,6 +3161,9 @@ function writeRuntimeProofEntryLevel(projectRoot, skillName, nextLevel) {
       getRuntimeProofPath(projectRoot),
       getHostSmokeScorecardPath(getBundleRoot(projectRoot)),
       path.join(getBundleRoot(projectRoot), 'benchmark', 'system-readiness.generated.json')
+    ],
+    optionalPaths: [
+      path.join(getBundleRoot(projectRoot), 'benchmark', 'system-readiness.generated.json')
     ]
   });
   const runtimeProofPath = getRuntimeProofPath(projectRoot);
@@ -2620,7 +3179,9 @@ function writeRuntimeProofEntryLevel(projectRoot, skillName, nextLevel) {
     fail(`invalid runtime-proof level '${nextLevel}'`);
   }
   proof.level = nextLevel;
-  writeRuntimeProofRegistry(projectRoot, proofs);
+  writeRuntimeProofRegistry(projectRoot, proofs, {
+    bestEffortReadiness: true
+  });
 }
 
 function runHostSmoke(projectRoot, selection = {}) {
@@ -2631,6 +3192,9 @@ function runHostSmoke(projectRoot, selection = {}) {
       getHostSmokeScorecardPath(bundleRoot),
       path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json'),
       getHostSmokeRuntimeRunsDir(bundleRoot)
+    ],
+    optionalPaths: [
+      path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json')
     ]
   });
   const host = String(selection.host || 'codex').trim().toLowerCase();
@@ -2739,10 +3303,14 @@ function runHostSmoke(projectRoot, selection = {}) {
 
   let scorecardFile;
   if (runtimeProofChanged) {
-    writeRuntimeProofRegistry(projectRoot, activeProofs);
+    writeRuntimeProofRegistry(projectRoot, activeProofs, {
+      bestEffortReadiness: true
+    });
     scorecardFile = getHostSmokeScorecardPath(bundleRoot);
   } else {
-    scorecardFile = refreshHostSmokeScorecard(projectRoot, activeProofs);
+    scorecardFile = refreshHostSmokeScorecard(projectRoot, activeProofs, {
+      bestEffortReadiness: true
+    });
   }
 
   return {
@@ -3114,6 +3682,10 @@ function syncArchiveOnGeneratedSurfaces(projectRoot, skillName) {
   syncRouteFixturesOnRemove(projectRoot, skillName);
   syncRatingsOnRemove(projectRoot, skillName);
   syncRuntimeProofOnRemove(projectRoot, skillName);
+  const reviewQueue = refreshReviewQueue(projectRoot);
+  refreshSkillInvestmentBacklog(projectRoot, {
+    reviewQueueData: reviewQueue.payload
+  });
 }
 
 function syncGeneratedSurfacesOnCreate(projectRoot, kind, skillName, options = {}) {
@@ -3129,7 +3701,122 @@ function syncGeneratedSurfacesOnCreate(projectRoot, kind, skillName, options = {
   }
   syncRatingsOnCreate(projectRoot, skillName, options);
   syncAdmissionLedgerOnSkillCreate(projectRoot, skillName, options);
+  syncOpportunityQueueOnSkillCreate(projectRoot, skillName, options);
+  const reviewQueue = refreshReviewQueue(projectRoot);
+  refreshSkillInvestmentBacklog(projectRoot, {
+    reviewQueueData: reviewQueue.payload
+  });
   refreshSystemReadiness(projectRoot);
+}
+
+function deferBlockedSkillCreate(projectRoot, kind, skillName, targetDir, constraint, options = {}) {
+  if (!options.requestId && !options.opportunityId) {
+    fail('--defer-when-host-blocked requires --request-id or --opportunity-id so the blocked create stays governed');
+  }
+
+  const generatedSnapshot = snapshotGeneratedState(projectRoot);
+  const portableParent = toPortablePath(projectRoot, constraint.parent);
+  const bundleRoot = getBundleRoot(projectRoot);
+  const plan = buildScaffoldPlan(projectRoot, kind, skillName, options);
+  const pendingRegistry = readPendingScaffoldRegistry(projectRoot);
+  const pendingId = `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${skillName}`;
+  pendingRegistry.entries = Array.isArray(pendingRegistry.entries) ? pendingRegistry.entries : [];
+  pendingRegistry.entries = pendingRegistry.entries.filter((entry) => String(entry && entry.skill || '').trim() !== skillName);
+  const note = [
+    `creation of '${skillName}' is blocked by host-writeability debt`,
+    `mode=${constraint.mode}`,
+    `code=${constraint.code}`,
+    `parent=${portableParent}`,
+    'rerun the same create command on a host that can mutate the authoritative skill tree'
+  ].join('; ');
+
+  try {
+    let admissionEntry = null;
+    let opportunityEntry = null;
+
+    if (options.requestId) {
+      admissionEntry = resolveAdmissionDecision(projectRoot, options.requestId, {
+        status: 'blocked',
+        note
+      });
+    }
+    if (options.opportunityId) {
+      opportunityEntry = resolveOpportunity(projectRoot, options.opportunityId, {
+        status: 'blocked',
+        admissionRequestId: options.requestId || null,
+        note
+      });
+    }
+
+    pendingRegistry.entries.push({
+      'pending-id': pendingId,
+      kind,
+      skill: skillName,
+      path: toPortablePath(projectRoot, targetDir),
+      status: 'blocked',
+      'recorded-at': new Date().toISOString(),
+      files: plan.files,
+      ...(options.requestId ? { 'request-id': options.requestId } : {}),
+      ...(options.opportunityId ? { 'opportunity-id': options.opportunityId } : {}),
+      ...(plan.capabilityModules.length > 0 ? { 'capability-modules': plan.capabilityModules } : {}),
+      ...(plan.createPlaceholderRoute ? { 'create-placeholder-route': true } : {}),
+      ...(options.scaffoldModules ? { 'scaffold-modules': true } : {}),
+      ...(plan.shared ? { shared: plan.shared } : {}),
+      ...(plan.templateLineage ? {
+        'template-origin': plan.templateLineage.origin,
+        'template-version': plan.templateLineage.version
+      } : {}),
+      'host-constraint': {
+        type: constraint.type,
+        mode: constraint.mode,
+        code: constraint.code,
+        parent: portableParent
+      },
+      'rerun-command': `node personal-skill-system/skills/tools/manage-skill/scripts/run.js create ${kind} ${skillName}${options.scaffoldModules ? ' --scaffold-modules' : ''}${options.deferWhenHostBlocked ? ' --defer-when-host-blocked' : ''}${options.requestId ? ` --request-id ${options.requestId}` : ''}${options.opportunityId ? ` --opportunity-id ${options.opportunityId}` : ''}`,
+      note
+    });
+    writePendingScaffoldRegistry(projectRoot, pendingRegistry);
+    const reviewQueue = refreshReviewQueue(projectRoot);
+    refreshSkillInvestmentBacklog(projectRoot, {
+      reviewQueueData: reviewQueue.payload,
+      pendingScaffoldData: pendingRegistry
+    });
+
+    const readiness = refreshSystemReadiness(projectRoot, {
+      bestEffort: true,
+      returnDetails: true
+    });
+
+    return {
+      action: 'create',
+      status: 'deferred-host-blocked',
+      kind,
+      skill: skillName,
+      path: toPortablePath(projectRoot, targetDir),
+      'host-constraint': {
+        type: constraint.type,
+        mode: constraint.mode,
+        code: constraint.code,
+        parent: portableParent
+      },
+      ...(options.requestId ? { 'admission-request-id': options.requestId } : {}),
+      ...(options.opportunityId ? { 'opportunity-id': options.opportunityId } : {}),
+      ...(admissionEntry ? { 'admission-status': admissionEntry.status } : {}),
+      ...(opportunityEntry ? { 'linked-opportunity-status': opportunityEntry.status } : {}),
+      'pending-scaffold-id': pendingId,
+      ...(!readiness.ok ? { readiness_warning: readiness } : {}),
+      follow_up: [
+        ...(options.requestId ? [`node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-admission-ledger --request-id ${options.requestId}`] : []),
+        ...(options.opportunityId ? [`node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-opportunity-queue --opportunity-id ${options.opportunityId}`] : []),
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-pending-scaffolds --skill ${skillName}`,
+        'node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source host-writeability',
+        `rerun on a writable host: node personal-skill-system/skills/tools/manage-skill/scripts/run.js create ${kind} ${skillName}${options.scaffoldModules ? ' --scaffold-modules' : ''}${options.deferWhenHostBlocked ? ' --defer-when-host-blocked' : ''}${options.requestId ? ` --request-id ${options.requestId}` : ''}${options.opportunityId ? ` --opportunity-id ${options.opportunityId}` : ''}`
+      ]
+    };
+  } catch (error) {
+    restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
+    throw error;
+  }
 }
 
 function syncGeneratedSurfacesOnRemove(projectRoot, skillName) {
@@ -3139,6 +3826,10 @@ function syncGeneratedSurfacesOnRemove(projectRoot, skillName) {
   syncRouteFixturesOnRemove(projectRoot, skillName);
   syncRatingsOnRemove(projectRoot, skillName, { removedModuleIds });
   syncRuntimeProofOnRemove(projectRoot, skillName);
+  const reviewQueue = refreshReviewQueue(projectRoot);
+  refreshSkillInvestmentBacklog(projectRoot, {
+    reviewQueueData: reviewQueue.payload
+  });
 }
 
 function createSkill(kind, skillName, options = {}) {
@@ -3156,42 +3847,52 @@ function createSkill(kind, skillName, options = {}) {
       getRouteMapPath(projectRoot),
       getRouteFixturesPath(projectRoot),
       getRatingsPath(projectRoot),
+      getReviewQueueRegistryPath(projectRoot),
+      getPendingScaffoldRegistryFilePath(projectRoot),
+      getSkillOpportunityQueueRegistryPath(projectRoot),
+      getSkillInvestmentBacklogRegistryPath(projectRoot),
       getAdmissionLedgerPath(projectRoot)
     ]
   });
   const skillsRoot = getAuthoritativeSkillsRoot();
-  const templateDir = path.join(projectRoot, 'personal-skill-system', 'templates', 'skill', kind);
   const targetDir = path.join(skillsRoot, layer, skillName);
   const skillFile = path.join(targetDir, 'SKILL.md');
   ensureInsideAuthoritativeRoot(targetDir, skillsRoot);
   if (fs.existsSync(targetDir) && (fs.existsSync(skillFile) || directoryContainsFiles(targetDir))) {
     fail(`skill already exists at ${targetDir}`);
   }
+  const createConstraint = getDirectoryCreateConstraint(projectRoot, targetDir, `create skill '${skillName}'`);
+  if (createConstraint) {
+    if (options.deferWhenHostBlocked) {
+      return deferBlockedSkillCreate(projectRoot, kind, skillName, targetDir, createConstraint, options);
+    }
+    fail(createConstraint.message);
+  }
   const generatedSnapshot = snapshotGeneratedState(projectRoot);
+  const plan = buildScaffoldPlan(projectRoot, kind, skillName, options);
 
   try {
-    fs.mkdirSync(targetDir, { recursive: true });
-    fs.cpSync(templateDir, targetDir, { recursive: true });
-
-    const parsed = parseFrontmatterMap(fs.readFileSync(skillFile, 'utf8'));
-    parsed.map.set('name', skillName);
-    parsed.map.set('title', `${slugToTitle(skillName)} ${slugToTitle(kind)}`);
-    parsed.map.set('description', `TODO: describe ${skillName}. Use when this ${kind} is the correct primary route.`);
-    parsed.map.set('status', 'draft');
-    const next = renderSkillFile(parsed);
-    fs.writeFileSync(skillFile, next, 'utf8');
-    writeSkillHostMetadata(targetDir, parsed);
-    const capabilityModules = options.scaffoldModules
-      ? buildCapabilityModuleScaffolds(projectRoot, kind, skillName, next, targetDir)
-      : [];
-    const createPlaceholderRoute = kind !== 'router' && kind !== 'adapter' && parseBoolean(parsed.map.get('user-invocable'), true);
-    const shared = parseRouteSharedMetadata(parsed);
+    materializeScaffoldPlan(targetDir, plan);
+    const capabilityModules = plan.capabilityModules;
+    const createPlaceholderRoute = plan.createPlaceholderRoute;
+    const shared = plan.shared;
     syncGeneratedSurfacesOnCreate(projectRoot, kind, skillName, {
       createPlaceholderRoute,
       capabilityModules,
       shared,
-      requestId: options.requestId
+      requestId: options.requestId,
+      opportunityId: options.opportunityId
     });
+    const pendingRegistry = readPendingScaffoldRegistry(projectRoot);
+    pendingRegistry.entries = (Array.isArray(pendingRegistry.entries) ? pendingRegistry.entries : [])
+      .filter((entry) => String(entry && entry.skill || '').trim() !== skillName);
+    writePendingScaffoldRegistry(projectRoot, pendingRegistry);
+    const reviewQueue = refreshReviewQueue(projectRoot);
+    refreshSkillInvestmentBacklog(projectRoot, {
+      reviewQueueData: reviewQueue.payload,
+      pendingScaffoldData: pendingRegistry
+    });
+    refreshSystemReadiness(projectRoot);
 
     return {
       action: 'create',
@@ -3199,6 +3900,7 @@ function createSkill(kind, skillName, options = {}) {
       skill: skillName,
       path: path.relative(projectRoot, targetDir).split(path.sep).join('/'),
       ...(options.requestId ? { 'admission-request-id': options.requestId } : {}),
+      ...(options.opportunityId ? { 'opportunity-id': options.opportunityId } : {}),
       ...(capabilityModules.length > 0
         ? { 'scaffolded-capability-modules': capabilityModules.map((module) => module.id) }
         : {}),
@@ -3211,6 +3913,223 @@ function createSkill(kind, skillName, options = {}) {
     restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
     throw error;
   }
+}
+
+function showPendingScaffolds(projectRoot, options = {}) {
+  const registry = readPendingScaffoldRegistry(projectRoot);
+  const skillFilter = normalizeString(options.skill);
+  const statusFilter = normalizeString(options.status);
+  const pendingIdFilter = normalizeString(options.pendingId);
+
+  let entries = Array.isArray(registry.entries) ? registry.entries : [];
+  if (pendingIdFilter) {
+    entries = entries.filter((entry) => normalizeString(entry['pending-id']) === pendingIdFilter);
+  }
+  if (skillFilter) {
+    entries = entries.filter((entry) => normalizeString(entry.skill) === skillFilter);
+  }
+  if (statusFilter) {
+    entries = entries.filter((entry) => normalizePendingScaffoldStatus(entry.status) === statusFilter);
+  }
+
+  return {
+    action: 'show-pending-scaffolds',
+    summary: registry.summary || {},
+    total: Array.isArray(registry.entries) ? registry.entries.length : 0,
+    returned: entries.length,
+    entries
+  };
+}
+
+function materializePendingScaffold(projectRoot, skillOrPendingId) {
+  const needle = normalizeString(skillOrPendingId);
+  if (!needle) {
+    fail('materialize-pending-scaffold requires <skill-name-or-pending-id>');
+  }
+
+  assertGeneratedArtifactsWritable(projectRoot, `materialize pending scaffold '${needle}'`, {
+    paths: [
+      getRegistryPath(projectRoot),
+      getRouteMapPath(projectRoot),
+      getRouteFixturesPath(projectRoot),
+      getRatingsPath(projectRoot),
+      getReviewQueueRegistryPath(projectRoot),
+      getPendingScaffoldRegistryFilePath(projectRoot),
+      getSkillOpportunityQueueRegistryPath(projectRoot),
+      getSkillInvestmentBacklogRegistryPath(projectRoot),
+      getAdmissionLedgerPath(projectRoot)
+    ]
+  });
+
+  const registry = readPendingScaffoldRegistry(projectRoot);
+  const entries = Array.isArray(registry.entries) ? registry.entries : [];
+  const index = entries.findIndex((entry) =>
+    normalizeString(entry['pending-id']) === needle || normalizeString(entry.skill) === needle
+  );
+  if (index === -1) {
+    fail(`unknown pending scaffold '${needle}'`);
+  }
+
+  const entry = entries[index];
+  const kind = normalizeString(entry.kind);
+  const skillName = normalizeString(entry.skill);
+  const layer = VALID_KINDS.get(kind);
+  if (!layer) {
+    fail(`pending scaffold '${needle}' has unsupported kind '${kind}'`);
+  }
+
+  const targetDir = path.join(getAuthoritativeSkillsRoot(), layer, skillName);
+  const skillFile = path.join(targetDir, 'SKILL.md');
+  if (fs.existsSync(targetDir) && (fs.existsSync(skillFile) || directoryContainsFiles(targetDir))) {
+    fail(`skill already exists at ${targetDir}`);
+  }
+
+  const createConstraint = getDirectoryCreateConstraint(projectRoot, targetDir, `materialize pending scaffold '${skillName}'`);
+  if (createConstraint) {
+    fail(createConstraint.message);
+  }
+
+  const generatedSnapshot = snapshotGeneratedState(projectRoot);
+  try {
+    materializeScaffoldPlan(targetDir, {
+      files: Array.isArray(entry.files) ? entry.files : []
+    });
+    syncGeneratedSurfacesOnCreate(projectRoot, kind, skillName, {
+      createPlaceholderRoute: entry['create-placeholder-route'] === true,
+      capabilityModules: Array.isArray(entry['capability-modules']) ? entry['capability-modules'] : [],
+      shared: isPlainObject(entry.shared) ? entry.shared : null,
+      requestId: normalizeString(entry['request-id']) || null,
+      opportunityId: normalizeString(entry['opportunity-id']) || null
+    });
+
+    registry.entries = entries.filter((_, currentIndex) => currentIndex !== index);
+    writePendingScaffoldRegistry(projectRoot, registry);
+    const reviewQueue = refreshReviewQueue(projectRoot);
+    refreshSkillInvestmentBacklog(projectRoot, {
+      reviewQueueData: reviewQueue.payload,
+      pendingScaffoldData: registry
+    });
+    refreshSystemReadiness(projectRoot);
+
+    return {
+      action: 'materialize-pending-scaffold',
+      skill: skillName,
+      kind,
+      path: path.relative(projectRoot, targetDir).split(path.sep).join('/'),
+      'pending-scaffold-id': normalizeString(entry['pending-id']),
+      ...(normalizeString(entry['request-id']) ? { 'admission-request-id': normalizeString(entry['request-id']) } : {}),
+      ...(normalizeString(entry['opportunity-id']) ? { 'opportunity-id': normalizeString(entry['opportunity-id']) } : {}),
+      ...(Array.isArray(entry['capability-modules']) && entry['capability-modules'].length > 0
+        ? { 'scaffolded-capability-modules': entry['capability-modules'].map((module) => module.id) }
+        : {}),
+      follow_up: ['npm run verify:skills', 'npm run verify:skill-system']
+    };
+  } catch (error) {
+    if (fs.existsSync(targetDir)) {
+      fs.rmSync(targetDir, { recursive: true, force: true });
+    }
+    restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
+    throw error;
+  }
+}
+
+function syncScaffoldLineage(projectRoot, options = {}) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  const skillRecords = collectAllSkillRecords(projectRoot);
+  const skillsRoot = getAuthoritativeSkillsRoot();
+  const selected = [];
+
+  for (const record of skillRecords) {
+    if (options.skillName && record.name !== options.skillName) {
+      continue;
+    }
+    if (record.kind === 'router' || record.kind === 'adapter') {
+      continue;
+    }
+
+    const templateLineage = readTemplateLineage(bundleRoot, record.kind);
+    if (!templateLineage) {
+      continue;
+    }
+
+    const resolved = resolveSkillDirByName(skillsRoot, record.name);
+    if (!resolved) {
+      fail(`unknown skill '${record.name}' while syncing scaffold lineage`);
+    }
+
+    selected.push({
+      record,
+      resolved,
+      templateLineage
+    });
+  }
+
+  if (selected.length < 1) {
+    if (options.skillName) {
+      fail(`no canonical scaffold lineage found for skill '${options.skillName}'`);
+    }
+    return {
+      action: 'sync-scaffold-lineage',
+      scope: 'all',
+      synced: [],
+      unchanged: [],
+      follow_up: ['npm run verify:skills', 'npm run verify:skill-system']
+    };
+  }
+
+  const changed = [];
+  const unchanged = [];
+  const previousFiles = [];
+
+  try {
+    for (const item of selected) {
+      const currentOrigin = String(item.resolved.parsed.map.get(SCAFFOLD_ORIGIN_FIELD) || '').trim();
+      const currentVersion = parseInteger(item.resolved.parsed.map.get(SCAFFOLD_VERSION_FIELD), null);
+      const nextOrigin = item.templateLineage.origin;
+      const nextVersion = item.templateLineage.version;
+
+      if (currentOrigin === nextOrigin && currentVersion === nextVersion) {
+        unchanged.push(item.record.name);
+        continue;
+      }
+
+      previousFiles.push({
+        file: item.resolved.skillFile,
+        text: fs.readFileSync(item.resolved.skillFile, 'utf8')
+      });
+
+      item.resolved.parsed.map.set(SCAFFOLD_ORIGIN_FIELD, nextOrigin);
+      item.resolved.parsed.map.set(SCAFFOLD_VERSION_FIELD, String(nextVersion));
+      fs.writeFileSync(item.resolved.skillFile, renderSkillFile(item.resolved.parsed), 'utf8');
+
+      changed.push({
+        skill: item.record.name,
+        path: toPortablePath(projectRoot, item.resolved.skillFile),
+        previous: {
+          origin: currentOrigin || null,
+          version: currentVersion
+        },
+        current: {
+          origin: nextOrigin,
+          version: nextVersion
+        }
+      });
+    }
+  } catch (error) {
+    for (const previous of previousFiles.reverse()) {
+      fs.writeFileSync(previous.file, previous.text, 'utf8');
+    }
+    throw error;
+  }
+
+  return {
+    action: 'sync-scaffold-lineage',
+    scope: options.skillName ? 'single' : 'all',
+    ...(options.skillName ? { skill: options.skillName } : {}),
+    synced: changed,
+    unchanged,
+    follow_up: ['npm run verify:skills', 'npm run verify:skill-system']
+  };
 }
 
 function showSkill(skillName) {
@@ -3257,14 +4176,146 @@ function showAdmissionLedger(projectRoot, options = {}) {
   };
 }
 
+function showOpportunityQueue(projectRoot, options = {}) {
+  const queue = readOpportunityQueue(projectRoot);
+  const statusFilter = normalizeString(options.status);
+  const priorityFilter = normalizeString(options.priority);
+  const kindFilter = normalizeString(options.kind);
+  const horizonFilter = normalizeString(options.horizon);
+  const opportunityIdFilter = normalizeString(options.opportunityId);
+
+  let entries = queue.entries;
+  if (opportunityIdFilter) {
+    entries = entries.filter((entry) => entry['opportunity-id'] === opportunityIdFilter);
+  }
+  if (statusFilter) {
+    entries = entries.filter((entry) => normalizeString(entry.status) === statusFilter);
+  }
+  if (priorityFilter) {
+    entries = entries.filter((entry) => normalizeString(entry.priority) === priorityFilter);
+  }
+  if (kindFilter) {
+    entries = entries.filter((entry) => normalizeString(entry['suggested-kind']) === kindFilter);
+  }
+  if (horizonFilter) {
+    entries = entries.filter((entry) => normalizeString(entry.horizon) === horizonFilter);
+  }
+
+  return {
+    action: 'show-opportunity-queue',
+    summary: queue.summary || {},
+    total: queue.entries.length,
+    returned: entries.length,
+    entries
+  };
+}
+
+function showReviewQueue(projectRoot, options = {}) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  const read = readReviewQueue(bundleRoot);
+  if (read.error) {
+    fail(`review queue is unreadable or invalid: ${read.error}`);
+  }
+
+  const statusFilter = String(options.status || '').trim();
+  const priorityFilter = String(options.priority || '').trim();
+  const skillFilter = String(options.skill || '').trim();
+  const ownerFilter = String(options.owner || '').trim();
+  const overdueOnly = options.overdueOnly === true;
+
+  let entries = Array.isArray(read.data && read.data.skills) ? read.data.skills : [];
+  if (skillFilter) {
+    entries = entries.filter((entry) => entry.skill === skillFilter);
+  }
+  if (statusFilter) {
+    entries = entries.filter((entry) => entry['review-status'] === statusFilter);
+  }
+  if (priorityFilter) {
+    entries = entries.filter((entry) => entry.priority === priorityFilter);
+  }
+  if (ownerFilter) {
+    entries = entries.filter((entry) => String(entry.owner || '').trim() === ownerFilter);
+  }
+  if (overdueOnly) {
+    entries = entries.filter((entry) => entry['review-status'] === 'overdue');
+  }
+
+  return {
+    action: 'show-review-queue',
+    summary: read.data.summary || {},
+    total: Array.isArray(read.data && read.data.skills) ? read.data.skills.length : 0,
+    returned: entries.length,
+    entries
+  };
+}
+
+function showSkillInvestmentBacklog(projectRoot, options = {}) {
+  const payload = buildSkillInvestmentBacklog(getBundleRoot(projectRoot), {
+    skillRecords: collectAllSkillRecords(projectRoot),
+    registryData: readJson(getRegistryPath(projectRoot)),
+    ratingsData: readJson(getRatingsPath(projectRoot)),
+    reviewQueueData: readJson(getReviewQueueRegistryPath(projectRoot)),
+    opportunityQueueData: readOpportunityQueue(projectRoot),
+    admissionLedgerData: readAdmissionLedger(projectRoot),
+    evolutionLedgerData: readEvolutionLedger(projectRoot),
+    routeFixturesData: readJson(getRouteFixturesPath(projectRoot))
+  });
+
+  const statusFilter = normalizeString(options.status);
+  const priorityFilter = normalizeString(options.priority);
+  const categoryFilter = normalizeString(options.category);
+  const sourceFilter = normalizeString(options.source);
+  const skillFilter = normalizeString(options.skill);
+
+  let items = Array.isArray(payload.items) ? payload.items : [];
+  if (statusFilter) {
+    items = items.filter((item) => normalizeString(item.status) === statusFilter);
+  }
+  if (priorityFilter) {
+    items = items.filter((item) => normalizeString(item.priority) === priorityFilter);
+  }
+  if (categoryFilter) {
+    items = items.filter((item) => normalizeString(item.category) === categoryFilter);
+  }
+  if (sourceFilter) {
+    items = items.filter((item) => normalizeString(item.source) === sourceFilter);
+  }
+  if (skillFilter) {
+    items = items.filter((item) => normalizeString(item.skill) === skillFilter);
+  }
+
+  return {
+    action: 'show-investment-backlog',
+    summary: payload.summary || {},
+    total: Array.isArray(payload.items) ? payload.items.length : 0,
+    returned: items.length,
+    items
+  };
+}
+
 function updateSkill(skillName, assignments) {
   const projectRoot = getProjectRoot();
   const resolved = resolveSkillDirByName(getAuthoritativeSkillsRoot(), skillName);
   if (!resolved) fail(`unknown skill '${skillName}'`);
   if (assignments.length === 0) fail('update requires at least one --set key=value');
 
+  const parsedAssignments = [];
+  for (const assignment of assignments) {
+    const idx = assignment.indexOf('=');
+    if (idx === -1) fail(`invalid assignment '${assignment}'`);
+    const key = assignment.slice(0, idx).trim();
+    const value = assignment.slice(idx + 1).trim();
+    if (!key) fail(`invalid assignment '${assignment}'`);
+    if (key === 'status') {
+      fail('update cannot modify status directly; use set-status, archive, or delete so generated governance surfaces stay synchronized');
+    }
+    parsedAssignments.push({ key, value });
+  }
+
   assertGeneratedArtifactsWritable(projectRoot, `update skill '${skillName}'`, {
     paths: [
+      getReviewQueueRegistryPath(projectRoot),
+      getSkillInvestmentBacklogRegistryPath(projectRoot),
       getRouteMapPath(projectRoot),
       getRouteFixturesPath(projectRoot)
     ]
@@ -3274,16 +4325,8 @@ function updateSkill(skillName, assignments) {
   const generatedSnapshot = snapshotGeneratedState(projectRoot);
 
   try {
-    for (const assignment of assignments) {
-      const idx = assignment.indexOf('=');
-      if (idx === -1) fail(`invalid assignment '${assignment}'`);
-      const key = assignment.slice(0, idx).trim();
-      const value = assignment.slice(idx + 1).trim();
-      if (!key) fail(`invalid assignment '${assignment}'`);
-      if (key === 'status') {
-        fail('update cannot modify status directly; use set-status, archive, or delete so generated governance surfaces stay synchronized');
-      }
-      resolved.parsed.map.set(key, value);
+    for (const assignment of parsedAssignments) {
+      resolved.parsed.map.set(assignment.key, assignment.value);
     }
 
     const next = renderSkillFile(resolved.parsed);
@@ -3296,6 +4339,10 @@ function updateSkill(skillName, assignments) {
       syncRouteMapForSkill(projectRoot, skillName, { resolved });
       syncRouteFixturesForSkill(projectRoot, skillName);
     }
+    const reviewQueue = refreshReviewQueue(projectRoot);
+    refreshSkillInvestmentBacklog(projectRoot, {
+      reviewQueueData: reviewQueue.payload
+    });
     refreshSystemReadiness(projectRoot, { bestEffort: true });
 
     return {
@@ -3309,6 +4356,111 @@ function updateSkill(skillName, assignments) {
     restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
     throw error;
   }
+}
+
+function markSkillReviewed(skillName, options = {}) {
+  const projectRoot = getProjectRoot();
+  const resolved = resolveSkillDirByName(getAuthoritativeSkillsRoot(), skillName);
+  if (!resolved) fail(`unknown skill '${skillName}'`);
+
+  const reviewedAt = normalizeReviewDate(options.date || new Date().toISOString().slice(0, 10));
+  if (!reviewedAt) {
+    fail(`invalid review date '${options.date}'`);
+  }
+
+  const existingCycle = normalizeReviewCycleDays(resolved.parsed.map.get('review-cycle-days'));
+  const reviewCycleDays = options.reviewCycleDays != null
+    ? normalizeReviewCycleDays(options.reviewCycleDays)
+    : existingCycle;
+  if (reviewCycleDays == null) {
+    fail(`skill '${skillName}' needs a valid review-cycle-days before it can be marked reviewed`);
+  }
+
+  const requiredPaths = [
+    getReviewQueueRegistryPath(projectRoot),
+    getSkillInvestmentBacklogRegistryPath(projectRoot)
+  ];
+  assertGeneratedArtifactsWritable(projectRoot, `mark '${skillName}' reviewed`, {
+    paths: requiredPaths
+  });
+
+  const previousSkillText = fs.readFileSync(resolved.skillFile, 'utf8');
+  const generatedSnapshot = snapshotGeneratedState(projectRoot);
+
+  try {
+    resolved.parsed.map.set('last-reviewed', reviewedAt);
+    resolved.parsed.map.set('review-cycle-days', String(reviewCycleDays));
+    const next = renderSkillFile(resolved.parsed);
+    fs.writeFileSync(resolved.skillFile, next, 'utf8');
+
+    const queue = refreshReviewQueue(projectRoot);
+    const backlog = refreshSkillInvestmentBacklog(projectRoot, {
+      reviewQueueData: queue.payload
+    });
+    refreshSystemReadiness(projectRoot, { bestEffort: true });
+    const entry = (queue.payload.skills || []).find((item) => item.skill === skillName) || null;
+
+    return {
+      action: 'mark-reviewed',
+      skill: skillName,
+      'last-reviewed': reviewedAt,
+      'review-cycle-days': reviewCycleDays,
+      backlog: backlog.payload.summary,
+      ...(entry ? { 'review-entry': entry } : {}),
+      follow_up: ['npm run verify:skill-system']
+    };
+  } catch (error) {
+    fs.writeFileSync(resolved.skillFile, previousSkillText, 'utf8');
+    restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
+    throw error;
+  }
+}
+
+function buildOpportunityId(summary) {
+  return `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${slugifyAdmissionText(summary).slice(0, 48)}`;
+}
+
+function recordSkillOpportunity(projectRoot, prompt, options = {}) {
+  const summary = normalizeAdmissionText(prompt);
+  if (!summary) {
+    fail('record-opportunity requires a non-empty summary');
+  }
+
+  const suggestedKind = options.kind ? normalizeString(options.kind) : inferRecommendedKindFromAdmission(summary);
+  if (suggestedKind && !VALID_KINDS.has(suggestedKind)) {
+    fail(`unsupported opportunity kind '${suggestedKind}'`);
+  }
+
+  const priority = normalizeOpportunityPriority(options.priority);
+  const horizon = normalizeOpportunityHorizon(options.horizon);
+  const adjacentSkills = uniqueSorted(Array.isArray(options.adjacentSkills) ? options.adjacentSkills : []);
+  const rationale = uniqueSorted(Array.isArray(options.rationale) ? options.rationale : []);
+  const opportunityId = buildOpportunityId(summary);
+
+  const queue = appendOpportunityQueueEntry(projectRoot, {
+    'opportunity-id': opportunityId,
+    summary,
+    ...(suggestedKind ? { 'suggested-kind': suggestedKind } : {}),
+    priority,
+    status: 'open',
+    horizon,
+    ...(adjacentSkills.length > 0 ? { 'adjacent-skills': adjacentSkills } : {}),
+    ...(rationale.length > 0 ? { rationale } : {}),
+    'recorded-at': new Date().toISOString()
+  });
+  refreshSkillInvestmentBacklog(projectRoot, {
+    opportunityQueueData: queue
+  });
+  refreshSystemReadiness(projectRoot, { bestEffort: true });
+
+  return {
+    action: 'record-opportunity',
+    entry: queue.entries.find((entry) => entry['opportunity-id'] === opportunityId) || null,
+    follow_up: [
+      `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-opportunity-queue --opportunity-id ${opportunityId}`,
+      'review the generated investment backlog before creating a new skill'
+    ]
+  };
 }
 
 function shouldSyncHostMetadataRecord(record, options = {}) {
@@ -3386,7 +4538,18 @@ function snapshotGeneratedState(projectRoot) {
   const bundleRoot = getBundleRoot(projectRoot);
   return {
     registry: cloneJsonValue(readJson(getRegistryPath(projectRoot))),
+    opportunityQueue: cloneJsonValue(readOpportunityQueue(projectRoot)),
     admissionLedger: cloneJsonValue(readAdmissionLedger(projectRoot)),
+    evolutionLedger: cloneJsonValue(readEvolutionLedger(projectRoot)),
+    reviewQueue: fs.existsSync(getReviewQueueRegistryPath(projectRoot))
+      ? cloneJsonValue(readJson(getReviewQueueRegistryPath(projectRoot)))
+      : null,
+    pendingScaffolds: fs.existsSync(getPendingScaffoldRegistryFilePath(projectRoot))
+      ? cloneJsonValue(readJson(getPendingScaffoldRegistryFilePath(projectRoot)))
+      : null,
+    skillInvestmentBacklog: fs.existsSync(getSkillInvestmentBacklogRegistryPath(projectRoot))
+      ? cloneJsonValue(readJson(getSkillInvestmentBacklogRegistryPath(projectRoot)))
+      : null,
     runtimeProofExists: fs.existsSync(getRuntimeProofPath(projectRoot)),
     runtimeProof: fs.existsSync(getRuntimeProofPath(projectRoot)) ? cloneJsonValue(readJson(getRuntimeProofPath(projectRoot))) : null,
     routeMap: cloneJsonValue(readJson(getRouteMapPath(projectRoot))),
@@ -3408,7 +4571,24 @@ function restoreGeneratedState(projectRoot, snapshot) {
   if (!snapshot) return;
 
   writeJson(getRegistryPath(projectRoot), snapshot.registry);
+  writeOpportunityQueue(projectRoot, snapshot.opportunityQueue);
   writeAdmissionLedger(projectRoot, snapshot.admissionLedger);
+  writeEvolutionLedger(projectRoot, snapshot.evolutionLedger);
+  if (snapshot.reviewQueue) {
+    writeJson(getReviewQueueRegistryPath(projectRoot), snapshot.reviewQueue);
+  } else if (fs.existsSync(getReviewQueueRegistryPath(projectRoot))) {
+    fs.rmSync(getReviewQueueRegistryPath(projectRoot), { force: true });
+  }
+  if (snapshot.pendingScaffolds) {
+    writeJson(getPendingScaffoldRegistryFilePath(projectRoot), snapshot.pendingScaffolds);
+  } else if (fs.existsSync(getPendingScaffoldRegistryFilePath(projectRoot))) {
+    fs.rmSync(getPendingScaffoldRegistryFilePath(projectRoot), { force: true });
+  }
+  if (snapshot.skillInvestmentBacklog) {
+    writeJson(getSkillInvestmentBacklogRegistryPath(projectRoot), snapshot.skillInvestmentBacklog);
+  } else if (fs.existsSync(getSkillInvestmentBacklogRegistryPath(projectRoot))) {
+    fs.rmSync(getSkillInvestmentBacklogRegistryPath(projectRoot), { force: true });
+  }
   writeJson(getRouteMapPath(projectRoot), snapshot.routeMap);
   writeJson(getRouteFixturesPath(projectRoot), snapshot.routeFixtures);
   writeRatings(projectRoot, snapshot.ratings);
@@ -3436,10 +4616,16 @@ function restoreGeneratedState(projectRoot, snapshot) {
   }
 
   const readinessPath = path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json');
-  if (snapshot.readiness) {
-    writeJson(readinessPath, snapshot.readiness);
-  } else if (fs.existsSync(readinessPath)) {
-    fs.rmSync(readinessPath, { force: true });
+  try {
+    if (snapshot.readiness) {
+      writeJson(readinessPath, snapshot.readiness);
+    } else if (fs.existsSync(readinessPath)) {
+      fs.rmSync(readinessPath, { force: true });
+    }
+  } catch (error) {
+    if (!(error && error.code === 'EPERM')) {
+      throw error;
+    }
   }
 }
 
@@ -3453,6 +4639,17 @@ function restoreGeneratedStateSafely(projectRoot, snapshot, originalError) {
   }
 }
 
+function resolveEvolutionRequestIfPresent(projectRoot, requestId, resolution = {}) {
+  const normalizedId = String(requestId || '').trim();
+  if (!normalizedId) {
+    return null;
+  }
+  return resolveEvolutionDecision(projectRoot, normalizedId, {
+    status: 'implemented',
+    ...resolution
+  });
+}
+
 function setSkillStatus(skillName, nextStatus, options = {}) {
   const projectRoot = getProjectRoot();
   const resolved = resolveSkillDirByName(getAuthoritativeSkillsRoot(), skillName);
@@ -3461,14 +4658,20 @@ function setSkillStatus(skillName, nextStatus, options = {}) {
   const currentStatus = String(resolved.parsed.map.get('status') || '').trim();
   const wasArchived = currentStatus === 'archived';
   validateLifecycleTransition(skillName, currentStatus, nextStatus);
+  const requiredPaths = [
+    getReviewQueueRegistryPath(projectRoot),
+    getSkillInvestmentBacklogRegistryPath(projectRoot),
+    getRatingsPath(projectRoot),
+    getRuntimeProofPath(projectRoot),
+    getHostSmokeScorecardPath(getBundleRoot(projectRoot)),
+    getRouteMapPath(projectRoot),
+    getRouteFixturesPath(projectRoot)
+  ];
+  if (options.requestId) {
+    requiredPaths.push(getEvolutionLedgerPath(projectRoot));
+  }
   assertGeneratedArtifactsWritable(projectRoot, `set status for '${skillName}'`, {
-    paths: [
-      getRatingsPath(projectRoot),
-      getRuntimeProofPath(projectRoot),
-      getHostSmokeScorecardPath(getBundleRoot(projectRoot)),
-      getRouteMapPath(projectRoot),
-      getRouteFixturesPath(projectRoot)
-    ]
+    paths: requiredPaths
   });
 
   const previousSkillText = fs.readFileSync(resolved.skillFile, 'utf8');
@@ -3496,14 +4699,26 @@ function setSkillStatus(skillName, nextStatus, options = {}) {
       }
       updateRatingsSummaryForStatus(projectRoot, skillName, nextStatus);
       syncRuntimeProofForStatusTransition(projectRoot, skillName, nextStatus, options);
-      refreshSystemReadiness(projectRoot);
+      const reviewQueue = refreshReviewQueue(projectRoot);
+      refreshSkillInvestmentBacklog(projectRoot, {
+        reviewQueueData: reviewQueue.payload
+      });
+      refreshSystemReadiness(projectRoot, { bestEffort: true });
     }
+
+    const resolvedEvolution = resolveEvolutionRequestIfPresent(projectRoot, options.requestId, {
+      executedAction: String(options.executedAction || 'set-status').trim(),
+      resultStatus: nextStatus,
+      ...(options.evolutionResolution || {})
+    });
 
     return {
       action: 'set-status',
       skill: skillName,
       previous_status: currentStatus,
       status: nextStatus,
+      ...(options.requestId ? { 'evolution-request-id': options.requestId } : {}),
+      ...(resolvedEvolution ? { evolution_resolution: resolvedEvolution } : {}),
       follow_up: [
         'npm run verify:skills',
         'npm run verify:skill-system'
@@ -3566,13 +4781,56 @@ function syncRuntimeProofForStatusTransition(projectRoot, skillName, status, opt
   writeRuntimeProofRegistry(projectRoot, nextProofs);
 }
 
-function archiveSkill(skillName) {
-  const result = setSkillStatus(skillName, 'archived');
+function archiveSkill(skillName, options = {}) {
+  const result = setSkillStatus(skillName, 'archived', {
+    requestId: options.requestId,
+    executedAction: 'archive'
+  });
   return {
     action: 'archive',
     skill: skillName,
     previous_status: result.previous_status,
+    ...(result['evolution-request-id'] ? { 'evolution-request-id': result['evolution-request-id'] } : {}),
     follow_up: result.follow_up
+  };
+}
+
+function mergeSkill(skillName, targetSkill, options = {}) {
+  const normalizedSource = String(skillName || '').trim();
+  const normalizedTarget = String(targetSkill || '').trim();
+
+  if (!normalizedSource || !normalizedTarget) {
+    fail('merge requires <skill-name> <target-skill>');
+  }
+  if (normalizedSource === normalizedTarget) {
+    fail(`cannot merge skill '${normalizedSource}' into itself`);
+  }
+  if (!resolveSkillDirByName(getAuthoritativeSkillsRoot(), normalizedTarget)) {
+    fail(`unknown merge target '${normalizedTarget}'`);
+  }
+
+  const result = setSkillStatus(normalizedSource, 'archived', {
+    requestId: options.requestId,
+    executedAction: 'merge',
+    evolutionResolution: {
+      mergedInto: normalizedTarget,
+      note: options.note || `merged into '${normalizedTarget}' through governed manage-skill flow`
+    }
+  });
+
+  return {
+    action: 'merge',
+    skill: normalizedSource,
+    target_skill: normalizedTarget,
+    previous_status: result.previous_status,
+    status: 'archived',
+    ...(result['evolution-request-id'] ? { 'evolution-request-id': result['evolution-request-id'] } : {}),
+    ...(result.evolution_resolution ? { evolution_resolution: result.evolution_resolution } : {}),
+    follow_up: [
+      `review overlap now owned by '${normalizedTarget}'`,
+      'npm run verify:skills',
+      'npm run verify:skill-system'
+    ]
   };
 }
 
@@ -3584,8 +4842,10 @@ function removeSkill(options) {
       getRouteMapPath(projectRoot),
       getRouteFixturesPath(projectRoot),
       getRatingsPath(projectRoot),
+      getSkillInvestmentBacklogRegistryPath(projectRoot),
       getRuntimeProofPath(projectRoot),
-      getHostSmokeScorecardPath(getBundleRoot(projectRoot))
+      getHostSmokeScorecardPath(getBundleRoot(projectRoot)),
+      ...(options && options.requestId ? [getEvolutionLedgerPath(projectRoot)] : [])
     ]
   });
   const skillsRoot = getAuthoritativeSkillsRoot();
@@ -3596,15 +4856,28 @@ function removeSkill(options) {
 
   if (!resolved) fail(`unknown skill '${identifier}'`);
   ensureInsideAuthoritativeRoot(resolved.dir, skillsRoot);
-  fs.rmSync(resolved.dir, { recursive: true, force: true });
-  syncGeneratedSurfacesOnRemove(projectRoot, resolved.parsed.map.get('name') || identifier);
+  const generatedSnapshot = snapshotGeneratedState(projectRoot);
+  try {
+    fs.rmSync(resolved.dir, { recursive: true, force: true });
+    syncGeneratedSurfacesOnRemove(projectRoot, resolved.parsed.map.get('name') || identifier);
+    const resolvedEvolution = resolveEvolutionRequestIfPresent(projectRoot, options && options.requestId, {
+      executedAction: 'delete',
+      resultStatus: 'deleted'
+    });
+    refreshSystemReadiness(projectRoot, { bestEffort: true });
 
-  return {
-    action: 'delete',
-    skill: resolved.parsed.map.get('name') || identifier,
-    path: path.relative(projectRoot, resolved.dir).split(path.sep).join('/'),
-    follow_up: ['npm run verify:skills', 'update registry/route-map generated artifacts if needed'],
-  };
+    return {
+      action: 'delete',
+      skill: resolved.parsed.map.get('name') || identifier,
+      path: path.relative(projectRoot, resolved.dir).split(path.sep).join('/'),
+      ...(options && options.requestId ? { 'evolution-request-id': options.requestId } : {}),
+      ...(resolvedEvolution ? { evolution_resolution: resolvedEvolution } : {}),
+      follow_up: ['npm run verify:skills', 'update registry/route-map generated artifacts if needed'],
+    };
+  } catch (error) {
+    restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
+    throw error;
+  }
 }
 
 function parseListArgument(value) {
@@ -3684,29 +4957,288 @@ function buildCandidateSummary(candidate, recordIndex) {
   };
 }
 
-function finalizeAdmissionResult(projectRoot, result, options = {}) {
+function buildEvolutionRequestId(skillName, prompt) {
+  return `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${slugifyAdmissionText(`${skillName}-${prompt}`).slice(0, 48)}`;
+}
+
+function finalizeEvolutionResult(projectRoot, result, options = {}) {
   if (options.record === false) {
     delete result['request-id'];
     return result;
   }
 
   const recordedAt = new Date().toISOString();
-  appendAdmissionLedgerEntry(projectRoot, {
+  const ledger = appendEvolutionLedgerEntry(projectRoot, {
     'request-id': result['request-id'],
+    skill: result.skill,
     request: result.request,
-    'suggested-kind': result.suggested_kind,
-    'inferred-intent-tags': result.inferred_intent_tags,
     decision: result.recommendation,
-    status: result.recommendation && result.recommendation.action === 'create-new-skill' ? 'open' : 'advised-reuse',
+    status: result.recommendation.action === 'status-already-correct' ? 'advised-noop' : 'open',
     'recorded-at': recordedAt
   });
+  refreshSkillInvestmentBacklog(projectRoot, {
+    evolutionLedgerData: ledger
+  });
+  refreshSystemReadiness(projectRoot, { bestEffort: true });
   result['recorded-at'] = recordedAt;
-  result.follow_up.push(`recorded in admission ledger as '${result['request-id']}'`);
+  result.follow_up.push(`recorded in evolution ledger as '${result['request-id']}'`);
   return result;
 }
 
-function recommendAdmissionPath(projectRoot, prompt, options = {}) {
+function recommendEvolutionPath(projectRoot, skillName, prompt, options = {}) {
+  const normalizedSkill = String(skillName || '').trim();
   const query = normalizeAdmissionText(prompt);
+  if (!normalizedSkill) {
+    fail('evolution-check requires <skill-name>');
+  }
+  if (!query) {
+    fail('evolution-check requires a non-empty request description');
+  }
+
+  const recordIndex = buildSkillRecordIndex(projectRoot);
+  const record = recordIndex.get(normalizedSkill) || null;
+  if (!record) {
+    fail(`unknown skill '${normalizedSkill}'`);
+  }
+
+  const lower = query.toLowerCase();
+  const assessment = assessTopTierReadiness(projectRoot, normalizedSkill);
+  const hasActiveRoute = hasActiveRouteEntry(projectRoot, normalizedSkill);
+  const moduleRatings = getCapabilityModuleRatingsForSkill(projectRoot, normalizedSkill);
+  const routeQuery = `skill boundary evolution for ${normalizedSkill}: ${query}`;
+  const { explain, candidates } = collectAdmissionCandidates(projectRoot, routeQuery);
+  const nearestPeer = (candidates || [])
+    .filter((candidate) => candidate && candidate.skill !== normalizedSkill)
+    .map((candidate) => buildCandidateSummary(candidate, recordIndex))[0] || null;
+
+  const result = {
+    action: 'evolution-check',
+    'request-id': options.record === false ? null : buildEvolutionRequestId(normalizedSkill, query),
+    skill: normalizedSkill,
+    kind: record.kind,
+    status: record.status,
+    request: query,
+    'top-tier-ready': assessment.ready,
+    'active-route': hasActiveRoute,
+    'capability-modules': moduleRatings,
+    'nearest-peer': nearestPeer,
+    route_selection_reason: explain.selectionReason,
+    recommendation: null,
+    rationale: [],
+    follow_up: []
+  };
+
+  const wantsDelete = /\b(delete|remove)\b|删除|移除/.test(lower);
+  const wantsArchive = /\barchiv(?:e|ed|ing)\b|归档/.test(lower);
+  const wantsDeprecate = /\bdeprecat(?:e|ed|ion)?\b|\bretir(?:e|ed|ing)\b|弃用|退役/.test(lower);
+  const wantsStable = /\bstable\b|top-tier|top tier|promot|升稳|晋升/.test(lower);
+  const wantsMerge = /\bmerge\b|合并/.test(lower);
+
+  if (wantsDelete) {
+    result.recommendation = {
+      action: 'delete-skill',
+      target_status: 'deleted'
+    };
+    result.rationale.push('the request explicitly asks for removal, so the governed path should end at delete instead of a softer lifecycle move');
+    result.follow_up.push(`archive '${normalizedSkill}' first unless you are intentionally deleting without historical preservation`);
+    result.follow_up.push(`execute with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js delete --name ${normalizedSkill}`);
+    return finalizeEvolutionResult(projectRoot, result, options);
+  }
+
+  if (wantsArchive || (!hasActiveRoute && record.status === 'deprecated')) {
+    result.recommendation = {
+      action: 'archive-skill',
+      target_status: 'archived'
+    };
+    result.rationale.push('this skill is already off the active surface or the request explicitly asks to preserve history without live routing');
+    result.follow_up.push(`execute with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js archive ${normalizedSkill}`);
+    return finalizeEvolutionResult(projectRoot, result, options);
+  }
+
+  if (wantsDeprecate) {
+    result.recommendation = {
+      action: 'deprecate-skill',
+      target_status: 'deprecated'
+    };
+    result.rationale.push('the request asks for a live-but-discouraged state, which matches deprecation better than archive or delete');
+    result.follow_up.push(`execute with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status ${normalizedSkill} deprecated`);
+    return finalizeEvolutionResult(projectRoot, result, options);
+  }
+
+  if (wantsStable || record.status === 'experimental') {
+    if (assessment.ready) {
+      result.recommendation = {
+        action: 'promote-to-stable',
+        target_status: 'stable'
+      };
+      result.rationale.push('top-tier blockers are clear and the request is consistent with stable promotion');
+      result.follow_up.push(`execute with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status ${normalizedSkill} stable`);
+      return finalizeEvolutionResult(projectRoot, result, options);
+    }
+
+    result.recommendation = {
+      action: 'upgrade-existing-skill',
+      target_status: record.status
+    };
+    result.rationale.push('stable promotion is not honest yet because governed top-tier blockers still exist');
+    result.rationale.push(...assessment.blockers.slice(0, 3).map((item) => item.message));
+    result.follow_up.push(`inspect blockers with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${normalizedSkill}`);
+    return finalizeEvolutionResult(projectRoot, result, options);
+  }
+
+  if (wantsMerge && nearestPeer) {
+    result.recommendation = {
+      action: 'merge-into-skill',
+      target_skill: nearestPeer.skill
+    };
+    result.rationale.push(`the request explicitly mentions merge pressure and the nearest competing route is '${nearestPeer.skill}'`);
+    result.follow_up.push(`execute with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js merge ${normalizedSkill} ${nearestPeer.skill}`);
+    result.follow_up.push(`review overlap with '${nearestPeer.skill}' before deleting or archiving '${normalizedSkill}'`);
+    return finalizeEvolutionResult(projectRoot, result, options);
+  }
+
+  if (record.status === 'draft' || record.status === 'experimental' || assessment.ready === false) {
+    result.recommendation = {
+      action: 'upgrade-existing-skill',
+      target_status: record.status
+    };
+    result.rationale.push('the narrowest useful move is still to deepen or harden the current skill rather than change lifecycle state');
+    if (assessment.blockers.length > 0) {
+      result.rationale.push(...assessment.blockers.slice(0, 2).map((item) => item.message));
+    }
+    result.follow_up.push(`inspect current state with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${normalizedSkill}`);
+    if (assessment.blockers.length > 0) {
+      result.follow_up.push(`inspect promotion blockers with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${normalizedSkill}`);
+    }
+    return finalizeEvolutionResult(projectRoot, result, options);
+  }
+
+  result.recommendation = {
+    action: 'status-already-correct',
+    target_status: record.status
+  };
+  result.rationale.push('the current governed state already matches the request better than a lifecycle mutation would');
+  result.follow_up.push(`keep iterating in-place on '${normalizedSkill}' instead of changing status`);
+  return finalizeEvolutionResult(projectRoot, result, options);
+}
+
+function showEvolutionLedger(projectRoot, options = {}) {
+  const ledger = readEvolutionLedger(projectRoot);
+  const statusFilter = String(options.status || '').trim();
+  const skillFilter = String(options.skill || '').trim();
+  const requestIdFilter = String(options.requestId || '').trim();
+
+  let entries = ledger.entries;
+  if (requestIdFilter) {
+    entries = entries.filter((entry) => entry['request-id'] === requestIdFilter);
+  }
+  if (statusFilter) {
+    entries = entries.filter((entry) => entry.status === statusFilter);
+  }
+  if (skillFilter) {
+    entries = entries.filter((entry) =>
+      entry.skill === skillFilter
+      || entry.decision.target_skill === skillFilter
+      || entry['merged-into'] === skillFilter
+    );
+  }
+
+  return {
+    action: 'show-evolution-ledger',
+    total: ledger.entries.length,
+    returned: entries.length,
+    entries
+  };
+}
+
+function finalizeAdmissionResult(projectRoot, result, options = {}) {
+  if (options.record === false) {
+    delete result['request-id'];
+    return result;
+  }
+
+  const requiredPaths = [
+    getAdmissionLedgerPath(projectRoot),
+    getSkillInvestmentBacklogRegistryPath(projectRoot)
+  ];
+  if (options.opportunityId) {
+    requiredPaths.push(getSkillOpportunityQueueRegistryPath(projectRoot));
+  }
+  assertGeneratedArtifactsWritable(projectRoot, `record admission decision '${result['request-id']}'`, {
+    paths: requiredPaths
+  });
+
+  const generatedSnapshot = snapshotGeneratedState(projectRoot);
+  const recordedAt = new Date().toISOString();
+  try {
+    const ledger = appendAdmissionLedgerEntry(projectRoot, {
+      'request-id': result['request-id'],
+      request: result.request,
+      'suggested-kind': result.suggested_kind,
+      'inferred-intent-tags': result.inferred_intent_tags,
+      ...(options.opportunityId ? { 'opportunity-id': options.opportunityId } : {}),
+      decision: result.recommendation,
+      status: result.recommendation && result.recommendation.action === 'create-new-skill' ? 'open' : 'advised-reuse',
+      'recorded-at': recordedAt
+    });
+    const linkedOpportunity = syncOpportunityQueueOnAdmissionDecision(projectRoot, result, options);
+    refreshSkillInvestmentBacklog(projectRoot, {
+      admissionLedgerData: ledger
+    });
+    result['recorded-at'] = recordedAt;
+    if (options.opportunityId) {
+      result['opportunity-id'] = options.opportunityId;
+    }
+    if (linkedOpportunity) {
+      result['linked-opportunity-status'] = linkedOpportunity.status;
+    }
+    if (result.recommendation && result.recommendation.action === 'create-new-skill') {
+      const scaffoldFlags = [];
+      if (result.suggested_kind === 'domain' || result.suggested_kind === 'workflow') {
+        scaffoldFlags.push('--scaffold-modules');
+      }
+      scaffoldFlags.push('--defer-when-host-blocked');
+      scaffoldFlags.push(`--request-id ${result['request-id']}`);
+      if (options.opportunityId) {
+        scaffoldFlags.push(`--opportunity-id ${options.opportunityId}`);
+      }
+      result.follow_up.push(`recorded create path: node personal-skill-system/skills/tools/manage-skill/scripts/run.js create ${result.suggested_kind} <skill-name> ${scaffoldFlags.join(' ')}`);
+    }
+    refreshSystemReadiness(projectRoot, { bestEffort: true });
+    result.follow_up.push(`recorded in admission ledger as '${result['request-id']}'`);
+    return result;
+  } catch (error) {
+    restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
+    throw error;
+  }
+}
+
+function syncOpportunityQueueOnSkillCreate(projectRoot, skillName, options = {}) {
+  const opportunityId = normalizeString(options.opportunityId);
+  if (!opportunityId) {
+    return null;
+  }
+  return resolveOpportunity(projectRoot, opportunityId, {
+    status: 'implemented',
+    createdSkill: skillName,
+    admissionRequestId: options.requestId || null,
+    note: `implemented via create ${skillName}`
+  });
+}
+
+function recommendAdmissionPath(projectRoot, prompt, options = {}) {
+  const linkedOpportunity = options.opportunityId
+    ? findOpportunityQueueEntry(projectRoot, options.opportunityId).entry
+    : null;
+  if (
+    linkedOpportunity
+    && options.record !== false
+    && ['implemented', 'cancelled'].includes(normalizeOpportunityStatus(linkedOpportunity.status))
+  ) {
+    fail(`opportunity '${options.opportunityId}' is already '${normalizeOpportunityStatus(linkedOpportunity.status)}' and cannot be escalated into a new admission request`);
+  }
+  const opportunitySummary = normalizeAdmissionText(linkedOpportunity && linkedOpportunity.summary);
+  const query = normalizeAdmissionText(prompt || opportunitySummary);
   if (!query) {
     fail('admission-check requires a non-empty request description');
   }
@@ -3715,7 +5247,8 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
   const ranked = candidates.length > 0 ? candidates : (Array.isArray(explain.rankedCandidates) ? explain.rankedCandidates : []);
   const top = ranked[0] || null;
   const runnerUp = ranked[1] || null;
-  const recommendedKind = options.kind || inferRecommendedKindFromAdmission(query);
+  const explicitKindIntent = options.kind || normalizeString(linkedOpportunity && linkedOpportunity['suggested-kind']) || null;
+  const recommendedKind = explicitKindIntent || inferRecommendedKindFromAdmission(query);
   const inferredIntentTags = inferIntentFromCandidates(ranked);
   const recordIndex = buildSkillRecordIndex(projectRoot);
 
@@ -3772,9 +5305,9 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
   }
 
   if (
-    options.kind
+    explicitKindIntent
     && top
-    && top.kind !== options.kind
+    && top.kind !== explicitKindIntent
     && top.confidence
     && ['low', 'minimum'].includes(top.confidence.band)
   ) {
@@ -3782,7 +5315,7 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
       action: 'create-new-skill',
       suggested_kind: recommendedKind
     };
-    result.rationale.push(`the nearest current route '${top.skill}' is only a weak ${top.kind}-shaped overlap, while the requested boundary is '${options.kind}'`);
+    result.rationale.push(`the nearest current route '${top.skill}' is only a weak ${top.kind}-shaped overlap, while the requested boundary is '${explicitKindIntent}'`);
     result.rationale.push('when explicit kind intent and weak current ownership disagree, prefer a clean new boundary over forcing the capability into the wrong layer');
     result.follow_up.push(`create the governed scaffold with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js create ${recommendedKind} <skill-name>${recommendedKind === 'domain' || recommendedKind === 'workflow' ? ' --scaffold-modules' : ''}`);
     result.follow_up.push('after scaffolding, define why this boundary should stay separate from the nearest live route');
@@ -3836,18 +5369,155 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
 function main(argv) {
   const [action, arg1, arg2, ...rest] = argv;
   if (!action) {
-    fail('usage: manage-skill <admission-check|show-admission-ledger|resolve-admission|assess-top-tier|create|show|update|set-status|set-module-rating|archive|delete|sync-runtime-proof|sync-host-metadata|sync-route-metadata|run-host-smoke|reconcile-host-smoke> ...');
+    fail('usage: manage-skill <record-opportunity|show-opportunity-queue|resolve-opportunity|admission-check|show-admission-ledger|resolve-admission|evolution-check|show-evolution-ledger|resolve-evolution|show-review-queue|show-investment-backlog|show-pending-scaffolds|mark-reviewed|assess-top-tier|create|materialize-pending-scaffold|show|update|set-status|set-module-rating|archive|merge|delete|sync-scaffold-lineage|sync-runtime-proof|sync-host-metadata|sync-route-metadata|run-host-smoke|reconcile-host-smoke> ...');
+  }
+
+  if (action === 'record-opportunity') {
+    const projectRoot = getProjectRoot();
+    let kind = null;
+    let priority = 'normal';
+    let horizon = 'next';
+    let adjacentSkills = [];
+    let rationale = [];
+    const promptParts = [];
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--kind' && argsList[i + 1]) {
+        kind = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--priority' && argsList[i + 1]) {
+        priority = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--horizon' && argsList[i + 1]) {
+        horizon = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--adjacent' && argsList[i + 1]) {
+        adjacentSkills = parseListArgument(argsList[i + 1]);
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--rationale' && argsList[i + 1]) {
+        rationale = parseListArgument(argsList[i + 1]);
+        i += 1;
+        continue;
+      }
+      promptParts.push(argsList[i]);
+    }
+    return recordSkillOpportunity(projectRoot, promptParts.join(' '), {
+      kind,
+      priority,
+      horizon,
+      adjacentSkills,
+      rationale
+    });
+  }
+
+  if (action === 'show-opportunity-queue') {
+    const projectRoot = getProjectRoot();
+    let status = null;
+    let priority = null;
+    let kind = null;
+    let horizon = null;
+    let opportunityId = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--status' && argsList[i + 1]) {
+        status = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--priority' && argsList[i + 1]) {
+        priority = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--kind' && argsList[i + 1]) {
+        kind = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--horizon' && argsList[i + 1]) {
+        horizon = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--opportunity-id' && argsList[i + 1]) {
+        opportunityId = argsList[i + 1];
+        i += 1;
+      }
+    }
+    return showOpportunityQueue(projectRoot, {
+      status,
+      priority,
+      kind,
+      horizon,
+      opportunityId
+    });
+  }
+
+  if (action === 'resolve-opportunity') {
+    const projectRoot = getProjectRoot();
+    if (!arg1) {
+      fail('resolve-opportunity requires <opportunity-id>');
+    }
+    let status = 'implemented';
+    let createdSkill = null;
+    let admissionRequestId = null;
+    let note = null;
+    const resolutionArgs = [arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < resolutionArgs.length; i += 1) {
+      if (resolutionArgs[i] === '--status' && resolutionArgs[i + 1]) {
+        status = resolutionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (resolutionArgs[i] === '--created-skill' && resolutionArgs[i + 1]) {
+        createdSkill = resolutionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (resolutionArgs[i] === '--admission-request-id' && resolutionArgs[i + 1]) {
+        admissionRequestId = resolutionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (resolutionArgs[i] === '--note' && resolutionArgs[i + 1]) {
+        note = resolutionArgs[i + 1];
+        i += 1;
+      }
+    }
+    return {
+      action: 'resolve-opportunity',
+      entry: resolveOpportunity(projectRoot, arg1, {
+        status,
+        createdSkill,
+        admissionRequestId,
+        note
+      })
+    };
   }
 
   if (action === 'admission-check') {
     const projectRoot = getProjectRoot();
     let kind = null;
     let record = true;
+    let opportunityId = null;
     const promptParts = [];
     const admissionArgs = [arg1, arg2, ...rest].filter((item) => item != null);
     for (let i = 0; i < admissionArgs.length; i += 1) {
       if (admissionArgs[i] === '--kind' && admissionArgs[i + 1]) {
         kind = admissionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (admissionArgs[i] === '--opportunity-id' && admissionArgs[i + 1]) {
+        opportunityId = admissionArgs[i + 1];
         i += 1;
         continue;
       }
@@ -3860,7 +5530,7 @@ function main(argv) {
     if (kind && !VALID_KINDS.has(kind)) {
       fail(`unsupported admission-check kind '${kind}'`);
     }
-    return recommendAdmissionPath(projectRoot, promptParts.join(' '), { kind, record });
+    return recommendAdmissionPath(projectRoot, promptParts.join(' '), { kind, record, opportunityId });
   }
   if (action === 'show-admission-ledger') {
     const projectRoot = getProjectRoot();
@@ -3920,6 +5590,207 @@ function main(argv) {
       })
     };
   }
+  if (action === 'evolution-check') {
+    const projectRoot = getProjectRoot();
+    let record = true;
+    const promptParts = [];
+    const evolutionArgs = [arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < evolutionArgs.length; i += 1) {
+      if (evolutionArgs[i] === '--no-record') {
+        record = false;
+        continue;
+      }
+      promptParts.push(evolutionArgs[i]);
+    }
+    return recommendEvolutionPath(projectRoot, arg1, promptParts.join(' '), { record });
+  }
+  if (action === 'show-evolution-ledger') {
+    const projectRoot = getProjectRoot();
+    let status = null;
+    let skill = null;
+    let requestId = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--status' && argsList[i + 1]) {
+        status = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--skill' && argsList[i + 1]) {
+        skill = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--request-id' && argsList[i + 1]) {
+        requestId = argsList[i + 1];
+        i += 1;
+      }
+    }
+    return showEvolutionLedger(projectRoot, { status, skill, requestId });
+  }
+  if (action === 'resolve-evolution') {
+    const projectRoot = getProjectRoot();
+    if (!arg1) {
+      fail('resolve-evolution requires <request-id>');
+    }
+    let status = 'resolved';
+    let executedAction = null;
+    let resultStatus = null;
+    let mergedInto = null;
+    let note = null;
+    const resolutionArgs = [arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < resolutionArgs.length; i += 1) {
+      if (resolutionArgs[i] === '--status' && resolutionArgs[i + 1]) {
+        status = resolutionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (resolutionArgs[i] === '--executed-action' && resolutionArgs[i + 1]) {
+        executedAction = resolutionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (resolutionArgs[i] === '--result-status' && resolutionArgs[i + 1]) {
+        resultStatus = resolutionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (resolutionArgs[i] === '--merged-into' && resolutionArgs[i + 1]) {
+        mergedInto = resolutionArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (resolutionArgs[i] === '--note' && resolutionArgs[i + 1]) {
+        note = resolutionArgs[i + 1];
+        i += 1;
+      }
+    }
+    return {
+      action: 'resolve-evolution',
+      entry: resolveEvolutionDecision(projectRoot, arg1, {
+        status,
+        executedAction,
+        resultStatus,
+        mergedInto,
+        note
+      })
+    };
+  }
+  if (action === 'show-review-queue') {
+    const projectRoot = getProjectRoot();
+    let status = null;
+    let priority = null;
+    let skill = null;
+    let owner = null;
+    let overdueOnly = false;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--status' && argsList[i + 1]) {
+        status = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--priority' && argsList[i + 1]) {
+        priority = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--skill' && argsList[i + 1]) {
+        skill = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--owner' && argsList[i + 1]) {
+        owner = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--overdue') {
+        overdueOnly = true;
+      }
+    }
+    return showReviewQueue(projectRoot, { status, priority, skill, owner, overdueOnly });
+  }
+  if (action === 'show-investment-backlog') {
+    const projectRoot = getProjectRoot();
+    let status = null;
+    let priority = null;
+    let category = null;
+    let source = null;
+    let skill = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--status' && argsList[i + 1]) {
+        status = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--priority' && argsList[i + 1]) {
+        priority = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--category' && argsList[i + 1]) {
+        category = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--source' && argsList[i + 1]) {
+        source = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--skill' && argsList[i + 1]) {
+        skill = argsList[i + 1];
+        i += 1;
+      }
+    }
+    return showSkillInvestmentBacklog(projectRoot, { status, priority, category, source, skill });
+  }
+  if (action === 'show-pending-scaffolds') {
+    const projectRoot = getProjectRoot();
+    let status = null;
+    let skill = null;
+    let pendingId = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--status' && argsList[i + 1]) {
+        status = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--skill' && argsList[i + 1]) {
+        skill = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--pending-id' && argsList[i + 1]) {
+        pendingId = argsList[i + 1];
+        i += 1;
+      }
+    }
+    return showPendingScaffolds(projectRoot, { status, skill, pendingId });
+  }
+  if (action === 'mark-reviewed') {
+    if (!arg1) {
+      fail('mark-reviewed requires <skill-name>');
+    }
+    let date = null;
+    let reviewCycleDays = null;
+    const argsList = [arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--date' && argsList[i + 1]) {
+        date = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--review-cycle-days' && argsList[i + 1]) {
+        reviewCycleDays = argsList[i + 1];
+        i += 1;
+      }
+    }
+    return markSkillReviewed(arg1, { date, reviewCycleDays });
+  }
   if (action === 'assess-top-tier') {
     if (!arg1) {
       fail('assess-top-tier requires <skill-name>');
@@ -3930,13 +5801,24 @@ function main(argv) {
   if (action === 'create') {
     const scaffoldModules = rest.includes('--scaffold-modules') || rest.includes('--scaffold-capability-modules');
     let requestId = null;
+    let opportunityId = null;
+    let deferWhenHostBlocked = false;
     const unknownArgs = [];
     for (let i = 0; i < rest.length; i += 1) {
       if (rest[i] === '--scaffold-modules' || rest[i] === '--scaffold-capability-modules') {
         continue;
       }
+      if (rest[i] === '--defer-when-host-blocked') {
+        deferWhenHostBlocked = true;
+        continue;
+      }
       if (rest[i] === '--request-id' && rest[i + 1]) {
         requestId = rest[i + 1];
+        i += 1;
+        continue;
+      }
+      if (rest[i] === '--opportunity-id' && rest[i + 1]) {
+        opportunityId = rest[i + 1];
         i += 1;
         continue;
       }
@@ -3945,7 +5827,10 @@ function main(argv) {
     if (unknownArgs.length > 0) {
       fail(`unknown create option(s): ${unknownArgs.join(', ')}`);
     }
-    return createSkill(arg1, arg2, { scaffoldModules, requestId });
+    return createSkill(arg1, arg2, { scaffoldModules, requestId, opportunityId, deferWhenHostBlocked });
+  }
+  if (action === 'materialize-pending-scaffold') {
+    return materializePendingScaffold(getProjectRoot(), arg1);
   }
   if (action === 'show') return showSkill(arg1);
   if (action === 'update') {
@@ -3963,7 +5848,15 @@ function main(argv) {
     if (!arg1 || !arg2) {
       fail('set-status requires <skill-name> <draft|experimental|stable|deprecated|archived>');
     }
-    return setSkillStatus(arg1, arg2);
+    let requestId = null;
+    const statusArgs = rest.filter(Boolean);
+    for (let i = 0; i < statusArgs.length; i += 1) {
+      if (statusArgs[i] === '--request-id' && statusArgs[i + 1]) {
+        requestId = statusArgs[i + 1];
+        i += 1;
+      }
+    }
+    return setSkillStatus(arg1, arg2, { requestId });
   }
   if (action === 'set-module-rating') {
     let skillName = null;
@@ -4005,10 +5898,41 @@ function main(argv) {
       allowSkip
     });
   }
-  if (action === 'archive') return archiveSkill(arg1);
+  if (action === 'archive') {
+    let requestId = null;
+    const archiveArgs = [arg2, ...rest].filter(Boolean);
+    for (let i = 0; i < archiveArgs.length; i += 1) {
+      if (archiveArgs[i] === '--request-id' && archiveArgs[i + 1]) {
+        requestId = archiveArgs[i + 1];
+        i += 1;
+      }
+    }
+    return archiveSkill(arg1, { requestId });
+  }
+  if (action === 'merge') {
+    if (!arg1 || !arg2) {
+      fail('merge requires <skill-name> <target-skill>');
+    }
+    let requestId = null;
+    let note = null;
+    const mergeArgs = rest.filter(Boolean);
+    for (let i = 0; i < mergeArgs.length; i += 1) {
+      if (mergeArgs[i] === '--request-id' && mergeArgs[i + 1]) {
+        requestId = mergeArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (mergeArgs[i] === '--note' && mergeArgs[i + 1]) {
+        note = mergeArgs[i + 1];
+        i += 1;
+      }
+    }
+    return mergeSkill(arg1, arg2, { requestId, note });
+  }
   if (action === 'delete') {
     let name = null;
     let relPath = null;
+    let requestId = null;
     const deleteArgs = [arg1, arg2, ...rest].filter(Boolean);
     for (let i = 0; i < deleteArgs.length; i += 1) {
       if (deleteArgs[i] === '--name' && deleteArgs[i + 1]) {
@@ -4019,12 +5943,42 @@ function main(argv) {
       if (deleteArgs[i] === '--path' && deleteArgs[i + 1]) {
         relPath = deleteArgs[i + 1];
         i += 1;
+        continue;
+      }
+      if (deleteArgs[i] === '--request-id' && deleteArgs[i + 1]) {
+        requestId = deleteArgs[i + 1];
+        i += 1;
       }
     }
     if (!name && !relPath) {
       fail('delete requires --name <skill-name> or --path <authoritative-relative-path>');
     }
-    return removeSkill({ name, path: relPath });
+    return removeSkill({ name, path: relPath, requestId });
+  }
+  if (action === 'sync-scaffold-lineage') {
+    const projectRoot = getProjectRoot();
+    let skillName = null;
+    const syncArgs = [arg1, arg2, ...rest].filter(Boolean);
+
+    for (let i = 0; i < syncArgs.length; i += 1) {
+      if (syncArgs[i] === '--skill' && syncArgs[i + 1]) {
+        skillName = syncArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (syncArgs[i] === '--all') {
+        skillName = null;
+        continue;
+      }
+    }
+
+    if (!skillName && arg1 && !String(arg1).startsWith('--') && arg1 !== 'all') {
+      skillName = arg1;
+    }
+
+    return syncScaffoldLineage(projectRoot, {
+      skillName
+    });
   }
   if (action === 'sync-runtime-proof') {
     const projectRoot = getProjectRoot();
@@ -4251,15 +6205,22 @@ module.exports = {
   main,
   assessTopTierReadiness,
   createSkill,
+  materializePendingScaffold,
   showSkill,
+  showPendingScaffolds,
   showAdmissionLedger,
+  showEvolutionLedger,
   updateSkill,
   setSkillStatus,
   setCapabilityModuleRating,
   archiveSkill,
+  mergeSkill,
   removeSkill,
+  syncScaffoldLineage,
   recommendAdmissionPath,
+  recommendEvolutionPath,
   resolveAdmissionDecision,
+  resolveEvolutionDecision,
   syncRuntimeProofEntry,
   syncAllRuntimeProofEntries,
   syncHostMetadata,

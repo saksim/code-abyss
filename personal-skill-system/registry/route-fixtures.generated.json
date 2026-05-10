@@ -346,6 +346,30 @@
       "name": "m4-001-architecture-decision-route",
       "query": "Drive an ADR tradeoff workflow with option scoring, migration sequencing, and rollback planning for this tech selection.",
       "expect": "architecture-decision"
+    },
+    {
+      "name": "m5-001-reliability-governance-domain-route",
+      "query": "Define the SLO, error-budget policy, incident severity, and recovery proof for this user-facing service.",
+      "expect": "reliability-governance"
+    },
+    {
+      "name": "m6-001-host-governance-domain-route",
+      "query": "Decide whether this sandbox writeability failure should block, degrade, or become governed host debt across the bundle.",
+      "expect": "host-governance"
+    },
+    {
+      "name": "placeholder-route-host-governance",
+      "query": "Run host-governance for this sandbox request.",
+      "expect": "host-governance",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-reliability-governance",
+      "query": "Run reliability-governance for this reliability request.",
+      "expect": "reliability-governance",
+      "expect-no-fallback": true,
+      "governed": true
     }
   ]
 }

@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-08T03:22:26.049Z",
+  "generated-at": "2026-05-10T08:18:10.954Z",
   "entries": [
     {
       "skill": "manage-skill",
@@ -32,6 +32,39 @@
       "host": "codex",
       "manifest": "skills/tools/manage-skill/scripts/smoke.json",
       "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725661Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-skill-system",
+      "run-id": "host-smoke-20260506T141445Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-09T05:28:52.478Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T141445Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-skill-system",
+      "run-id": "host-smoke-20260506T173725909Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-09T05:28:52.478Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725909Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-skill-system",
+      "run-id": "host-smoke-20260506T182004246Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-10T08:18:10.948Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T182004246Z-codex.json",
       "invalidated-by": "manage-skill sync-runtime-proof",
       "note": "Current host-smoke contract no longer matches this artifact."
     }

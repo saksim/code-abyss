@@ -1,0 +1,3 @@
+display_name: "Codex Host Adapter"
+short_description: "Internal adapter surface for Codex-specific runtime assumptions, import notes, and capability hints."
+default_prompt: "Use ~/.agents/skills/adapters/codex/SKILL.md as the primary instruction source before acting on codex-host."

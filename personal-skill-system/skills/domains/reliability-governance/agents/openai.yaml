@@ -1,0 +1,3 @@
+display_name: "Reliability Governance Domain"
+short_description: "Reliability decision making and operating governance: SLOs, error budgets, incident posture, degradation, recovery proof, and availability tradeoffs."
+default_prompt: "Use ~/.agents/skills/domains/reliability-governance/SKILL.md as the primary instruction source before acting on reliability-governance."

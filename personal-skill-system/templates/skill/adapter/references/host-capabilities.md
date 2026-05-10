@@ -5,3 +5,4 @@ Replace this file with the host-specific capability map that should stay one cli
 - note available tools, runtime affordances, and execution limits
 - note file, shell, browser, or network constraints that change downstream behavior
 - note whether other skills must degrade from scripted to reference-only behavior on this host
+- note approval, sandbox, and write-scope rules if they materially affect portable workflow behavior

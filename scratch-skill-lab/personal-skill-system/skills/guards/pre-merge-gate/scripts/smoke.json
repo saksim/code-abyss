@@ -1,0 +1,22 @@
+{
+  "schema-version": 1,
+  "commands": [
+    {
+      "cwd": "skill-dir",
+      "argv": [
+        "node",
+        "scripts/run.js",
+        "--target",
+        ".",
+        "--changed-files",
+        "SKILL.md",
+        "--json"
+      ],
+      "expect": {
+        "guard": "pre-merge-gate",
+        "status": "pass"
+      },
+      "timeout-ms": 10000
+    }
+  ]
+}

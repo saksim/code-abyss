@@ -2,7 +2,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const { parseJsonFile, rel, validateSmokeManifest, probeArtifactWriteAccess } = require('./skill-system-common');
+const {
+  parseJsonFile,
+  rel,
+  validateSmokeManifest,
+  probeArtifactWriteAccess,
+  collectGeneratedArtifactWriteability
+} = require('./skill-system-common');
 const {
   loadHostSmokeRunIndex,
   loadHostSmokeInvalidationIndex,
@@ -17,8 +23,18 @@ const {
 const { validateRouteMap, validateRouteFixtures, validateGovernedRouteFixtures, validateStableRouteEvidence } = require('./skill-system-routing');
 const {
   validateBenchmarkSummary,
-  validateSystemReadiness
+  validateSystemReadiness,
+  validateReviewCadence
 } = require('./skill-system-readiness');
+const {
+  validateSkillInvestmentBacklog
+} = require('./skill-investment-governance');
+const {
+  validateSkillOpportunityQueue
+} = require('./skill-opportunity-governance');
+const {
+  validatePendingScaffoldRegistry
+} = require('./skill-pending-scaffold-governance');
 const {
   isGovernedRuntimeProofRecord,
   normalizeHostSmokePolicy,
@@ -64,6 +80,15 @@ function validateAdmissionLedger(targetDir, skillRecords, findings) {
   const entries = Array.isArray(data.entries) ? data.entries : [];
   const requestIds = new Set();
   const skillNames = new Set((Array.isArray(skillRecords) ? skillRecords : []).map((record) => record.name));
+  const opportunityQueuePath = path.join(targetDir, 'registry', 'skill-opportunity-queue.generated.json');
+  const opportunityQueue = parseJsonFile(opportunityQueuePath);
+  const opportunityIds = new Set(
+    Array.isArray(opportunityQueue.data && opportunityQueue.data.entries)
+      ? opportunityQueue.data.entries
+          .map((entry) => String(entry && entry['opportunity-id'] || '').trim())
+          .filter(Boolean)
+      : []
+  );
 
   if (data['schema-version'] !== 1) {
     findings.push({
@@ -79,6 +104,7 @@ function validateAdmissionLedger(targetDir, skillRecords, findings) {
     const recordedAt = String(entry && entry['recorded-at'] || '').trim();
     const decisionAction = String(entry && entry.decision && entry.decision.action || '').trim();
     const status = String(entry && entry.status || '').trim();
+    const opportunityId = String(entry && entry['opportunity-id'] || '').trim();
 
     if (!requestId) {
       findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: 'admission ledger entry is missing request-id' });
@@ -102,6 +128,9 @@ function validateAdmissionLedger(targetDir, skillRecords, findings) {
     if (entry && entry['resolved-at'] && Number.isNaN(Date.parse(String(entry['resolved-at'])))) {
       findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' has invalid resolved-at` });
     }
+    if (opportunityId && !opportunityIds.has(opportunityId)) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' references unknown opportunity-id '${opportunityId}'` });
+    }
     if (status === 'implemented') {
       const createdSkill = String(entry && entry['created-skill'] || '').trim();
       if (!createdSkill) {
@@ -112,6 +141,114 @@ function validateAdmissionLedger(targetDir, skillRecords, findings) {
     }
     if (decisionAction === 'create-new-skill' && status === 'open') {
       findings.push({ severity: 'warning', file: rel(targetDir, ledgerPath), message: `admission request '${requestId}' still recommends creating a new skill and remains open` });
+    }
+  }
+
+  return { entries };
+}
+
+function validateEvolutionLedger(targetDir, skillRecords, findings) {
+  const ledgerPath = path.join(targetDir, 'registry', 'evolution-ledger.generated.json');
+  const parsed = parseJsonFile(ledgerPath);
+  if (parsed.error) {
+    findings.push({
+      severity: 'error',
+      file: rel(targetDir, ledgerPath),
+      message: `evolution ledger parse failed: ${parsed.error}`
+    });
+    return { entries: [] };
+  }
+
+  const data = parsed.data || {};
+  const entries = Array.isArray(data.entries) ? data.entries : [];
+  const requestIds = new Set();
+  const skillNames = new Set((Array.isArray(skillRecords) ? skillRecords : []).map((record) => record.name));
+
+  if (data['schema-version'] !== 1) {
+    findings.push({
+      severity: 'error',
+      file: rel(targetDir, ledgerPath),
+      message: `evolution ledger has unsupported schema-version '${data['schema-version']}'`
+    });
+  }
+
+  for (const entry of entries) {
+    const requestId = String(entry && entry['request-id'] || '').trim();
+    const skill = String(entry && entry.skill || '').trim();
+    const request = String(entry && entry.request || '').trim();
+    const recordedAt = String(entry && entry['recorded-at'] || '').trim();
+    const decisionAction = String(entry && entry.decision && entry.decision.action || '').trim();
+    const status = String(entry && entry.status || '').trim();
+    const targetStatus = String(entry && entry.decision && entry.decision.target_status || '').trim();
+
+    if (!requestId) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: 'evolution ledger entry is missing request-id' });
+      continue;
+    }
+    if (requestIds.has(requestId)) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger duplicates request-id '${requestId}'` });
+      continue;
+    }
+    requestIds.add(requestId);
+
+    if (!skill) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' is missing skill` });
+    } else if (
+      !skillNames.has(skill)
+      && !['implemented', 'resolved', 'advised-noop'].includes(status)
+      && String(entry && entry['result-status'] || '').trim() !== 'deleted'
+    ) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' references unknown skill '${skill}'` });
+    }
+    if (!request) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' is missing request text` });
+    }
+    if (!decisionAction) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' is missing decision.action` });
+    }
+    if (!recordedAt || Number.isNaN(Date.parse(recordedAt))) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has invalid recorded-at` });
+    }
+    if (entry && entry['resolved-at'] && Number.isNaN(Date.parse(String(entry['resolved-at'])))) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has invalid resolved-at` });
+    }
+    if (decisionAction && ![
+      'status-already-correct',
+      'upgrade-existing-skill',
+      'promote-to-stable',
+      'deprecate-skill',
+      'archive-skill',
+      'delete-skill',
+      'merge-into-skill'
+    ].includes(decisionAction)) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has unsupported decision.action '${decisionAction}'` });
+    }
+    if (targetStatus && !['draft', 'experimental', 'stable', 'deprecated', 'archived', 'deleted'].includes(targetStatus)) {
+      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has unsupported decision.target_status '${targetStatus}'` });
+    }
+    if (decisionAction === 'merge-into-skill') {
+      const targetSkill = String(entry && entry.decision && entry.decision.target_skill || '').trim();
+      if (!targetSkill) {
+        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger merge entry '${requestId}' is missing decision.target_skill` });
+      } else if (!skillNames.has(targetSkill)) {
+        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger merge entry '${requestId}' references unknown target_skill '${targetSkill}'` });
+      }
+    }
+    if (status === 'implemented') {
+      const executedAction = String(entry && entry['executed-action'] || '').trim();
+      const resultStatus = String(entry && entry['result-status'] || '').trim();
+      if (!executedAction) {
+        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented evolution ledger entry '${requestId}' is missing executed-action` });
+      }
+      if (!resultStatus) {
+        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented evolution ledger entry '${requestId}' is missing result-status` });
+      }
+      if (resultStatus && resultStatus !== 'deleted' && !skillNames.has(skill)) {
+        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented evolution ledger entry '${requestId}' references missing skill '${skill}' for non-delete result` });
+      }
+    }
+    if (status === 'open' && decisionAction !== 'status-already-correct') {
+      findings.push({ severity: 'warning', file: rel(targetDir, ledgerPath), message: `evolution request '${requestId}' for '${skill || 'unknown'}' remains open` });
     }
   }
 
@@ -151,7 +288,7 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
   const ratings = parseJsonFile(ratingsPath);
   if (ratings.error) {
     findings.push({ severity: 'warning', file: rel(targetDir, ratingsPath), message: `capability ratings parse failed: ${ratings.error}` });
-    return { ratingsPath, ratedModules: new Set(), moduleRatingsBySkill: new Map() };
+    return { ratingsPath, ratedModules: new Set(), moduleRatingsBySkill: new Map(), data: {} };
   }
 
   const data = ratings.data || {};
@@ -233,7 +370,8 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
   return {
     ratingsPath,
     ratedModules,
-    moduleRatingsBySkill
+    moduleRatingsBySkill,
+    data
   };
 }
 
@@ -972,49 +1110,15 @@ function validateHostSmokeInvalidationLedger(targetDir, findings, hostSmokeIndex
 }
 
 function validateGeneratedArtifactWriteability(targetDir, findings) {
-  const probes = [
-    {
-      path: path.join(targetDir, 'registry', 'admission-ledger.generated.json'),
-      mode: 'rewrite-file',
-      label: 'admission ledger registry'
-    },
-    {
-      path: path.join(targetDir, 'registry', 'runtime-proof.generated.json'),
-      mode: 'rewrite-file',
-      label: 'runtime-proof registry'
-    },
-    {
-      path: path.join(targetDir, 'benchmark', 'host-smoke', 'scorecard.generated.json'),
-      mode: 'rewrite-file',
-      label: 'host-smoke scorecard'
-    },
-    {
-      path: path.join(targetDir, 'benchmark', 'host-smoke', 'invalidation.generated.json'),
-      mode: 'create-file',
-      label: 'host-smoke invalidation ledger'
-    },
-    {
-      path: path.join(targetDir, 'benchmark', 'system-readiness.generated.json'),
-      mode: 'rewrite-file',
-      label: 'system readiness artifact'
-    },
-    {
-      path: path.join(targetDir, 'benchmark', 'host-smoke', 'runtime-runs'),
-      mode: 'write-dir',
-      label: 'host-smoke runtime-runs directory'
-    }
-  ];
-
-  for (const probe of probes) {
-    const result = probeArtifactWriteAccess(probe.path, { mode: probe.mode });
-    if (result.ok) {
+  for (const probe of collectGeneratedArtifactWriteability(targetDir)) {
+    if (probe.ok) {
       continue;
     }
 
     findings.push({
       severity: 'warning',
       file: rel(targetDir, probe.path),
-      message: `${probe.label} is not writable on this host (${result.code || 'UNKNOWN'}); generated governance surfaces cannot be refreshed reliably`
+      message: `${probe.label} is not writable on this host (${probe.code || 'UNKNOWN'}); generated governance surfaces cannot be refreshed reliably`
     });
   }
 }
@@ -1027,7 +1131,10 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
   const registry = parseJsonFile(registryPath);
   const routeMap = parseJsonFile(routeMapPath);
   const routeFixtures = parseJsonFile(routeFixturesPath);
+  const opportunityQueue = validateSkillOpportunityQueue(targetDir, skillRecords, findings);
+  const pendingScaffolds = validatePendingScaffoldRegistry(targetDir, skillRecords, findings);
   const admissionLedger = validateAdmissionLedger(targetDir, skillRecords, findings);
+  const evolutionLedger = validateEvolutionLedger(targetDir, skillRecords, findings);
 
   if (registry.error) {
     findings.push({ severity: 'error', file: rel(targetDir, registryPath), message: `registry parse failed: ${registry.error}` });
@@ -1047,11 +1154,26 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
   validateGovernedRouteFixtures(targetDir, routeFixturesPath, routeFixtures.data, skillRecords, findings, rel);
   validateStableRouteEvidence(targetDir, routeFixturesPath, routeFixtures.data, skillRecords, findings, rel);
   const runtimeProof = validateRuntimeProofRegistry(targetDir, skillRecords, findings);
+  const reviewQueue = validateReviewCadence(targetDir, findings, {
+    skillRecords
+  });
+  const investmentBacklog = validateSkillInvestmentBacklog(targetDir, findings, {
+    skillRecords,
+    registryData: registry.data || {},
+    ratingsData: capabilityRatings && capabilityRatings.data ? capabilityRatings.data : {},
+    reviewQueueData: reviewQueue,
+    opportunityQueueData: opportunityQueue,
+    pendingScaffoldData: pendingScaffolds,
+    admissionLedgerData: admissionLedger,
+    evolutionLedgerData: evolutionLedger,
+    routeFixturesData: routeFixtures.data || {}
+  });
   validateBenchmarkSummary(targetDir, findings);
   validateSystemReadiness(targetDir, findings, {
     skillRecords,
     runtimeProofs: runtimeProof.proofs,
-    routeFixtures: fixtures
+    routeFixtures: fixtures,
+    reviewQueue
   });
   validateGeneratedArtifactWriteability(targetDir, findings);
 
@@ -1061,7 +1183,12 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
     moduleNames,
     capabilityRatings,
     runtimeProof,
+    reviewQueue,
+    investmentBacklog,
+    opportunityQueue,
+    pendingScaffolds,
     admissionLedger,
+    evolutionLedger,
     routes,
     fixtures
   };

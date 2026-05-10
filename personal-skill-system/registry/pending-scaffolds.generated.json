@@ -1,0 +1,14 @@
+{
+  "schema-version": 1,
+  "generated-at": "2026-05-10T00:00:00.000Z",
+  "source": "managed-via-manage-skill",
+  "summary": {
+    "total": 0,
+    "active": 0,
+    "planned": 0,
+    "in-progress": 0,
+    "blocked": 0,
+    "deferred": 0
+  },
+  "entries": []
+}

@@ -1,0 +1,74 @@
+{
+  "schema-version": 1,
+  "run-id": "host-smoke-20260510T090505693Z-codex",
+  "executed-at": "2026-05-10T09:05:05.694Z",
+  "host": "codex",
+  "source-runtime-proof": "registry/runtime-proof.generated.json",
+  "selection": {
+    "scope": "single",
+    "skills": [
+      "manage-skill"
+    ]
+  },
+  "results": [
+    {
+      "skill": "manage-skill",
+      "kind": "tool",
+      "level-before": "declared-and-tested",
+      "status": "pass",
+      "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+      "contract": {
+        "manifest": "skills/tools/manage-skill/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "show",
+              "manage-skill"
+            ],
+            "expect": {
+              "action": "show",
+              "skill": "manage-skill"
+            },
+            "timeout-ms": 10000
+          }
+        ],
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        }
+      },
+      "command-count": 1,
+      "passed-commands": 1,
+      "commands": [
+        {
+          "cwd": "skill-dir",
+          "argv": [
+            "node",
+            "scripts/run.js",
+            "show",
+            "manage-skill"
+          ],
+          "expect": {
+            "action": "show",
+            "skill": "manage-skill"
+          },
+          "timeout-ms": 10000,
+          "status": "pass",
+          "exit-code": 0,
+          "signal": null,
+          "duration-ms": 9,
+          "json-parse-ok": true,
+          "observed": {
+            "action": "show",
+            "skill": "manage-skill"
+          },
+          "mismatches": [],
+          "stdout-preview": "{\n  \"action\": \"show\",\n  \"skill\": \"manage-skill\",\n  \"path\": \"personal-skill-system/skills/tools/manage-skill\",\n  \"frontmatter\": {\n    \"schema-version\": \"2\",\n    \"name\": \"manage-skill\",\n    \"scaffold-origin\": \"tool-template\",\n    \"scaffold-version\": \"1\",\n    \"title\": \"Manage Skill Tool\",\n    \"description\": \"Create, inspect, update, archive, merge, or delete core skills inside personal-skill-system/s"
+        }
+      ]
+    }
+  ]
+}

@@ -7,3 +7,4 @@ Include:
 - hard blockers
 - warning-only cases
 - pass cases
+- what proof is required to override a warning without degrading the guard into theater

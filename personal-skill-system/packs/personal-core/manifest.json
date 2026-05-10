@@ -1,14 +1,18 @@
 {
   "name": "personal-core",
   "version": "0.1.0",
-  "description": "Portable baseline pack for personal router/domain/workflow/tool/guard/adapter skills.",
+  "description": "Portable self-evolving baseline pack for the personal skill runtime, including skill layers plus the minimum governance, template, and proof surfaces required to add, validate, and evolve skills on another host.",
   "includes": [
+    "docs",
+    "registry",
     "skills/routers",
     "skills/domains",
     "skills/workflows",
     "skills/tools",
     "skills/guards",
-    "skills/adapters"
+    "skills/adapters",
+    "templates",
+    "benchmark"
   ],
   "targets": [
     "codex",

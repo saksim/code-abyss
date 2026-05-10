@@ -1,6 +1,7 @@
 ---
 schema-version: 2
 name: guard-template
+template-version: 1
 title: Guard Template
 description: Template scaffold for a guard skill. Replace this with a description that says what risky work the guard blocks or allows and when to invoke it.
 kind: guard
@@ -35,6 +36,12 @@ aliases: []
 ## Pass Conditions
 
 - describe what evidence is enough to continue
+- describe what evidence is still insufficient even if the operator wants to rush past the guard
+
+## Proof Contract
+
+- define the machine-readable decision shape for block, warn, and pass
+- keep `Runtime Proof`, `scripts/smoke.json`, and any downstream gate expectations aligned
 
 ## Read These References
 

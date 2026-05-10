@@ -1,6 +1,7 @@
 ---
 schema-version: 2
 name: tool-template
+template-version: 1
 title: Tool Template
 description: Template scaffold for a scripted tool skill. Replace this with a description that says what the tool validates or generates and when to invoke it explicitly.
 kind: tool
@@ -31,6 +32,8 @@ aliases: []
 
 Replace this scaffold with the deterministic job this tool owns.
 
+Own one trustworthy executable contract, not a vague checklist disguised as a tool.
+
 ## Expected Inputs
 
 - list required arguments or target shape
@@ -40,6 +43,12 @@ Replace this scaffold with the deterministic job this tool owns.
 
 - define the machine-readable output shape
 - define the operator summary shape
+
+## Maintenance Rules
+
+- keep the structural source of truth in the skill and its scripts, not in generated registry prose
+- keep the smallest executable command aligned with `scripts/smoke.json`
+- do not let runtime-proof, smoke manifest, and implementation drift apart
 
 ## Read These References
 

@@ -122,8 +122,37 @@ function mergeChangedFileLists(base, extra) {
   return [...new Set(merged)];
 }
 
+function findExistingAncestorRelativeTarget(target, startDir) {
+  const relativeTarget = String(target || '').trim();
+  if (!relativeTarget || path.isAbsolute(relativeTarget)) {
+    return null;
+  }
+
+  let current = path.resolve(startDir || process.cwd());
+  while (true) {
+    const candidate = path.resolve(current, relativeTarget);
+    if (fs.existsSync(candidate)) {
+      return candidate;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  return null;
+}
+
 function resolveTarget(target) {
-  return path.resolve(target || '.');
+  const value = String(target || '.').trim() || '.';
+  const direct = path.resolve(value);
+  if (fs.existsSync(direct) || path.isAbsolute(value)) {
+    return direct;
+  }
+
+  return findExistingAncestorRelativeTarget(value, process.cwd()) || direct;
 }
 
 function walkFiles(root, options = {}) {

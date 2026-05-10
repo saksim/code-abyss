@@ -1,11 +1,14 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-06T16:18:46.003Z",
+  "generated-at": "2026-05-09T08:56:27.689Z",
   "sources": {
     "benchmark-summary": "benchmark/summary.generated.json",
     "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",
     "runtime-proof": "registry/runtime-proof.generated.json",
-    "route-fixtures": "registry/route-fixtures.generated.json"
+    "route-fixtures": "registry/route-fixtures.generated.json",
+    "review-queue": "registry/review-queue.generated.json",
+    "skill-opportunity-queue": "registry/skill-opportunity-queue.generated.json",
+    "skill-investment-backlog": "registry/skill-investment-backlog.generated.json"
   },
   "status": "attention",
   "signals": {
@@ -17,8 +20,8 @@
     },
     "route-evidence": {
       "status": "ready",
-      "stable_skills": 30,
-      "covered_skills": 30
+      "stable_skills": 31,
+      "covered_skills": 31
     },
     "runtime-proof": {
       "status": "ready",
@@ -30,10 +33,10 @@
       "host_smoke_capable_skills": 9,
       "satisfied": 1,
       "passing": 7,
-      "missing": 0,
+      "missing": 1,
       "failing": 1,
       "stale": 0,
-      "contract_drift": 1,
+      "contract_drift": 0,
       "policy": {
         "tiers": {
           "critical": 3,
@@ -46,6 +49,23 @@
           "blocked": 0
         }
       }
+    },
+    "review-cadence": {
+      "status": "ready",
+      "governed-skills": 35,
+      "overdue": 0,
+      "due-soon": 0,
+      "scheduled": 35,
+      "missing-metadata": 0,
+      "stable-overdue": 0,
+      "stable-missing-metadata": 0
+    },
+    "investment-backlog": {
+      "status": "ready",
+      "total": 0,
+      "critical": 0,
+      "high": 0,
+      "normal": 0
     }
   },
   "host-smoke-policy": [
@@ -69,7 +89,7 @@
       "target-level": "host-smoked",
       "requires-freshness": true,
       "max-freshness-days": 7,
-      "evidence-status": "contract-drift",
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked"
     },
     {
@@ -154,13 +174,20 @@
   ],
   "summary": {
     "live-scripted-skills": 9,
-    "stable-user-invocable-skills": 30,
-    "route-evidence-covered-skills": 30,
+    "stable-user-invocable-skills": 31,
+    "route-evidence-covered-skills": 31,
     "runtime-proof-entries": 9,
-    "host-smoke-capable-skills": 9
+    "host-smoke-capable-skills": 9,
+    "review-governed-skills": 35,
+    "review-overdue-skills": 0,
+    "review-due-soon-skills": 0,
+    "review-missing-metadata-skills": 0,
+    "investment-backlog-items": 0,
+    "investment-backlog-critical": 0,
+    "investment-backlog-high": 0
   },
   "notes": [
-    "Generated from benchmark summary, route fixtures, runtime proof registry, and host-smoke scorecard.",
+    "Generated from benchmark summary, route fixtures, runtime proof registry, host-smoke scorecard, review queue, skill opportunity queue, and skill investment backlog.",
     "Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter."
   ]
 }

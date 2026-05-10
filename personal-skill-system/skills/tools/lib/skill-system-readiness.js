@@ -2,7 +2,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const { rel, parseJsonFile, probeArtifactWriteAccess } = require('./skill-system-common');
+const {
+  rel,
+  parseJsonFile,
+  probeArtifactWriteAccess,
+  collectGeneratedArtifactWriteability,
+  probeDirectoryCreateAccess
+} = require('./skill-system-common');
 const { collectSkillRecords } = require('./skill-system-skills');
 const {
   getHostSmokeScorecardPath,
@@ -13,6 +19,12 @@ const {
   normalizeHostSmokePolicy,
   deriveHostSmokePolicyFromRecord
 } = require('./skill-system-governance');
+const {
+  getReviewQueuePath,
+  summarizeReviewQueue,
+  buildReviewQueue,
+  validateReviewQueue
+} = require('./skill-review-governance');
 
 const SYSTEM_READINESS_SCHEMA_VERSION = 1;
 const HOST_SMOKE_POLICY_TIERS = new Set(['critical', 'standard', 'experimental']);
@@ -44,6 +56,18 @@ function getRuntimeProofPath(bundleRoot) {
 
 function getRouteFixturesPath(bundleRoot) {
   return path.join(bundleRoot, 'registry', 'route-fixtures.generated.json');
+}
+
+function getReviewQueueGeneratedPath(bundleRoot) {
+  return getReviewQueuePath(bundleRoot);
+}
+
+function getSkillInvestmentBacklogPath(bundleRoot) {
+  return path.join(bundleRoot, 'registry', 'skill-investment-backlog.generated.json');
+}
+
+function getPendingScaffoldRegistryPath(bundleRoot) {
+  return path.join(bundleRoot, 'registry', 'pending-scaffolds.generated.json');
 }
 
 function portablePath(bundleRoot, targetPath) {
@@ -242,6 +266,80 @@ function buildRuntimeProofSignal(runtimeProofs, liveScriptedSkills) {
   };
 }
 
+function classifyReviewCadenceStatus(summary) {
+  const normalized = summary || summarizeReviewQueue([]);
+  if ((normalized['stable-overdue'] || 0) > 0 || (normalized['stable-missing-metadata'] || 0) > 0) {
+    return 'blocked';
+  }
+  if ((normalized.overdue || 0) > 0 || (normalized['missing-metadata'] || 0) > 0 || (normalized['due-soon'] || 0) > 0) {
+    return 'attention';
+  }
+  return 'ready';
+}
+
+function buildReviewCadenceSignal(reviewQueue) {
+  const summary = reviewQueue && reviewQueue.summary ? reviewQueue.summary : summarizeReviewQueue([]);
+  return {
+    status: classifyReviewCadenceStatus(summary),
+    'governed-skills': Number(summary['governed-skills'] || 0),
+    overdue: Number(summary.overdue || 0),
+    'due-soon': Number(summary['due-soon'] || 0),
+    scheduled: Number(summary.scheduled || 0),
+    'missing-metadata': Number(summary['missing-metadata'] || 0),
+    'stable-overdue': Number(summary['stable-overdue'] || 0),
+    'stable-missing-metadata': Number(summary['stable-missing-metadata'] || 0)
+  };
+}
+
+function buildInvestmentBacklogSignal(backlog) {
+  const summary = backlog && backlog.summary ? backlog.summary : {};
+  const critical = Number(summary.critical || 0);
+  const high = Number(summary.high || 0);
+  return {
+    status: critical > 0 ? 'blocked' : high > 0 ? 'attention' : 'ready',
+    total: Number(summary.total || 0),
+    critical,
+    high,
+    normal: Number(summary.normal || 0)
+  };
+}
+
+function buildHostWriteabilitySignal(bundleRoot) {
+  const probes = collectGeneratedArtifactWriteability(bundleRoot);
+  const skillCreateProbe = probeDirectoryCreateAccess(path.join(bundleRoot, 'skills', 'domains', `__create-probe__-${Date.now()}`));
+  const failed = probes.filter((probe) => probe.ok !== true);
+  const critical = failed.filter((probe) => ['runtime-proof', 'host-smoke-scorecard', 'host-smoke-runtime-runs'].includes(probe.id)).length;
+  const createBlocked = skillCreateProbe.ok !== true ? 1 : 0;
+  const high = failed.filter((probe) => probe.id === 'system-readiness').length + createBlocked;
+  const normal = Math.max(failed.length - critical - (high - createBlocked), 0);
+
+  const artifacts = failed.map((probe) => ({
+    id: probe.id,
+    label: probe.label,
+    mode: probe.mode,
+    code: probe.code || 'UNKNOWN'
+  }));
+  if (!skillCreateProbe.ok) {
+    artifacts.push({
+      id: 'authoritative-skill-tree',
+      label: 'authoritative skill tree create surface',
+      mode: 'create-child-directory',
+      code: skillCreateProbe.code || 'UNKNOWN'
+    });
+  }
+
+  return {
+    status: critical > 0 ? 'blocked' : (failed.length + createBlocked) > 0 ? 'attention' : 'ready',
+    total: probes.length + 1,
+    writable: (probes.length - failed.length) + (skillCreateProbe.ok ? 1 : 0),
+    blocked: failed.length + createBlocked,
+    critical,
+    high,
+    normal,
+    artifacts
+  };
+}
+
 function buildHostSmokeSignal(scorecard, policyEntries) {
   const scorecardSummary = isPlainObject(scorecard && scorecard.summary) ? scorecard.summary : {};
   const governance = isPlainObject(scorecardSummary['governance-status']) ? scorecardSummary['governance-status'] : {};
@@ -273,6 +371,8 @@ function buildSystemReadiness(bundleRoot, context = {}) {
   const hostSmokeProofs = Array.isArray(context.hostSmokeProofs)
     ? context.hostSmokeProofs
     : runtimeProofs.filter((proof) => proof && proof['host-smoke']);
+  const reviewQueue = context.reviewQueue || buildReviewQueue(bundleRoot, skillRecords, { now });
+  const investmentBacklog = context.investmentBacklog || parseJsonFile(getSkillInvestmentBacklogPath(bundleRoot)).data || { summary: { total: 0, critical: 0, high: 0, normal: 0 } };
 
   const scorecard = context.hostSmokeScorecard || buildHostSmokeScorecard(bundleRoot, hostSmokeProofs, { now });
   const policyEntries = normalizeHostSmokePolicyEntries(scorecard, runtimeProofs, skillRecords);
@@ -282,11 +382,17 @@ function buildSystemReadiness(bundleRoot, context = {}) {
   const routeEvidenceSignal = buildRouteEvidenceSignal(skillRecords, routeFixtures);
   const runtimeProofSignal = buildRuntimeProofSignal(runtimeProofs, liveScriptedSkills);
   const hostSmokeSignal = buildHostSmokeSignal(scorecard, policyEntries);
+  const reviewCadenceSignal = buildReviewCadenceSignal(reviewQueue);
+  const investmentBacklogSignal = buildInvestmentBacklogSignal(investmentBacklog);
+  const hostWriteabilitySignal = buildHostWriteabilitySignal(bundleRoot);
   const overallStatus = classifyReadinessStatus([
     benchmarkSignal.status,
     routeEvidenceSignal.status,
     runtimeProofSignal.status,
-    hostSmokeSignal.status
+    hostSmokeSignal.status,
+    reviewCadenceSignal.status,
+    investmentBacklogSignal.status,
+    hostWriteabilitySignal.status
   ]);
 
   return {
@@ -296,14 +402,21 @@ function buildSystemReadiness(bundleRoot, context = {}) {
       'benchmark-summary': portablePath(bundleRoot, getBenchmarkSummaryPath(bundleRoot)),
       'host-smoke-scorecard': portablePath(bundleRoot, getHostSmokeScorecardPath(bundleRoot)),
       'runtime-proof': 'registry/runtime-proof.generated.json',
-      'route-fixtures': 'registry/route-fixtures.generated.json'
+      'route-fixtures': 'registry/route-fixtures.generated.json',
+      'review-queue': portablePath(bundleRoot, getReviewQueueGeneratedPath(bundleRoot)),
+      'skill-opportunity-queue': portablePath(bundleRoot, path.join(bundleRoot, 'registry', 'skill-opportunity-queue.generated.json')),
+      'pending-scaffolds': portablePath(bundleRoot, getPendingScaffoldRegistryPath(bundleRoot)),
+      'skill-investment-backlog': portablePath(bundleRoot, getSkillInvestmentBacklogPath(bundleRoot))
     },
     status: overallStatus,
     signals: {
       benchmark: benchmarkSignal,
       'route-evidence': routeEvidenceSignal,
       'runtime-proof': runtimeProofSignal,
-      'host-smoke': hostSmokeSignal
+      'host-smoke': hostSmokeSignal,
+      'review-cadence': reviewCadenceSignal,
+      'investment-backlog': investmentBacklogSignal,
+      'host-writeability': hostWriteabilitySignal
     },
     'host-smoke-policy': policyEntries,
     summary: {
@@ -311,11 +424,20 @@ function buildSystemReadiness(bundleRoot, context = {}) {
       'stable-user-invocable-skills': routeEvidenceSignal.stable_skills,
       'route-evidence-covered-skills': routeEvidenceSignal.covered_skills,
       'runtime-proof-entries': runtimeProofSignal.runtime_proof_entries,
-      'host-smoke-capable-skills': hostSmokeSignal.host_smoke_capable_skills
+      'host-smoke-capable-skills': hostSmokeSignal.host_smoke_capable_skills,
+      'review-governed-skills': reviewCadenceSignal['governed-skills'],
+      'review-overdue-skills': reviewCadenceSignal.overdue,
+      'review-due-soon-skills': reviewCadenceSignal['due-soon'],
+      'review-missing-metadata-skills': reviewCadenceSignal['missing-metadata'],
+      'investment-backlog-items': Number((investmentBacklogSignal && investmentBacklogSignal.total) || 0),
+      'investment-backlog-critical': Number((investmentBacklogSignal && investmentBacklogSignal.critical) || 0),
+      'investment-backlog-high': Number((investmentBacklogSignal && investmentBacklogSignal.high) || 0),
+      'host-writeability-blocked-artifacts': Number((hostWriteabilitySignal && hostWriteabilitySignal.blocked) || 0)
     },
     notes: [
-      'Generated from benchmark summary, route fixtures, runtime proof registry, and host-smoke scorecard.',
-      'Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter.'
+      'Generated from benchmark summary, route fixtures, runtime proof registry, host-smoke scorecard, review queue, skill opportunity queue, pending scaffold registry, and skill investment backlog.',
+      'Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter.',
+      'Generated artifact writeability is tracked separately so host-level execution constraints do not get mistaken for skill-content defects.'
     ]
   };
 }
@@ -407,10 +529,14 @@ function validateSystemReadiness(bundleRoot, findings, context = {}) {
       severity: probe.ok ? 'error' : 'warning',
       file: portablePath(bundleRoot, readinessPath),
       message: probe.ok
-        ? 'system readiness is out of sync with benchmark summary, route evidence, runtime proof, or host-smoke state'
-        : `system readiness is out of sync with benchmark summary, route evidence, runtime proof, or host-smoke state, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
+        ? 'system readiness is out of sync with benchmark summary, route evidence, runtime proof, host-smoke state, or review cadence state'
+        : `system readiness is out of sync with benchmark summary, route evidence, runtime proof, host-smoke state, or review cadence state, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
     });
   }
+}
+
+function validateReviewCadence(bundleRoot, findings, context = {}) {
+  return validateReviewQueue(bundleRoot, context.skillRecords || [], findings, context);
 }
 
 module.exports = {
@@ -419,11 +545,13 @@ module.exports = {
   getBenchmarkSummarySchemaPath,
   getSystemReadinessPath,
   getSystemReadinessSchemaPath,
+  getReviewQueueGeneratedPath,
   determineHostSmokePolicyExpectation,
   normalizeHostSmokePolicyEntries,
   buildSystemReadiness,
   collectSystemReadinessContext,
   writeSystemReadiness,
   validateBenchmarkSummary,
-  validateSystemReadiness
+  validateSystemReadiness,
+  validateReviewCadence
 };

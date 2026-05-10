@@ -178,6 +178,19 @@ describe('personal skill system tool runtime', () => {
     expect(report.findings.some((item) => item.message.includes('runtime proof bullets'))).toBe(false);
   });
 
+  test('resolveTarget can recover repo-relative bundle paths from nested skill directories', () => {
+    const runtime = require('../personal-skill-system/skills/tools/lib/runtime');
+    const originalCwd = process.cwd();
+    const nestedDir = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'verify-skill-system');
+    try {
+      process.chdir(nestedDir);
+      const resolved = runtime.resolveTarget('personal-skill-system');
+      expect(resolved).toBe(path.join(__dirname, '..', 'personal-skill-system'));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('analyzeSkillSystem warns when a stable skill only has template-like trigger depth and no route evidence', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     const target = path.join(repoRoot, 'personal-skill-system');
@@ -238,6 +251,9 @@ describe('personal skill system tool runtime', () => {
       const createPayload = manageSkill.main(['create', 'workflow', skillName]);
       expect(createPayload.path).toBe(`personal-skill-system/skills/workflows/${skillName}`);
       expect(fs.existsSync(path.join(repoRoot, 'personal-skill-system', 'skills', 'workflows', skillName, 'SKILL.md'))).toBe(true);
+      const createdSkillText = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'skills', 'workflows', skillName, 'SKILL.md'), 'utf8');
+      expect(createdSkillText).toContain('scaffold-origin: workflow-template');
+      expect(createdSkillText).toContain('scaffold-version: 1');
 
       const showPayload = manageSkill.main(['show', skillName]);
       expect(showPayload.frontmatter.name).toBe(skillName);
@@ -342,6 +358,70 @@ describe('personal skill system tool runtime', () => {
     }
   });
 
+  test('manage-skill evolution-check can recommend archiving an existing skill', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['evolution-check', 'verify-quality', 'this skill should be archived after replacement']);
+
+      expect(payload.action).toBe('evolution-check');
+      expect(payload.skill).toBe('verify-quality');
+      expect(payload.recommendation).toEqual(expect.objectContaining({
+        action: 'archive-skill',
+        target_status: 'archived'
+      }));
+      expect(payload.follow_up.some((item) => item.includes('archive verify-quality'))).toBe(true);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill merge archives the source skill and records merged-into governance history', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const evolution = manageSkill.main(['evolution-check', 'verify-quality', 'merge this skill into review']);
+      expect(evolution.recommendation.action).toBe('merge-into-skill');
+      expect(evolution.recommendation.target_skill).toBe('review');
+
+      const payload = manageSkill.main(['merge', 'verify-quality', 'review', '--request-id', evolution['request-id']]);
+      expect(payload.action).toBe('merge');
+      expect(payload.skill).toBe('verify-quality');
+      expect(payload.target_skill).toBe('review');
+      expect(payload.status).toBe('archived');
+
+      const mergedSkill = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'skills', 'tools', 'verify-quality', 'SKILL.md'), 'utf8');
+      expect(mergedSkill).toContain('status: archived');
+
+      const routeMap = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'route-map.generated.json'), 'utf8'));
+      expect(routeMap.routes.some((route) => route.skill === 'verify-quality')).toBe(false);
+
+      const ledgerPayload = manageSkill.main(['show-evolution-ledger', '--request-id', evolution['request-id']]);
+      expect(ledgerPayload.returned).toBe(1);
+      expect(ledgerPayload.entries[0]).toEqual(expect.objectContaining({
+        'request-id': evolution['request-id'],
+        status: 'implemented',
+        'executed-action': 'merge',
+        'result-status': 'archived',
+        'merged-into': 'review'
+      }));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('manage-skill assess-top-tier reports non-top-ready capability modules as promotion blockers', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
@@ -402,6 +482,444 @@ describe('personal skill system tool runtime', () => {
           message: expect.stringContaining("stable skill 'verify-quality' has no route fixture evidence")
         })
       ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-review-queue reports overdue governed skills', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main(['mark-reviewed', 'manage-skill', '--date', '2026-01-01', '--review-cycle-days', '30']);
+
+      const payload = manageSkill.main(['show-review-queue', '--overdue']);
+      expect(payload.action).toBe('show-review-queue');
+      expect(payload.summary).toEqual(expect.objectContaining({
+        'governed-skills': expect.any(Number)
+      }));
+      expect(payload.entries.every((entry) => entry['review-status'] === 'overdue')).toBe(true);
+      expect(payload.entries.some((entry) => entry.skill === 'manage-skill')).toBe(true);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill mark-reviewed refreshes review queue and clears expired stable cadence blocker', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), target, { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main(['mark-reviewed', 'manage-skill', '--date', '2026-01-01', '--review-cycle-days', '30']);
+      let assessment = manageSkill.main(['assess-top-tier', 'manage-skill']);
+      expect(assessment.blockers).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('stable skill review cadence expired')
+        })
+      ]));
+
+      const payload = manageSkill.main(['mark-reviewed', 'manage-skill', '--date', '2026-05-09', '--review-cycle-days', '30']);
+      expect(payload.action).toBe('mark-reviewed');
+      expect(payload.skill).toBe('manage-skill');
+      expect(payload['review-entry']).toEqual(expect.objectContaining({
+        skill: 'manage-skill',
+        'review-status': 'scheduled'
+      }));
+
+      const reviewQueue = JSON.parse(fs.readFileSync(path.join(target, 'registry', 'review-queue.generated.json'), 'utf8'));
+      const queueEntry = reviewQueue.skills.find((entry) => entry.skill === 'manage-skill');
+      expect(queueEntry).toEqual(expect.objectContaining({
+        'last-reviewed': '2026-05-09',
+        'review-cycle-days': 30,
+        'review-status': 'scheduled'
+      }));
+
+      assessment = manageSkill.main(['assess-top-tier', 'manage-skill']);
+      expect(assessment.blockers.some((item) => String(item.message || '').includes('stable skill review cadence expired'))).toBe(false);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill assess-top-tier blocks critical host-smoke policies that are not yet satisfied', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const scorecardPath = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'host-smoke', 'scorecard.generated.json');
+      const scorecard = JSON.parse(fs.readFileSync(scorecardPath, 'utf8'));
+      const manageSkillEntry = scorecard.skills.find((item) => item.skill === 'manage-skill');
+      manageSkillEntry['governance-status'] = 'missing-evidence';
+      manageSkillEntry['evidence-status'] = 'missing';
+      manageSkillEntry.level = 'declared-and-tested';
+      fs.writeFileSync(scorecardPath, JSON.stringify(scorecard, null, 2) + '\n', 'utf8');
+
+      const payload = manageSkill.main(['assess-top-tier', 'manage-skill']);
+      expect(payload.action).toBe('assess-top-tier');
+      expect(payload.ready).toBe(false);
+      expect(payload.blockers).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          type: 'verification-error',
+          message: expect.stringContaining("critical host-smoke policy for 'manage-skill' is not yet satisfied")
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-investment-backlog surfaces open admission work in one governed portfolio view', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const admission = manageSkill.main(['admission-check', '--kind', 'guard', 'we need a new policy gate that blocks unsafe skill deletion during pack release']);
+      const payload = manageSkill.main(['show-investment-backlog', '--source', 'admission-ledger']);
+
+      expect(payload.action).toBe('show-investment-backlog');
+      expect(payload.summary).toEqual(expect.objectContaining({
+        total: expect.any(Number)
+      }));
+      expect(payload.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: `admission-${admission['request-id']}`,
+          source: 'admission-ledger',
+          category: 'new-skill-admission',
+          priority: 'high'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-investment-backlog keeps blocked admission work visible as active portfolio debt', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const admission = manageSkill.main(['admission-check', '--kind', 'domain', 'we need a blocked create backlog proof']);
+      manageSkill.main(['resolve-admission', admission['request-id'], '--status', 'blocked', '--note', 'blocked on host create constraint']);
+
+      const payload = manageSkill.main(['show-investment-backlog', '--status', 'blocked']);
+      expect(payload.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: `admission-${admission['request-id']}`,
+          source: 'admission-ledger',
+          category: 'new-skill-admission',
+          status: 'blocked'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-investment-backlog surfaces proof-governance debt for critical host-smoke gaps', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const runtimeProofPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'runtime-proof.generated.json');
+      const runtimeProof = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
+      const manageProof = runtimeProof.proofs.find((item) => item.skill === 'manage-skill');
+      const verifyProof = runtimeProof.proofs.find((item) => item.skill === 'verify-skill-system');
+      manageProof.level = 'declared-and-tested';
+      verifyProof.level = 'declared-and-tested';
+      fs.writeFileSync(runtimeProofPath, JSON.stringify(runtimeProof, null, 2) + '\n', 'utf8');
+
+      const scorecardPath = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'host-smoke', 'scorecard.generated.json');
+      const scorecard = JSON.parse(fs.readFileSync(scorecardPath, 'utf8'));
+      for (const item of scorecard.skills) {
+        if (item.skill === 'manage-skill' || item.skill === 'verify-skill-system') {
+          item.level = 'declared-and-tested';
+          item['governance-status'] = 'missing-evidence';
+          item['evidence-status'] = 'missing';
+        }
+      }
+      fs.writeFileSync(scorecardPath, JSON.stringify(scorecard, null, 2) + '\n', 'utf8');
+
+      const payload = manageSkill.main(['show-investment-backlog', '--source', 'proof-governance']);
+      expect(payload.action).toBe('show-investment-backlog');
+      expect(payload.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'proof-manage-skill',
+          source: 'proof-governance',
+          category: 'proof-governance',
+          priority: 'critical'
+        }),
+        expect.objectContaining({
+          id: 'proof-verify-skill-system',
+          source: 'proof-governance',
+          category: 'proof-governance',
+          priority: 'critical'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-investment-backlog surfaces host writeability debt for blocked governance artifacts', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    const commonModulePath = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'lib', 'skill-system-common.js');
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      jest.doMock(commonModulePath, () => {
+        const actual = jest.requireActual(commonModulePath);
+        return {
+          ...actual,
+          collectGeneratedArtifactWriteability: jest.fn(() => ([
+            {
+              id: 'system-readiness',
+              path: path.join(repoRoot, 'personal-skill-system', 'benchmark', 'system-readiness.generated.json'),
+              mode: 'rewrite-file',
+              label: 'system readiness artifact',
+              ok: false,
+              code: 'EPERM'
+            }
+          ])),
+          probeDirectoryCreateAccess: jest.fn(() => ({
+            ok: false,
+            path: path.join(repoRoot, 'personal-skill-system', 'skills', 'domains', '__probe__'),
+            parent: path.join(repoRoot, 'personal-skill-system', 'skills', 'domains'),
+            code: 'EPERM'
+          }))
+        };
+      });
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['show-investment-backlog', '--source', 'host-writeability']);
+      expect(payload.action).toBe('show-investment-backlog');
+      expect(payload.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'host-writeability-system-readiness',
+          source: 'host-writeability',
+          category: 'host-writeability'
+        }),
+        expect.objectContaining({
+          id: 'host-writeability-authoritative-skill-create',
+          source: 'host-writeability',
+          category: 'host-writeability'
+        })
+      ]));
+    } finally {
+      jest.dontMock(commonModulePath);
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-pending-scaffolds returns empty summary on the baseline bundle', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['show-pending-scaffolds']);
+      expect(payload.action).toBe('show-pending-scaffolds');
+      expect(payload.total).toBe(0);
+      expect(payload.returned).toBe(0);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill record-opportunity writes governed future skill opportunities and exposes them via queue view', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const recorded = manageSkill.main([
+        'record-opportunity',
+        '--kind', 'workflow',
+        '--priority', 'high',
+        '--horizon', 'next',
+        '--adjacent', 'review,ship',
+        'we need a governed workflow for periodic portfolio pruning across the skill bundle'
+      ]);
+
+      expect(recorded.action).toBe('record-opportunity');
+      expect(recorded.entry).toEqual(expect.objectContaining({
+        'suggested-kind': 'workflow',
+        priority: 'high',
+        status: 'open',
+        horizon: 'next'
+      }));
+
+      const queue = manageSkill.main(['show-opportunity-queue', '--opportunity-id', recorded.entry['opportunity-id']]);
+      expect(queue.action).toBe('show-opportunity-queue');
+      expect(queue.returned).toBe(1);
+      expect(queue.entries[0]).toEqual(expect.objectContaining({
+        'opportunity-id': recorded.entry['opportunity-id'],
+        summary: 'we need a governed workflow for periodic portfolio pruning across the skill bundle'
+      }));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-investment-backlog surfaces open future skill opportunities in the governed portfolio view', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const recorded = manageSkill.main([
+        'record-opportunity',
+        '--kind', 'domain',
+        '--priority', 'critical',
+        '--horizon', 'now',
+        'we need a future platform-governance skill for shared operating model decisions'
+      ]);
+      const payload = manageSkill.main(['show-investment-backlog', '--source', 'skill-opportunity-queue']);
+
+      expect(payload.action).toBe('show-investment-backlog');
+      expect(payload.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: `opportunity-${recorded.entry['opportunity-id']}`,
+          source: 'skill-opportunity-queue',
+          category: 'future-skill-opportunity',
+          priority: 'critical'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill create --opportunity-id closes the governed future opportunity as implemented', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const recorded = manageSkill.main([
+        'record-opportunity',
+        '--kind', 'workflow',
+        '--priority', 'high',
+        '--horizon', 'next',
+        'we need a workflow for skill portfolio pruning and deprecation planning'
+      ]);
+
+      const created = manageSkill.main([
+        'create',
+        'workflow',
+        `portfolio-pruning-${Date.now()}`,
+        '--opportunity-id',
+        recorded.entry['opportunity-id']
+      ]);
+
+      expect(created.action).toBe('create');
+      expect(created['opportunity-id']).toBe(recorded.entry['opportunity-id']);
+
+      const queue = manageSkill.main(['show-opportunity-queue', '--opportunity-id', recorded.entry['opportunity-id']]);
+      expect(queue.entries[0]).toEqual(expect.objectContaining({
+        status: 'implemented',
+        'created-skill': created.skill
+      }));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill admission-check --opportunity-id escalates a governed future opportunity into a linked admission request', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const recorded = manageSkill.main([
+        'record-opportunity',
+        '--kind', 'domain',
+        '--priority', 'high',
+        '--horizon', 'next',
+        '--adjacent', 'skill-evolution,infrastructure',
+        'we need a sandbox-governance domain for filesystem writeability, host constraints, and execution authority decisions across the bundle'
+      ]);
+
+      const admission = manageSkill.main([
+        'admission-check',
+        '--opportunity-id', recorded.entry['opportunity-id']
+      ]);
+
+      expect(admission.action).toBe('admission-check');
+      expect(admission['opportunity-id']).toBe(recorded.entry['opportunity-id']);
+      expect(admission.recommendation).toEqual(expect.objectContaining({
+        action: 'reuse-existing-skill',
+        target_skill: 'host-governance',
+        target_kind: 'domain'
+      }));
+      expect(admission['linked-opportunity-status']).toBe('cancelled');
+      expect(admission.follow_up.some((item) => item.includes('show host-governance'))).toBe(true);
+
+      const queue = manageSkill.main(['show-opportunity-queue', '--opportunity-id', recorded.entry['opportunity-id']]);
+      expect(queue.entries[0]).toEqual(expect.objectContaining({
+        status: 'cancelled',
+        'admission-request-id': admission['request-id']
+      }));
+
+      const ledger = manageSkill.main(['show-admission-ledger', '--request-id', admission['request-id']]);
+      expect(ledger.entries[0]).toEqual(expect.objectContaining({
+        'request-id': admission['request-id'],
+        'opportunity-id': recorded.entry['opportunity-id']
+      }));
     } finally {
       process.chdir(originalCwd);
     }
@@ -527,6 +1045,12 @@ describe('personal skill system tool runtime', () => {
 
       const beforeRunDir = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'host-smoke', 'runtime-runs');
       const beforeFiles = fs.readdirSync(beforeRunDir).length;
+
+      const runtimeProofPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'runtime-proof.generated.json');
+      const runtimeProof = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
+      const driftedEntry = runtimeProof.proofs.find((item) => item.skill === 'manage-skill');
+      driftedEntry['host-smoke'].commands[0].expect.tool = 'manage-skill-drift';
+      fs.writeFileSync(runtimeProofPath, JSON.stringify(runtimeProof, null, 2) + '\n', 'utf8');
 
       const payload = manageSkill.main(['reconcile-host-smoke', 'manage-skill', '--invalidate-drift']);
       expect(payload.reports).toEqual(expect.arrayContaining([
@@ -762,6 +1286,54 @@ describe('personal skill system tool runtime', () => {
       const entry = runtimeProof.proofs.find((item) => item.skill === 'verify-quality');
       expect(entry.level).toBe('declared-and-tested');
     } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill run-host-smoke tolerates system-readiness EPERM as best-effort debt', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'test'), path.join(repoRoot, 'test'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    const commonModulePath = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'lib', 'skill-system-common.js');
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      jest.doMock(commonModulePath, () => {
+        const actual = jest.requireActual(commonModulePath);
+        return {
+          ...actual,
+          probeArtifactWriteAccess: jest.fn((targetPath, options = {}) => {
+            const normalized = String(targetPath || '').replace(/\\/g, '/');
+            if (
+              normalized.endsWith('/benchmark/system-readiness.generated.json')
+              && String(options.mode || '') === 'rewrite-file'
+            ) {
+              return {
+                ok: false,
+                mode: 'rewrite-file',
+                path: targetPath,
+                code: 'EPERM',
+                message: 'mocked system-readiness write block'
+              };
+            }
+            return actual.probeArtifactWriteAccess(targetPath, options);
+          })
+        };
+      });
+
+      const manageSkill = require(manageSkillModulePath);
+      const payload = manageSkill.main(['run-host-smoke', 'manage-skill', '--host', 'codex', '--promote-host-smoked']);
+      expect(payload.action).toBe('run-host-smoke');
+      expect(payload.status).toBe('pass');
+      expect(payload.promoted_skills).toEqual(['manage-skill']);
+
+      const runtimeProof = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'runtime-proof.generated.json'), 'utf8'));
+      const entry = runtimeProof.proofs.find((item) => item.skill === 'manage-skill');
+      expect(entry.level).toBe('host-smoked');
+    } finally {
+      jest.dontMock(commonModulePath);
       process.chdir(originalCwd);
     }
   });
@@ -1013,6 +1585,29 @@ describe('personal skill system tool runtime', () => {
       expect(entry.level).toBe('declared-and-tested');
     } finally {
       Date.now = originalNow;
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill sync-runtime-proof keeps investment backlog aligned with refreshed host-smoke scorecard', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'test'), path.join(repoRoot, 'test'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main(['sync-runtime-proof', 'verify-skill-system']);
+
+      const report = analyzeSkillSystem(path.join(repoRoot, 'personal-skill-system'));
+      expect(report.findings.some((item) =>
+        item.file === 'registry/skill-investment-backlog.generated.json'
+        && item.message.includes('skill investment backlog is out of sync')
+      )).toBe(false);
+    } finally {
       process.chdir(originalCwd);
     }
   });

@@ -1,0 +1,90 @@
+{
+  "schema-version": 1,
+  "generated-at": "2026-05-09T08:12:53.387Z",
+  "sources": {
+    "skill-opportunity-queue": "registry/skill-opportunity-queue.generated.json",
+    "admission-ledger": "registry/admission-ledger.generated.json",
+    "evolution-ledger": "registry/evolution-ledger.generated.json",
+    "review-queue": "registry/review-queue.generated.json",
+    "capability-ratings": "registry/capability-ratings.generated.json",
+    "route-fixtures": "registry/route-fixtures.generated.json",
+    "authoritative-skills": "skills/**/SKILL.md"
+  },
+  "summary": {
+    "total": 3,
+    "critical": 0,
+    "high": 3,
+    "normal": 0,
+    "categories": {
+      "future-skill-opportunity": 3
+    },
+    "sources": {
+      "skill-opportunity-queue": 3
+    }
+  },
+  "items": [
+    {
+      "id": "opportunity-20260509-we-need-a-deterministic-route-regression-tool-th",
+      "category": "future-skill-opportunity",
+      "status": "open",
+      "priority": "high",
+      "source": "skill-opportunity-queue",
+      "skill": null,
+      "kind": "tool",
+      "summary": "we need a deterministic route regression tool that compares route fixture precision across releases and emits a structured drift report",
+      "reasons": [
+        "adjacent:bugfix",
+        "adjacent:verify-skill-system",
+        "horizon:next",
+        "reason:fixture-drift",
+        "reason:release-comparison",
+        "reason:route-regression"
+      ],
+      "follow_up": [
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-opportunity-queue --opportunity-id 20260509-we-need-a-deterministic-route-regression-tool-th"
+      ]
+    },
+    {
+      "id": "opportunity-20260509-we-need-a-pack-governance-domain-for-bundle-laye",
+      "category": "future-skill-opportunity",
+      "status": "open",
+      "priority": "high",
+      "source": "skill-opportunity-queue",
+      "skill": null,
+      "kind": "domain",
+      "summary": "we need a pack-governance domain for bundle layering, portability boundaries, and distribution policy decisions across packs",
+      "reasons": [
+        "adjacent:architecture",
+        "adjacent:skill-evolution",
+        "horizon:next",
+        "reason:distribution-policy",
+        "reason:pack-layering",
+        "reason:portability"
+      ],
+      "follow_up": [
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-opportunity-queue --opportunity-id 20260509-we-need-a-pack-governance-domain-for-bundle-laye"
+      ]
+    },
+    {
+      "id": "opportunity-20260509-we-need-a-reliability-governance-domain-for-slo-",
+      "category": "future-skill-opportunity",
+      "status": "open",
+      "priority": "high",
+      "source": "skill-opportunity-queue",
+      "skill": "reliability-governance",
+      "kind": "domain",
+      "summary": "we need a reliability-governance domain for SLO, incident, recovery, and availability tradeoff decisions across the bundle",
+      "reasons": [
+        "adjacent:architecture",
+        "adjacent:architecture-decision",
+        "horizon:next",
+        "reason:availability-tradeoffs",
+        "reason:incident-recovery",
+        "reason:slo"
+      ],
+      "follow_up": [
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-opportunity-queue --opportunity-id 20260509-we-need-a-reliability-governance-domain-for-slo-"
+      ]
+    }
+  ]
+}

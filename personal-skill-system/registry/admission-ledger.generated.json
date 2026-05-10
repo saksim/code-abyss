@@ -1,4 +1,82 @@
 {
   "schema-version": 1,
-  "entries": []
+  "entries": [
+    {
+      "request-id": "20260510-test-future-host-create-probe",
+      "request": "test future host create probe",
+      "suggested-kind": "domain",
+      "inferred-intent-tags": [
+        "validate"
+      ],
+      "decision": {
+        "action": "create-new-skill",
+        "suggested_kind": "domain"
+      },
+      "status": "cancelled",
+      "recorded-at": "2026-05-10T10:09:24.786Z",
+      "note": "probe cleanup after governance test",
+      "resolved-at": "2026-05-10T10:35:13.394Z"
+    },
+    {
+      "request-id": "20260510-we-need-a-host-governance-domain-for-sandbox-wri",
+      "request": "we need a host-governance domain for sandbox writeability, filesystem permission boundaries, host execution limits, and degraded-mode policy decisions across the bundle",
+      "suggested-kind": "domain",
+      "inferred-intent-tags": [],
+      "decision": {
+        "action": "create-new-skill",
+        "suggested_kind": "domain"
+      },
+      "status": "implemented",
+      "recorded-at": "2026-05-10T06:07:44.231Z",
+      "created-skill": "host-governance",
+      "note": "created through governed manual fallback after host create path was blocked",
+      "resolved-at": "2026-05-10T06:07:44.285Z"
+    },
+    {
+      "request-id": "20260509-we-need-a-reliability-governance-domain-for-slo-",
+      "request": "we need a reliability-governance domain for SLO, incident, recovery, and availability tradeoff decisions across the bundle",
+      "suggested-kind": "domain",
+      "inferred-intent-tags": [],
+      "opportunity-id": "20260509-we-need-a-reliability-governance-domain-for-slo-",
+      "decision": {
+        "action": "create-new-skill",
+        "suggested_kind": "domain"
+      },
+      "status": "implemented",
+      "recorded-at": "2026-05-09T07:40:07.024Z",
+      "created-skill": "reliability-governance",
+      "note": "created through governed manage-skill flow",
+      "resolved-at": "2026-05-09T08:56:01.632Z"
+    },
+    {
+      "request-id": "20260509-we-need-a-deterministic-route-regression-tool-th",
+      "request": "we need a deterministic route regression tool that compares route fixture precision across releases and emits a structured drift report",
+      "suggested-kind": "tool",
+      "inferred-intent-tags": [],
+      "opportunity-id": "20260509-we-need-a-deterministic-route-regression-tool-th",
+      "decision": {
+        "action": "upgrade-existing-skill",
+        "target_skill": "bugfix",
+        "target_kind": "workflow",
+        "suggested_kind": "tool"
+      },
+      "status": "advised-reuse",
+      "recorded-at": "2026-05-09T07:39:00.265Z"
+    },
+    {
+      "request-id": "20260509-we-need-a-pack-governance-domain-for-bundle-laye",
+      "request": "we need a pack-governance domain for bundle layering, portability boundaries, and distribution policy decisions across packs",
+      "suggested-kind": "domain",
+      "inferred-intent-tags": [],
+      "opportunity-id": "20260509-we-need-a-pack-governance-domain-for-bundle-laye",
+      "decision": {
+        "action": "upgrade-existing-skill",
+        "target_skill": "skill-evolution",
+        "target_kind": "workflow",
+        "suggested_kind": "domain"
+      },
+      "status": "advised-reuse",
+      "recorded-at": "2026-05-09T07:38:24.616Z"
+    }
+  ]
 }

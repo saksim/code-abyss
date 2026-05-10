@@ -1,0 +1,3 @@
+display_name: "Verify Skill System Tool"
+short_description: "Validate a portable skill bundle itself: frontmatter integrity, registry coverage, route-map coverage, reference links, runtime contracts, and structural portability assumptions."
+default_prompt: "Use ~/.agents/skills/tools/verify-skill-system/SKILL.md as the primary instruction source before acting on verify-skill-system."

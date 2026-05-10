@@ -1,0 +1,3 @@
+display_name: "Architecture Domain"
+short_description: "System design and technical decision making: service boundaries, APIs, data flow, migrations, reliability, and scaling tradeoffs."
+default_prompt: "Use ~/.agents/skills/domains/architecture/SKILL.md as the primary instruction source before acting on architecture."

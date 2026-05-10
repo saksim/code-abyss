@@ -12,6 +12,7 @@
         "skills/tools/verify-skill-system/scripts/run.js",
         "--target",
         ".",
+        "--self-smoke",
         "--json"
       ],
       "expect": {

@@ -2,13 +2,18 @@
 
 This tool validates the skill system itself rather than ordinary product code.
 
+Treat the result as a check on the bundle's single charter, not only as a parser pass.
+
 ## Structural checks
 
 - expected top-level directories exist
 - `personal-skill-system/skills/**/SKILL.md` files are discoverable
 - generated registry files exist and parse
 - admission ledger exists and stays parseable
+- evolution ledger exists and stays parseable
+- review queue exists and stays parseable
 - canonical template scaffolds exist and stay valid
+- canonical templates carry explicit template-version metadata so generated skills can track scaffold lineage over time
 
 ## Skill contract checks
 
@@ -18,7 +23,10 @@ This tool validates the skill system itself rather than ordinary product code.
 - user-invocable skills have route coverage
 - stable skills have route-fixture evidence, not only route-map presence
 - lifecycle review fields stay present on live skills
+- governed review queue stays aligned with live skill review metadata and surfaces overdue stable skills explicitly
 - stable skills avoid template/TODO residue and keep a stronger reference floor
+- generated skills can declare scaffold lineage and warn when they lag behind the current canonical template version
+- future-skill growth stays governable through opportunity, admission, and lifecycle records rather than ad hoc surface sprawl
 
 ## Link and portability checks
 
@@ -37,6 +45,8 @@ This tool validates the skill system itself rather than ordinary product code.
 - scripted templates expose `scripts/run.js` where required
 - generated metadata does not reference missing skills
 - governed admission decisions stay uniquely identified and implemented requests point at real created skills
+- governed evolution decisions stay uniquely identified and implemented lifecycle requests point at real executed outcomes
+- generated governance artifacts remain aligned tightly enough that present-skill hardening and future-skill evolution share one coherent operating model
 
 ## What this tool does not prove
 

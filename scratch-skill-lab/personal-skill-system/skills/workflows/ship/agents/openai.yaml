@@ -1,0 +1,3 @@
+display_name: "Ship Workflow"
+short_description: "Release and merge workflow focused on readiness, risk, rollback, and guard conditions."
+default_prompt: "Use ~/.agents/skills/workflows/ship/SKILL.md as the primary instruction source before acting on ship."

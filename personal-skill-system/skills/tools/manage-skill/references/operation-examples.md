@@ -6,6 +6,30 @@ Check whether a proposed capability should become a new skill:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check "we need a repeatable workflow for upgrading the skill system itself"
 ```
 
+Record a future-skill opportunity before it is concrete enough for admission:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js record-opportunity --kind domain --priority high --horizon next --adjacent architecture,orchestration "we need a cross-cutting platform-governance skill for long-term ownership and policy design"
+```
+
+Inspect the future-skill opportunity queue:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-opportunity-queue --status open --priority high
+```
+
+Escalate a governed future-skill opportunity into a linked admission decision:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --opportunity-id 20260509-platform-governance
+```
+
+Create the governed scaffold directly from the linked admission + opportunity pair:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain reliability-governance --scaffold-modules --request-id 20260509-reliability-governance --opportunity-id 20260509-reliability-governance
+```
+
 Check admission with an explicit target kind:
 
 ```bash
@@ -16,6 +40,30 @@ Inspect recorded admission decisions:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-admission-ledger --status open
+```
+
+Check whether an existing skill should be upgraded, promoted, archived, or merged:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check review "this workflow is ready for stable promotion"
+```
+
+Inspect recorded evolution decisions:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-evolution-ledger --status open
+```
+
+Inspect the generated cross-cutting investment backlog:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --priority high
+```
+
+Resolve an evolution request after a governed lifecycle action:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js resolve-evolution 20260509-review-stable --status implemented --executed-action set-status --result-status stable
 ```
 
 Resolve an admission request after a governed skill create:
@@ -30,10 +78,29 @@ Create a workflow:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js create workflow ship-v2
 ```
 
+Create a skill directly from a governed future opportunity:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js create workflow platform-governance --opportunity-id 20260509-platform-governance
+```
+
+The created `SKILL.md` should now carry scaffold lineage such as:
+
+- `scaffold-origin: workflow-template`
+- `scaffold-version: 1`
+
 Create a new domain with immediate capability-module governance scaffolding:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain reliability-governance --scaffold-modules
+```
+
+If the host cannot create authoritative child directories but the request is already governed, persist the pending scaffold and later materialize it on a writable host:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain host-governance-drill --scaffold-modules --defer-when-host-blocked --request-id 20260510-host-governance-drill
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-pending-scaffolds --skill host-governance-drill
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js materialize-pending-scaffold host-governance-drill
 ```
 
 Show a skill:
@@ -54,10 +121,28 @@ Update frontmatter fields:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js update review --set owner=self --set review-cycle-days=14
 ```
 
+Backfill scaffold lineage for one historical skill:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-scaffold-lineage review
+```
+
+Backfill scaffold lineage across every canonical non-router/non-adapter skill:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-scaffold-lineage --all
+```
+
 Move a skill through its lifecycle with generated governance sync:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status review stable
+```
+
+Close a governed evolution request while changing lifecycle state:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status review stable --request-id 20260509-review-stable
 ```
 
 Before moving to `stable`, make sure:
@@ -133,6 +218,12 @@ Archive a skill:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js archive review
+```
+
+Merge a skill into its neighboring owner while preserving governed history:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js merge verify-quality review --request-id 20260509-verify-quality-merge
 ```
 
 Delete a skill:

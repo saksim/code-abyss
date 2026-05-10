@@ -1324,6 +1324,79 @@
       }
     },
     {
+      "skill": "reliability-governance",
+      "kind": "domain",
+      "priority": 79,
+      "namespace": "domain",
+      "supported-hosts": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "activation": {
+        "intent-tags": [
+          "knowledge"
+        ],
+        "trigger-keywords": [
+          "错误预算",
+          "服务等级目标",
+          "故障恢复",
+          "可靠性",
+          "可用性",
+          "事故响应",
+          "稳定性治理",
+          "availability",
+          "error budget",
+          "failover",
+          "incident",
+          "on-call",
+          "recovery",
+          "reliability",
+          "resilience",
+          "sla",
+          "sli",
+          "slo"
+        ],
+        "negative-keywords": [
+          "视觉设计",
+          "visual design"
+        ],
+        "requires-explicit-invocation": false
+      },
+      "conflicts-with": [],
+      "auto-chain": [],
+      "expert-modules": [
+        "reliability-governance-decision-rules",
+        "reliability-governance-deep-reference-index",
+        "reliability-governance-boundaries-and-escalations"
+      ],
+      "aliases": [
+        "可靠性治理",
+        "incident-governance",
+        "reliability"
+      ],
+      "rationale": {
+        "primary-intent": "newly created domain placeholder route",
+        "why-this-route": "Placeholder route for reliability-governance until the domain surface is intentionally refined.",
+        "wins-when": [
+          "reliability-governance"
+        ],
+        "avoid-when": [],
+        "boundary-notes": "New domain skills start with a minimal explicit-only route and should be refined before broader auto-routing."
+      },
+      "confidence": {
+        "minimum-score": 65,
+        "strong-score": 80,
+        "very-strong-score": 93,
+        "requires-fallback-below-minimum": true
+      },
+      "fallback": {
+        "mode": "do-not-auto-route",
+        "clarify-question": "Do you want explicit invocation of reliability-governance?",
+        "default-action": "wait-for-explicit-invocation"
+      }
+    },
+    {
       "skill": "ship",
       "kind": "workflow",
       "priority": 79,
@@ -1488,6 +1561,97 @@
         "clarify-question": "Should this route use architecture or frontend-design as the primary skill for this request?",
         "default-action": "route-to-highest-score-after-clarification",
         "safe-skill": "frontend-design"
+      }
+    },
+    {
+      "skill": "host-governance",
+      "kind": "domain",
+      "priority": 78,
+      "namespace": "domain",
+      "supported-hosts": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "activation": {
+        "intent-tags": [
+          "knowledge"
+        ],
+        "trigger-keywords": [
+          "降级策略",
+          "可移植边界",
+          "沙箱",
+          "宿主能力",
+          "宿主治理",
+          "文件系统权限",
+          "写权限",
+          "claude host",
+          "codex host",
+          "degraded mode",
+          "execution limit",
+          "filesystem permission",
+          "gemini host",
+          "host capability",
+          "host governance",
+          "portability boundary",
+          "sandbox",
+          "writeability"
+        ],
+        "negative-keywords": [
+          "普通功能开发",
+          "视觉设计",
+          "ordinary feature",
+          "visual design"
+        ],
+        "requires-explicit-invocation": false
+      },
+      "conflicts-with": [],
+      "auto-chain": [],
+      "expert-modules": [
+        "host-governance-decision-rules",
+        "host-governance-deep-reference-index",
+        "host-governance-boundaries-and-escalations"
+      ],
+      "aliases": [
+        "宿主治理",
+        "host-policy",
+        "sandbox-governance"
+      ],
+      "rationale": {
+        "primary-intent": "host execution and portability governance",
+        "why-this-route": "host-governance should win when the hard part is what the current host can safely execute, how to react when it cannot, and how to keep the bundle honest across different hosts.",
+        "wins-when": [
+          "host-governance",
+          "host governance",
+          "sandbox",
+          "filesystem permission",
+          "writeability",
+          "execution limit",
+          "host capability",
+          "degraded mode",
+          "portability boundary",
+          "host-policy",
+          "sandbox-governance"
+        ],
+        "avoid-when": [
+          "visual design",
+          "ordinary feature",
+          "视觉设计",
+          "普通功能开发"
+        ],
+        "boundary-notes": "Prefer this domain for cross-cutting host/sandbox/governance questions; adapter-specific translation belongs to host adapters, while authoritative mutation belongs to manage-skill."
+      },
+      "confidence": {
+        "minimum-score": 45,
+        "strong-score": 60,
+        "very-strong-score": 73,
+        "requires-fallback-below-minimum": true
+      },
+      "fallback": {
+        "mode": "ask-one-question",
+        "clarify-question": "Should this route use host-governance or manage-skill as the primary skill for this request?",
+        "default-action": "route-to-highest-score-after-clarification",
+        "safe-skill": "manage-skill"
       }
     },
     {

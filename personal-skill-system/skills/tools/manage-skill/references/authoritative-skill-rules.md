@@ -1,5 +1,7 @@
 # Authoritative Skill Rules
 
+Operate under the single charter in `personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md`.
+
 All core skill create/read/update/delete operations must target:
 
 - `personal-skill-system/skills/**/SKILL.md`
@@ -14,7 +16,7 @@ Never edit:
 
 Operation rules:
 
-0. before adding a new skill, prefer `admission-check` so add / merge / deepen decisions flow through one governed entry point
+0. before adding a new skill, prefer `record-opportunity` or `admission-check` so add / merge / deepen decisions flow through one governed entry point
 1. create from the canonical template for the selected kind
 2. keep public user-invocable skills routable and registry-backed
 3. prefer `archive` over immediate destructive deletion when history may matter
@@ -30,3 +32,5 @@ Operation rules:
    so `benchmark/host-smoke/scorecard.generated.json` remains a trustworthy bundle-wide governance view
 11. prefer `sync-runtime-proof --suggest-evidence-tests` or `--auto-evidence-tests` before hand-curating Jest evidence ids for scripted skills
 12. when old runtime host-smoke artifacts drift from the current contract, invalidate them through the governed host-smoke reconciliation flow instead of deleting append-only evidence files by hand
+13. promote `stable` only through governed top-tier readiness, not because the prose looks complete
+14. prefer deepening an existing clean route before creating a new overlapping sibling skill

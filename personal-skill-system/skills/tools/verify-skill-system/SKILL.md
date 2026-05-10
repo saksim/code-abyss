@@ -1,6 +1,8 @@
 ---
 schema-version: 2
 name: verify-skill-system
+scaffold-origin: tool-template
+scaffold-version: 1
 title: Verify Skill System Tool
 description: Validate a portable skill bundle itself: frontmatter integrity, registry coverage, route-map coverage, reference links, runtime contracts, and structural portability assumptions. Use when auditing the health of a personal skill system rather than application code.
 kind: tool
@@ -40,17 +42,22 @@ aliases: [skill-system-audit, 技能系统审计]
 - top-level bundle structure
 - `SKILL.md` frontmatter integrity
 - registry completeness
+- admission/evolution ledger integrity
+- future skill opportunity queue integrity
+- skill investment backlog integrity
 - route-map completeness for user-invocable skills
 - reference link existence
 - runtime and script contract alignment
 - host-smoke execution evidence alignment for stable scripted skills
 - route-map linkage to known skills
 - generated governance artifact writeability on the current host for readiness, scorecards, and runtime-proof refreshes
+- host-level writeability debt as a separate governance surface, so sandbox or filesystem limits are tracked explicitly instead of being mistaken for skill-content drift
 
 ## Runtime Proof
 
 - `node scripts/run.js --target ./personal-skill-system --json` returns a structured bundle-health report with findings and metrics
-- governance drift in registry, route fixtures, stable skill standards, runtime host-smoke evidence, or template integrity is reported as explicit findings
+- governance drift in registry, route fixtures, future opportunity queue, investment backlog, stable skill standards, runtime host-smoke evidence, host writeability, or template integrity is reported as explicit findings
+- `node scripts/run.js --target ./personal-skill-system --self-smoke --json` validates the tool on a temporary writable copy, so host-smoke can prove bundle-audit correctness even when the live host cannot rewrite every generated artifact in place
 
 ## Run
 

@@ -1,0 +1,3 @@
+display_name: "Reliability Governance Domain"
+short_description: "TODO: describe reliability-governance."
+default_prompt: "Use ~/.agents/skills/domains/reliability-governance/SKILL.md as the primary instruction source before acting on reliability-governance."

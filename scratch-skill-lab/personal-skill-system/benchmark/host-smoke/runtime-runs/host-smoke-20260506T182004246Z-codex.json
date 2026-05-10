@@ -1,0 +1,78 @@
+{
+  "schema-version": 1,
+  "run-id": "host-smoke-20260506T182004246Z-codex",
+  "executed-at": "2026-05-06T18:20:04.246Z",
+  "host": "codex",
+  "source-runtime-proof": "registry/runtime-proof.generated.json",
+  "selection": {
+    "scope": "single",
+    "skills": [
+      "verify-skill-system"
+    ]
+  },
+  "results": [
+    {
+      "skill": "verify-skill-system",
+      "kind": "tool",
+      "level-before": "host-smoked",
+      "status": "fail",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "contract": {
+        "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "bundle-root",
+            "argv": [
+              "node",
+              "skills/tools/verify-skill-system/scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-skill-system",
+              "status": "pass"
+            },
+            "timeout-ms": 15000
+          }
+        ],
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        }
+      },
+      "command-count": 1,
+      "passed-commands": 0,
+      "commands": [
+        {
+          "cwd": "bundle-root",
+          "argv": [
+            "node",
+            "skills/tools/verify-skill-system/scripts/run.js",
+            "--target",
+            ".",
+            "--json"
+          ],
+          "expect": {
+            "tool": "verify-skill-system",
+            "status": "pass"
+          },
+          "timeout-ms": 15000,
+          "status": "fail",
+          "exit-code": 0,
+          "signal": null,
+          "duration-ms": 187,
+          "json-parse-ok": true,
+          "observed": {
+            "tool": "verify-skill-system",
+            "status": "fail"
+          },
+          "mismatches": [
+            "expect 'status'=\"pass\" but observed \"fail\""
+          ],
+          "stdout-preview": "{\n  \"tool\": \"verify-skill-system\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\code-abyss\\\\personal-skill-system\",\n  \"status\": \"fail\",\n  \"summary\": \"Audited 34 skill files, 34 registry entries, 100 capability modules, 33 route entries, and 9 runtime proof entries.\",\n  \"findings\": [\n    {\n      \"severity\": \"error\",\n      \"file\": \"skills/tools/manage-skill/SKILL.md\",\n      \"message\": \"runtime pr"
+        }
+      ]
+    }
+  ]
+}

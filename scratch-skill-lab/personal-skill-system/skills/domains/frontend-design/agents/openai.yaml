@@ -1,0 +1,3 @@
+display_name: "Frontend Design Domain"
+short_description: "UI, UX, interaction systems, accessibility, hierarchy, and style direction."
+default_prompt: "Use ~/.agents/skills/domains/frontend-design/SKILL.md as the primary instruction source before acting on frontend-design."

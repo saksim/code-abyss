@@ -45,6 +45,101 @@ const KIND_BY_LAYER = {
 
 const SMOKE_CWD_MODES = new Set(['skill-dir', 'bundle-root']);
 
+function getGeneratedGovernanceArtifacts(bundleRoot) {
+  const root = path.resolve(bundleRoot);
+  return [
+    {
+      id: 'skill-opportunity-queue',
+      path: path.join(root, 'registry', 'skill-opportunity-queue.generated.json'),
+      mode: 'rewrite-file',
+      label: 'skill opportunity queue registry'
+    },
+    {
+      id: 'review-queue',
+      path: path.join(root, 'registry', 'review-queue.generated.json'),
+      mode: 'rewrite-file',
+      label: 'review queue registry'
+    },
+    {
+      id: 'admission-ledger',
+      path: path.join(root, 'registry', 'admission-ledger.generated.json'),
+      mode: 'rewrite-file',
+      label: 'admission ledger registry'
+    },
+    {
+      id: 'evolution-ledger',
+      path: path.join(root, 'registry', 'evolution-ledger.generated.json'),
+      mode: 'rewrite-file',
+      label: 'evolution ledger registry'
+    },
+    {
+      id: 'runtime-proof',
+      path: path.join(root, 'registry', 'runtime-proof.generated.json'),
+      mode: 'rewrite-file',
+      label: 'runtime-proof registry'
+    },
+    {
+      id: 'skill-investment-backlog',
+      path: path.join(root, 'registry', 'skill-investment-backlog.generated.json'),
+      mode: 'rewrite-file',
+      label: 'skill investment backlog registry'
+    },
+    {
+      id: 'pending-scaffolds',
+      path: path.join(root, 'registry', 'pending-scaffolds.generated.json'),
+      mode: 'rewrite-file',
+      label: 'pending scaffold registry'
+    },
+    {
+      id: 'host-smoke-scorecard',
+      path: path.join(root, 'benchmark', 'host-smoke', 'scorecard.generated.json'),
+      mode: 'rewrite-file',
+      label: 'host-smoke scorecard'
+    },
+    {
+      id: 'host-smoke-invalidation',
+      path: path.join(root, 'benchmark', 'host-smoke', 'invalidation.generated.json'),
+      mode: 'create-file',
+      label: 'host-smoke invalidation ledger'
+    },
+    {
+      id: 'system-readiness',
+      path: path.join(root, 'benchmark', 'system-readiness.generated.json'),
+      mode: 'rewrite-file',
+      label: 'system readiness artifact'
+    },
+    {
+      id: 'host-smoke-runtime-runs',
+      path: path.join(root, 'benchmark', 'host-smoke', 'runtime-runs'),
+      mode: 'write-dir',
+      label: 'host-smoke runtime-runs directory'
+    }
+  ];
+}
+
+function collectGeneratedArtifactWriteability(bundleRoot, options = {}) {
+  const artifacts = getGeneratedGovernanceArtifacts(bundleRoot);
+  const requestedPaths = Array.isArray(options.paths) && options.paths.length > 0
+    ? new Set(options.paths.map((item) => path.resolve(item)))
+    : null;
+  const results = [];
+
+  for (const artifact of artifacts) {
+    if (requestedPaths && !requestedPaths.has(path.resolve(artifact.path))) {
+      continue;
+    }
+    const probe = probeArtifactWriteAccess(artifact.path, { mode: artifact.mode });
+    results.push({
+      ...artifact,
+      ok: probe.ok === true,
+      ...(probe.ok ? {} : { code: probe.code || 'UNKNOWN' }),
+      ...(probe.message ? { message: probe.message } : {})
+    });
+  }
+
+  return results;
+}
+
 function rel(root, target) {
   return path.relative(root, target).split(path.sep).join('/');
 }
@@ -245,6 +340,38 @@ function probeArtifactWriteAccess(targetPath, options = {}) {
   throw new Error(`unsupported artifact write probe mode '${mode}'`);
 }
 
+function probeDirectoryCreateAccess(targetDir) {
+  const resolvedPath = path.resolve(targetDir);
+  const parentDir = path.dirname(resolvedPath);
+  const probeName = `.codex-dir-probe-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const probeDir = path.join(parentDir, probeName);
+
+  try {
+    fs.mkdirSync(probeDir);
+    fs.rmdirSync(probeDir);
+    return {
+      ok: true,
+      path: resolvedPath,
+      parent: parentDir
+    };
+  } catch (error) {
+    try {
+      if (fs.existsSync(probeDir)) {
+        fs.rmdirSync(probeDir);
+      }
+    } catch {
+      // Best-effort cleanup only.
+    }
+    return {
+      ok: false,
+      path: resolvedPath,
+      parent: parentDir,
+      code: error && error.code ? error.code : 'UNKNOWN',
+      message: error && error.message ? error.message : String(error)
+    };
+  }
+}
+
 function listMarkdownFiles(dir) {
   if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return [];
   return fs.readdirSync(dir, { withFileTypes: true })
@@ -397,12 +524,15 @@ module.exports = {
   REQUIRED_FRONTMATTER_KEYS,
   EXPECTED_TOP_LEVEL_DIRS,
   MIN_REFERENCE_FILES_BY_KIND,
+  getGeneratedGovernanceArtifacts,
+  collectGeneratedArtifactWriteability,
   rel,
   readUtf8,
   walkSkillFiles,
   parseFrontmatter,
   parseJsonFile,
   probeArtifactWriteAccess,
+  probeDirectoryCreateAccess,
   listMarkdownFiles,
   getSmokeManifestFile,
   validateSmokeManifest,

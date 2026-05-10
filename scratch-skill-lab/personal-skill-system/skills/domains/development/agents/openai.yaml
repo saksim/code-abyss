@@ -1,0 +1,3 @@
+display_name: "Development Domain"
+short_description: "Implementation, refactoring, debugging, and test strategy for code changes."
+default_prompt: "Use ~/.agents/skills/domains/development/SKILL.md as the primary instruction source before acting on development."

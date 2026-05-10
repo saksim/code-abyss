@@ -7,3 +7,4 @@ Include:
 - one narrow happy-path example
 - one edge-case example
 - how to interpret the output
+- what smoke-manifest command should remain the smallest trustworthy executable example

@@ -1,0 +1,3 @@
+display_name: "Claude Host Adapter"
+short_description: "Internal adapter surface for Claude-specific runtime assumptions, import notes, and capability hints."
+default_prompt: "Use ~/.agents/skills/adapters/claude/SKILL.md as the primary instruction source before acting on claude-host."
