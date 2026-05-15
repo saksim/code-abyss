@@ -1,4 +1,14 @@
 {
-  "schema-version": 1,
+  "schema-version": 2,
+  "generated-at": "2026-05-15T08:54:05.980Z",
+  "source": "managed-via-manage-skill",
+  "summary": {
+    "total": 0,
+    "active": 0,
+    "open": 0,
+    "implemented": 0,
+    "resolved": 0,
+    "advised-noop": 0
+  },
   "entries": []
 }

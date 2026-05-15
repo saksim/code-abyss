@@ -60,6 +60,36 @@ Inspect the generated cross-cutting investment backlog:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --priority high
 ```
 
+Inspect governed expert-source families and focus only on families with unmapped raw sources:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-expert-source-families --unmapped
+```
+
+Register a new expert-source family so future raw expert corpora enter governance through one controlled path:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js register-expert-source-family --family-id expert-research --title "Expert Research" --create-raw-root
+```
+
+Rename the governed integration ledger for one expert-source family without hand-editing the registry and pack:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js update-expert-source-family --family-id expert-research --integration-file registry/expert-research-v2.generated.json
+```
+
+Archive a retired expert-source family so it stays recorded but no longer creates active governance debt:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js archive-expert-source-family expert-research
+```
+
+Restore an archived expert-source family so it resumes active pack and backlog governance:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js restore-expert-source-family expert-research
+```
+
 Resolve an evolution request after a governed lifecycle action:
 
 ```bash
@@ -101,6 +131,14 @@ If the host cannot create authoritative child directories but the request is alr
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain host-governance-drill --scaffold-modules --defer-when-host-blocked --request-id 20260510-host-governance-drill
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-pending-scaffolds --skill host-governance-drill
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js materialize-pending-scaffold host-governance-drill
+```
+
+Export blocked derived governance artifacts and later apply the newest matching export on a writable bundle snapshot:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js export-derived-governance
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js diagnose-host-evolution
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js apply-derived-governance-export --latest
 ```
 
 Show a skill:
@@ -183,6 +221,8 @@ Sync one runtime-proof entry from the authoritative skill:
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-runtime-proof verify-quality --evidence-tests test/personal_skill_system_tools.test.js::analyzeQuality detects python-specific maintainability smells,test/personal_skill_system_tools.test.js::analyzeQuality detects async JS and TS contract smells
 ```
+
+For stable scripted tools and guards, this sync also raises stale `declared-only` entries to the governed minimum level when the required contracts and evidence are already present.
 
 Ask for suggested evidence-test candidates without changing the selected evidence list:
 

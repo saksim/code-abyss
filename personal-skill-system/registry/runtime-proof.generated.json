@@ -50,13 +50,16 @@
         "`assess-top-tier` turns \"this skill is top-tier enough\" into a governed read-only check instead of a hand-waved label by inspecting capability-module ratings and stable-surface blockers together",
         "`create` updates the authoritative skill tree and generated metadata together instead of leaving registry or route drift behind",
         "`create` also records which canonical scaffold and template version seeded the new skill so future scaffold upgrades become governable drift instead of tribal knowledge",
+        "`create` seeds review metadata from centralized kind policy, so newly created skills start with current review baselines instead of inheriting stale template dates",
         "`sync-scaffold-lineage` upgrades pre-lineage historical skills into the same canonical scaffold tracking model as newly created skills without hand-editing every frontmatter block",
-        "`create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new domain/workflow skills",
+        "`create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new capability-module scaffold kinds (currently `domain` and `workflow`)",
         "`set-module-rating` upgrades or downgrades registered capability modules through a governed path instead of hand-editing rating buckets, `next-batch`, or the mirrored ratings doc",
         "`set-status` updates lifecycle metadata through a governed path instead of allowing raw `status=` edits that can strand runtime-proof, ratings, or readiness artifacts",
         "`set-status stable` now reuses the same top-tier readiness gate as `assess-top-tier`, so \"stable\" cannot drift away from the skill system's claimed top-tier standard",
         "`assess-top-tier` also treats expired stable review cadence as a real blocker instead of allowing stale `stable` claims to persist forever",
         "`archive` and `delete` remove active-route surfaces for the target skill, including route fixtures and ratings summary membership",
+        "`delete` also enforces centralized delete-governance blockers, refusing removal while active opportunity, admission, evolution, pending-scaffold, or expert-source dependencies still point at the skill",
+        "successful governed delete now records delete evidence in the evolution ledger, so historical admission/opportunity references to the removed skill remain explainable instead of turning into orphaned governance debt",
         "`merge` turns a merge recommendation into an executable lifecycle move without inventing ad-hoc archive + ledger edits: the source skill is archived, active-route surfaces are removed, and the evolution ledger records which target inherited ownership",
         "lifecycle mutations can also resolve recorded evolution requests so governance history follows the executed promote/deprecate/archive/delete action instead of staying as oral history",
         "`sync-host-metadata` keeps `agents/openai.yaml` governed from authoritative skill metadata instead of allowing host UI labels or default prompts to drift, including nested runtime paths such as variant skills",
@@ -65,6 +68,7 @@
         "governed route-fixture placeholders are refreshed from current trigger metadata during route sync and lifecycle restore flows, but stable/top-tier evidence still requires at least one non-placeholder route fixture",
         "`sync-runtime-proof` can rebuild or update runtime-proof entries from authoritative skill metadata instead of requiring hand-edited registry drift repair and can suggest or auto-apply matching evidence tests for scripted skills based on existing Jest coverage",
         "`sync-runtime-proof` also lifts skill-local `scripts/smoke.json` manifests into registry-backed host-smoke metadata so future host runners consume one consistent contract",
+        "`sync-runtime-proof` also auto-promotes stable scripted tools and guards to the lifecycle-governed minimum proof level once their declared contracts and evidence already satisfy that floor",
         "`sync-runtime-proof` treats `host-smoked` as evidence-backed state instead of sticky status and automatically downgrades entries whose contract, pass state, or freshness proof no longer holds",
         "`sync-runtime-proof` also invalidates drifted runtime host-smoke artifacts when a contract changes, so append-only evidence history stays cleanly governed without a separate manual cleanup pass",
         "`run-host-smoke` executes the declared host-smoke contract and records append-only pass/fail evidence so `host-smoked` can be proven from artifacts instead of trust",
@@ -73,6 +77,13 @@
         "`reconcile-host-smoke` invalidates drifted runtime host-smoke artifacts through a governed ledger instead of rewriting append-only run history and can chain directly into a rerun when fresh evidence is needed",
         "`mark-reviewed` refreshes one skill's review metadata and the governed review queue together so long-lived top-tier skills can stay current without hand-editing queue artifacts",
         "`show-investment-backlog` gives the bundle a first-class portfolio view for future skill additions, upgrades, deprecations, and template refreshes instead of relying on memory or stale roadmap docs",
+        "`show-expert-source-families` gives the bundle a family-level health board for expert-source ingestion, so maintainers can see which raw corpora are registered, portable, unmapped, stale, or parse-broken before touching deeper integration ledgers",
+        "`register-expert-source-family` turns future expert-source onboarding into a governed write path that seeds the family registry, integration ledger, experimental pack include, and derived portfolio surfaces together instead of relying on hand-edited registry sprawl",
+        "`update-expert-source-family` keeps expert-source family metadata and ledger location changes inside the same governed write path instead of spreading rename/edit drift across registry, pack, and backlog surfaces",
+        "`archive-expert-source-family` turns retired expert-source corpora into explicit lifecycle state rather than ad-hoc deletion, so history stays visible while active governance obligations stop firing",
+        "`restore-expert-source-family` makes expert-source lifecycle governance symmetric, so archived families can rejoin active pack, scorecard, and backlog surfaces without hand-editing multiple generated files",
+        "`diagnose-host-evolution` turns host writeability debt, blocked admissions, and deferred scaffold state into one action-oriented recovery view instead of forcing maintainers to reconstruct host limitations from readiness files, backlog entries, and error messages",
+        "`export-derived-governance` and `apply-derived-governance-export` turn blocked benchmark rewrites into a governed export/sync-back loop, so host-limited runtimes can hand derived readiness state to a writable bundle without losing fingerprint or artifact provenance",
         "`create --opportunity-id` can close a governed future-skill opportunity at the same time as the concrete skill scaffold is created, so portfolio intent and shipped artifact stay linked",
         "`create --defer-when-host-blocked` preserves the exact scaffold payload, host constraint, and rerun command in a governed pending scaffold registry instead of reducing blocked future-skill work to an opaque note",
         "`materialize-pending-scaffold` reuses that governed payload on a writable host so deferred future-skill creation stays deterministic and audit-friendly"
@@ -269,7 +280,7 @@
     {
       "skill": "verify-quality",
       "kind": "tool",
-      "level": "host-smoked",
+      "level": "declared-and-tested",
       "contracts": [
         "`node scripts/run.js --target ./src --json` returns a structured quality report with issue entries and severity",
         "language-specific maintainability smells are surfaced as findings rather than only aggregate scores"
@@ -310,7 +321,7 @@
     {
       "skill": "verify-security",
       "kind": "tool",
-      "level": "declared-and-tested",
+      "level": "declared-only",
       "contracts": [
         "`node scripts/run.js --target ./src --json` returns a structured security report with concrete findings and files",
         "trust-boundary and dangerous-sink heuristics emit explicit findings when risky patterns co-occur in one file"
@@ -349,7 +360,7 @@
       "level": "host-smoked",
       "contracts": [
         "`node scripts/run.js --target ./personal-skill-system --json` returns a structured bundle-health report with findings and metrics",
-        "governance drift in registry, route fixtures, future opportunity queue, investment backlog, stable skill standards, runtime host-smoke evidence, host writeability, or template integrity is reported as explicit findings",
+        "governance drift in registry, route fixtures, future opportunity queue, investment backlog, expert-source family scorecards, stable skill standards, runtime host-smoke evidence, host writeability, or template integrity is reported as explicit findings",
         "`node scripts/run.js --target ./personal-skill-system --self-smoke --json` validates the tool on a temporary writable copy, so host-smoke can prove bundle-audit correctness even when the live host cannot rewrite every generated artifact in place"
       ],
       "evidence-tests": [

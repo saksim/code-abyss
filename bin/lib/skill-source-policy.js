@@ -10,6 +10,7 @@ const {
   resolveLegacyRootSkillsDir,
 } = require('./skill-paths');
 const DISTRIBUTION_HOSTS = ['claude', 'codex', 'gemini'];
+const PERSONAL_CORE_REQUIRED_DISTRIBUTION_DIRS = ['docs', 'registry', 'templates', 'benchmark'];
 
 function normalizeRelPath(relPath) {
   const normalized = String(relPath || '').split(path.sep).join('/');
@@ -41,17 +42,33 @@ function readPackagePolicy(packageJsonPath) {
 function readDistributionPolicy(packManifestPath) {
   const manifest = JSON.parse(fs.readFileSync(packManifestPath, 'utf8'));
   const hostSkillSources = {};
+  const hostBundleRootSources = {};
+  const hostPersonalCoreCoverage = {};
 
   for (const host of DISTRIBUTION_HOSTS) {
     const hostConfig = manifest && manifest.hosts ? manifest.hosts[host] : null;
     const files = hostConfig && Array.isArray(hostConfig.files) ? hostConfig.files : [];
     const skillEntry = files.find((entry) => normalizePackageEntry(entry.dest) === 'skills');
+    const bundleEntry = files.find((entry) => normalizePackageEntry(entry.dest) === 'personal-skill-system');
     hostSkillSources[host] = skillEntry ? normalizePackageEntry(skillEntry.src) : null;
+    hostBundleRootSources[host] = bundleEntry ? normalizePackageEntry(bundleEntry.src) : null;
+    hostPersonalCoreCoverage[host] = {
+      bundleRootSource: hostBundleRootSources[host],
+      requiredDirs: PERSONAL_CORE_REQUIRED_DISTRIBUTION_DIRS.filter((dirName) => {
+        const expectedSource = `personal-skill-system/${dirName}`;
+        if (hostBundleRootSources[host] === 'personal-skill-system') {
+          return true;
+        }
+        return files.some((entry) => normalizePackageEntry(entry.src) === expectedSource);
+      })
+    };
   }
 
   return {
     packManifestPath,
     hostSkillSources,
+    hostBundleRootSources,
+    hostPersonalCoreCoverage,
   };
 }
 
@@ -114,12 +131,19 @@ function analyzeSkillSourcePolicy(options = {}) {
   const distributionHostsUsingAuthoritativeSource = DISTRIBUTION_HOSTS.filter(
     (host) => distributionPolicy.hostSkillSources[host] === authoritativeSkillsRel
   );
+  const distributionHostsShippingBundleRoot = DISTRIBUTION_HOSTS.filter(
+    (host) => distributionPolicy.hostBundleRootSources[host] === authoritativeSystemRel
+  );
   const distributionHostsUsingLegacyMirror = DISTRIBUTION_HOSTS.filter(
     (host) => distributionPolicy.hostSkillSources[host] === rootMirrorRel
   );
   const distributionHostsUsingOtherSource = DISTRIBUTION_HOSTS.filter((host) => {
     const source = distributionPolicy.hostSkillSources[host];
     return source && source !== authoritativeSkillsRel;
+  });
+  const distributionHostsMissingPersonalCoreCoverage = DISTRIBUTION_HOSTS.filter((host) => {
+    const coverage = distributionPolicy.hostPersonalCoreCoverage[host];
+    return PERSONAL_CORE_REQUIRED_DISTRIBUTION_DIRS.some((dirName) => !coverage.requiredDirs.includes(dirName));
   });
 
   const findings = [];
@@ -156,6 +180,17 @@ function analyzeSkillSourcePolicy(options = {}) {
       severity: 'error',
       file: path.relative(projectRoot, packManifestPath).split(path.sep).join('/'),
       message: `abyss manifest routes host(s) to non-authoritative skill source(s): ${distributionHostsUsingOtherSource.map((host) => `${host}=${distributionPolicy.hostSkillSources[host]}`).join(', ')}`,
+    });
+  }
+  if (distributionHostsMissingPersonalCoreCoverage.length > 0) {
+    findings.push({
+      severity: 'error',
+      file: path.relative(projectRoot, packManifestPath).split(path.sep).join('/'),
+      message: `abyss manifest does not ship the personal-core self-evolving bundle surface for host(s): ${distributionHostsMissingPersonalCoreCoverage.map((host) => {
+        const coverage = distributionPolicy.hostPersonalCoreCoverage[host];
+        const missing = PERSONAL_CORE_REQUIRED_DISTRIBUTION_DIRS.filter((dirName) => !coverage.requiredDirs.includes(dirName));
+        return `${host}=[${missing.join(', ')}]`;
+      }).join(', ')}`,
     });
   }
   if ((includesRootMirrorDir || distributionHostsUsingLegacyMirror.length > 0) && missingSkillPaths.length > 0) {
@@ -208,11 +243,16 @@ function analyzeSkillSourcePolicy(options = {}) {
     distributionPolicy: {
       packManifestPath,
       hostSkillSources: distributionPolicy.hostSkillSources,
+      hostBundleRootSources: distributionPolicy.hostBundleRootSources,
+      hostPersonalCoreCoverage: distributionPolicy.hostPersonalCoreCoverage,
       usesAuthoritativeSourceDirectly: distributionHostsUsingAuthoritativeSource.length === DISTRIBUTION_HOSTS.length
         && !includesRootMirrorDir,
+      shipsSelfEvolvingBundleSurface: distributionHostsMissingPersonalCoreCoverage.length === 0,
       distributionHostsUsingAuthoritativeSource,
+      distributionHostsShippingBundleRoot,
       distributionHostsUsingLegacyMirror,
       distributionHostsMissingSkillsEntry,
+      distributionHostsMissingPersonalCoreCoverage,
     },
     gaps: {
       missingSkillPaths,
@@ -229,6 +269,7 @@ function analyzeSkillSourcePolicy(options = {}) {
     findings,
     nextSteps: [
       'keep pack manifests pointed at personal-skill-system/skills',
+      'ship the personal-skill-system bundle root or equivalent personal-core coverage to every host that should self-evolve',
       'do not reintroduce root skills/ into package files',
       'keep the legacy root mirror retired (do not recreate root skills/)',
     ],

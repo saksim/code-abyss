@@ -3,6 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 const { parseJsonFile } = require('./skill-system-common');
+const {
+  EXPERT_SOURCE_EXPERIMENTAL_REQUIRED_INCLUDES,
+  getRequiredExperimentalPackExpertSourceIncludes
+} = require('./skill-expert-source-governance');
 
 const EXPECTED_PACK_MODES = new Set(['copy', 'overlay']);
 const RESERVED_EMPTY_PACKS = new Set(['project-overlay', 'work-private']);
@@ -18,6 +22,46 @@ const PERSONAL_CORE_REQUIRED_INCLUDES = [
   'templates',
   'benchmark'
 ];
+const EXPERIMENTAL_REQUIRED_INCLUDES = EXPERT_SOURCE_EXPERIMENTAL_REQUIRED_INCLUDES;
+const EXPERT_SOURCE_INTEGRATION_INCLUDE_PATTERN = /^registry\/[a-z0-9]+(?:-[a-z0-9]+)*-integration\.generated\.json$/;
+
+function normalizeString(value) {
+  return String(value == null ? '' : value).trim();
+}
+
+function uniqueSorted(values) {
+  return [...new Set(
+    (Array.isArray(values) ? values : [])
+      .map((item) => normalizeString(item))
+      .filter(Boolean)
+  )].sort((left, right) => left.localeCompare(right));
+}
+
+function isManagedExpertSourceIntegrationInclude(includePath) {
+  return EXPERT_SOURCE_INTEGRATION_INCLUDE_PATTERN.test(normalizeString(includePath));
+}
+
+function syncExperimentalPackManifest(manifest, familyEntries = []) {
+  const normalizedManifest = manifest && typeof manifest === 'object' && !Array.isArray(manifest)
+    ? { ...manifest }
+    : {};
+  const currentIncludes = uniqueSorted(normalizedManifest.includes);
+  const knownFamilyIntegrationIncludes = new Set(
+    (Array.isArray(familyEntries) ? familyEntries : [])
+      .map((entry) => normalizeString(entry && entry.integrationFile))
+      .filter(Boolean)
+  );
+  const preservedIncludes = currentIncludes.filter((includePath) =>
+    !knownFamilyIntegrationIncludes.has(includePath)
+    && !isManagedExpertSourceIntegrationInclude(includePath)
+  );
+  const requiredIncludes = getRequiredExperimentalPackExpertSourceIncludes(familyEntries);
+
+  return {
+    ...normalizedManifest,
+    includes: uniqueSorted([...preservedIncludes, ...requiredIncludes])
+  };
+}
 
 function analyzePackManifests(targetDir, findings, rel) {
   const packsRoot = path.join(targetDir, 'packs');
@@ -72,6 +116,27 @@ function analyzePackManifests(targetDir, findings, rel) {
         }
       }
     }
+    if (dir.name === 'experimental') {
+      for (const requiredInclude of EXPERIMENTAL_REQUIRED_INCLUDES) {
+        if (!includes.includes(requiredInclude)) {
+          findings.push({ severity: 'warning', file: rel(targetDir, manifestPath), message: `experimental is missing required expert-source include '${requiredInclude}'` });
+        }
+      }
+      const familiesPath = path.join(targetDir, 'registry', 'expert-source-families.generated.json');
+      const familiesParsed = parseJsonFile(familiesPath);
+      const familyEntries = Array.isArray(familiesParsed.data && familiesParsed.data.families)
+        ? familiesParsed.data.families
+        : [];
+      for (const requiredInclude of getRequiredExperimentalPackExpertSourceIncludes(familyEntries)) {
+        if (!EXPERIMENTAL_REQUIRED_INCLUDES.includes(requiredInclude) && !includes.includes(requiredInclude)) {
+          findings.push({
+            severity: 'warning',
+            file: rel(targetDir, manifestPath),
+            message: `experimental is missing registered expert-source integration include '${requiredInclude}'`
+          });
+        }
+      }
+    }
   }
 
   return packCount;
@@ -79,5 +144,7 @@ function analyzePackManifests(targetDir, findings, rel) {
 
 module.exports = {
   analyzePackManifests,
-  PERSONAL_CORE_REQUIRED_INCLUDES
+  PERSONAL_CORE_REQUIRED_INCLUDES,
+  EXPERIMENTAL_REQUIRED_INCLUDES,
+  syncExperimentalPackManifest
 };

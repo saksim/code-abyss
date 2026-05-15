@@ -114,64 +114,66 @@
     "thin": []
   },
   "counts": {
-    "top-ready": 106,
-    "strong-but-not-top": 0,
     "thin": 0,
+    "strong-but-not-top": 0,
+    "top-ready": 106,
     "total": 106
   },
   "skill-level-summary": {
     "source": "docs/SKILL_TOP_LEVEL_AUDIT_2026-04-20.md",
     "top-level-enough-now": [
-      "sage",
       "ai",
       "architecture",
+      "architecture-decision",
+      "bugfix",
+      "claymorphism",
       "data-engineering",
       "development",
       "devops",
       "frontend-design",
+      "gen-docs",
+      "glassmorphism",
       "host-governance",
       "infrastructure",
-      "mobile",
-      "orchestration",
-      "reliability-governance",
-      "security",
-      "chart-visualization",
-      "claymorphism",
-      "glassmorphism",
-      "liquid-glass",
-      "neubrutalism",
-      "architecture-decision",
-      "bugfix",
       "investigate",
+      "liquid-glass",
+      "manage-skill",
+      "mobile",
       "multi-agent",
+      "neubrutalism",
+      "orchestration",
+      "pre-commit-gate",
+      "pre-merge-gate",
+      "reliability-governance",
       "review",
+      "sage",
+      "security",
       "ship",
       "skill-evolution",
-      "gen-docs",
       "verify-change",
       "verify-module",
       "verify-quality",
-      "verify-security",
-      "verify-chart-spec",
-      "verify-s2-config",
-      "verify-skill-system",
-      "manage-skill",
-      "pre-commit-gate",
-      "pre-merge-gate"
+      "verify-skill-system"
     ],
     "strong-uplift-but-not-top-yet": [],
-    "useful-overlay-not-top-level-alone": [],
+    "useful-overlay-not-top-level-alone": [
+      "verify-security"
+    ],
     "counts": {
-      "top-level-enough-now": 36,
+      "top-level-enough-now": 32,
       "strong-uplift-but-not-top-yet": 0,
-      "useful-overlay-not-top-level-alone": 0,
-      "total-skills-rated": 36
+      "useful-overlay-not-top-level-alone": 1,
+      "total-skills-rated": 33,
+      "stable-overdue": 0,
+      "stable-missing-metadata": 0,
+      "stable-expert-source-blocked": 0,
+      "stable-blocked-total": 0
     }
   },
   "next-batch": [],
   "notes": [
     "This file rates capability modules, not whole skills.",
-    "All 106 currently registered capability modules are TOP-ready in the current manual frame.",
-    "After the latest uplift round, all 36 registered host skills are also rated top-level enough under the weak-model-uplift standard."
+    "All 106 currently registered capability modules are TOP-ready in the current governed frame.",
+    "Current host skills are split across the top-level, strong-uplift, and overlay buckets under the weak-model-uplift standard."
   ]
 }

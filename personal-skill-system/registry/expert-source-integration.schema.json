@@ -1,0 +1,193 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/expert-source-integration.schema.json",
+  "title": "Portable Personal Skill Expert-Source Integration Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "integration-mode",
+    "portable",
+    "module-count",
+    "groups",
+    "modules",
+    "source-index"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 2
+    },
+    "integration-mode": {
+      "type": "string",
+      "const": "capability-modules"
+    },
+    "portable": {
+      "type": "boolean"
+    },
+    "module-count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "name",
+          "modules"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "router",
+              "domain",
+              "workflow",
+              "tool",
+              "guard",
+              "adapter"
+            ]
+          },
+          "name": {
+            "$ref": "#/$defs/skillName"
+          },
+          "modules": {
+            "$ref": "#/$defs/moduleIdList"
+          }
+        }
+      }
+    },
+    "modules": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "module",
+          "host-skill",
+          "path",
+          "capability",
+          "derived-from"
+        ],
+        "properties": {
+          "module": {
+            "$ref": "#/$defs/moduleId"
+          },
+          "host-skill": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "kind",
+              "name",
+              "path"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "router",
+                  "domain",
+                  "workflow",
+                  "tool",
+                  "guard",
+                  "adapter"
+                ]
+              },
+              "name": {
+                "$ref": "#/$defs/skillName"
+              },
+              "path": {
+                "$ref": "#/$defs/portablePath"
+              }
+            }
+          },
+          "path": {
+            "$ref": "#/$defs/portablePath"
+          },
+          "capability": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "derived-from": {
+            "$ref": "#/$defs/skillNameList"
+          }
+        }
+      }
+    },
+    "source-index": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source-skill",
+          "modules"
+        ],
+        "properties": {
+          "source-skill": {
+            "$ref": "#/$defs/skillName"
+          },
+          "modules": {
+            "$ref": "#/$defs/moduleIdList"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "registryId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "skillNameList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/skillName"
+      }
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "moduleIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/moduleId"
+      }
+    }
+  }
+}

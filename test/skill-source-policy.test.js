@@ -21,16 +21,19 @@ function writeAbyssManifest(projectRoot, hostSkillSource = 'personal-skill-syste
     hosts: {
       claude: {
         files: [
+          { src: 'personal-skill-system', dest: 'personal-skill-system', root: 'claude' },
           { src: hostSkillSource, dest: 'skills', root: 'claude' },
         ],
       },
       codex: {
         files: [
+          { src: 'personal-skill-system', dest: 'personal-skill-system', root: 'agents' },
           { src: hostSkillSource, dest: 'skills', root: 'codex' },
         ],
       },
       gemini: {
         files: [
+          { src: 'personal-skill-system', dest: 'personal-skill-system', root: 'gemini' },
           { src: hostSkillSource, dest: 'skills', root: 'gemini' },
         ],
       },
@@ -78,6 +81,7 @@ describe('skill source policy', () => {
     expect(report.packagePolicy.includesAuthoritativeSkillsDir).toBe(true);
     expect(report.packagePolicy.includesRootMirrorDir).toBe(false);
     expect(report.distributionPolicy.usesAuthoritativeSourceDirectly).toBe(true);
+    expect(report.distributionPolicy.shipsSelfEvolvingBundleSurface).toBe(true);
   });
 
   test('fails when package excludes the authoritative source and distribution still points at the legacy mirror', () => {
@@ -133,7 +137,7 @@ describe('skill source policy', () => {
       codex: 'personal-skill-system/skills',
       gemini: 'personal-skill-system/skills',
     });
-    expect(report.metrics.authoritativeSkillCount).toBe(37);
+    expect(report.metrics.authoritativeSkillCount).toBe(39);
     expect(report.gaps.missingSkillPaths).toEqual(expect.arrayContaining([
       'adapters/claude',
       'adapters/codex',
@@ -166,5 +170,54 @@ describe('skill source policy', () => {
 
     expect(report.status).toBe('fail');
     expect(report.findings.some((item) => item.message.includes('non-authoritative skill source'))).toBe(true);
+  });
+
+  test('fails when hosts only ship runtime skills without the personal-core self-evolving bundle surface', () => {
+    const sourceDir = path.join(tmpDir, 'personal-skill-system', 'skills');
+    const packageJsonPath = path.join(tmpDir, 'package.json');
+
+    writeSkill(sourceDir, 'routers/sage', 'name: sage\ndescription: router\nuser-invocable: false');
+    writeSkill(sourceDir, 'tools/verify-skill-system', 'name: verify-skill-system\ndescription: verifier\nuser-invocable: true');
+    fs.writeFileSync(packageJsonPath, JSON.stringify({
+      name: 'fixture',
+      version: '0.0.0',
+      files: ['bin/', 'personal-skill-system/'],
+    }, null, 2));
+
+    const manifestPath = path.join(tmpDir, 'packs', 'abyss', 'manifest.json');
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.writeFileSync(manifestPath, JSON.stringify({
+      name: 'abyss',
+      description: 'fixture',
+      hosts: {
+        claude: {
+          files: [
+            { src: 'personal-skill-system/skills', dest: 'skills', root: 'claude' },
+          ],
+        },
+        codex: {
+          files: [
+            { src: 'personal-skill-system/skills', dest: 'skills', root: 'codex' },
+          ],
+        },
+        gemini: {
+          files: [
+            { src: 'personal-skill-system/skills', dest: 'skills', root: 'gemini' },
+          ],
+        },
+      },
+    }, null, 2));
+
+    const report = analyzeSkillSourcePolicy({
+      projectRoot: tmpDir,
+      packageJsonPath,
+      authoritativeSystemDir: path.join(tmpDir, 'personal-skill-system'),
+      authoritativeSkillsDir: sourceDir,
+    });
+
+    expect(report.status).toBe('fail');
+    expect(report.distributionPolicy.shipsSelfEvolvingBundleSurface).toBe(false);
+    expect(report.distributionPolicy.distributionHostsMissingPersonalCoreCoverage).toEqual(['claude', 'codex', 'gemini']);
+    expect(report.findings.some((item) => item.message.includes('does not ship the personal-core self-evolving bundle surface'))).toBe(true);
   });
 });

@@ -6,6 +6,10 @@ This repository has one authoritative skill source tree:
 
 Do not author or revive repo-root `skills/`.
 
+Volatile governed token sets and matrices now live in the generated reference:
+
+- [`personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md`](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md)
+
 ## What This Document Covers
 
 Use this document when you add, upgrade, deprecate, archive, or delete skills inside the personal skill system.
@@ -106,6 +110,173 @@ Do not blur these without a strong reason. If a skill both routes and executes, 
 
 `adapters/` are governed skills, but they are not part of the normal public route surface. Use them for host-specific compatibility notes, translation rules, or capability hints that should remain discoverable and packable without competing in ordinary request routing.
 
+For the current governed kind matrix, including route participation, placeholder-route policy, capability-module scaffold support, and scaffold-lineage tracking, use the generated governance reference instead of copying the current kind list by hand.
+
+## Kind Governance Source
+
+Code-level `kind` semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-kind-governance.js`
+
+When you need to add a future skill kind or change kind-level behavior, update that file first.
+
+It is the shared source for:
+
+- layer-to-kind mapping
+- template coverage expectations
+- route-surface participation
+- placeholder-route policy
+- capability-module scaffold policy
+- scaffold-lineage tracking
+
+## Frontmatter Governance Source
+
+Code-level core frontmatter enums and required-key semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-frontmatter-governance.js`
+
+When you need to change canonical frontmatter contract values, update that file first.
+
+It is the shared source for:
+
+- required frontmatter keys enforced by bundle validation
+- visibility enum order
+- trigger-mode enum order
+- runtime and executor enum order
+- risk-level enum order
+- supported-host enum order used by skill frontmatter and managed route defaults
+
+The checked-in frontmatter schema at `personal-skill-system/registry/skill.schema.json` is a generated governance artifact from that source. Do not hand-edit the schema first; update the governance module and let the governed refresh path rewrite the schema.
+
+For the current required frontmatter keys and enum values, use the generated governance reference instead of duplicating the live token sets here.
+
+The governed portfolio board also has two surfaces:
+
+- `personal-skill-system/registry/skill-investment-backlog.generated.json` for machine-readable backlog synthesis
+- `personal-skill-system/skills/routers/sage/references/skill-investment-backlog.generated.md` for human review and planning
+
+## Lifecycle Governance Source
+
+Code-level `status` semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-lifecycle-governance.js`
+
+When you need to change lifecycle behavior, update that file first.
+
+It is the shared source for:
+
+- which statuses are writable through governed commands
+- which statuses count as live / review-governed / runtime-proof-governed
+- status-to-skill-level-summary mapping
+- default runtime-proof level by status
+- evolution action names and default target-status mapping
+
+## Host Governance Source
+
+Code-level host and host-smoke governance semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-host-governance.js`
+
+When you need to change host-smoke or host-writeability behavior, update that file first.
+
+It is the shared source for:
+
+- host-smoke policy tiers and target levels
+- host-smoke contract enums such as cwd modes, freshness units, result statuses, and invalidation reasons
+- governed runtime-proof eligibility for scripted tools and guards
+- host-writeability severity rules, including the authoritative skill-tree create surface
+
+## Runtime-Proof Governance Source
+
+Code-level runtime-proof semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-runtime-proof-governance.js`
+
+When you need to change runtime-proof behavior, update that file first.
+
+It is the shared source for:
+
+- `runtime-proof.generated.json` schema-version and registry document shape helpers
+- minimum Runtime Proof contract floor and evidence-test requirement semantics
+- governed runtime-proof entry construction from authoritative skill metadata
+- evidence-test normalization and selection precedence
+- host-smoke-backed runtime-proof policy/error semantics used by lifecycle and validation flows
+
+## Expert-Source Governance Source
+
+Code-level expert-source family semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-expert-source-governance.js`
+
+When you need to change expert-source family behavior, update that file first.
+
+It is the shared source for:
+
+- expert-source family status semantics and default-family policy
+- expert-source family id rules and archive eligibility
+- default integration-ledger and raw-root conventions for future expert-source families
+- experimental-pack required include policy for governed expert-source families
+
+## Future-Skill Governance Source
+
+Code-level future-skill intake and materialization semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-future-governance.js`
+
+When you need to change how future skills move through governed intake, update that file first.
+
+It is the shared source for:
+
+- opportunity queue priorities, horizons, and active vs closed statuses
+- admission decision actions and their default admission/opportunity status transitions
+- admission active vs terminal vs blocking status semantics
+- pending scaffold active status semantics for deferred host-blocked materialization flows
+- shared future-skill registry source markers and status-summary construction used by governed opportunity/pending-scaffold registries
+
+## Ledger Governance Source
+
+Code-level admission and evolution ledger semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-ledger-governance.js`
+
+When you need to change admission/evolution ledger paths, schema versions, normalization rules, or validation behavior, update that file first.
+
+It is the shared source for:
+
+- admission and evolution ledger artifact paths
+- ledger schema versions and canonical entry normalization
+- governed read/write document shape used by `manage-skill`
+- ledger validation behavior consumed by `verify-skill-system` and host-evolution diagnostics
+
+## Capability Ratings Governance Source
+
+Code-level capability-module ratings semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-capability-ratings-governance.js`
+
+When you need to change capability-module bucket semantics, mirrored ratings doc behavior, or stable-promotion module-depth checks, update that file first.
+
+It is the shared source for:
+
+- capability-module rating bucket order and promotion-step policy
+- skill-level-summary normalization attached to ratings governance
+- `capability-ratings.generated.json` and `docs/CAPABILITY_MODULE_RATINGS.md` path/sync helpers
+- shared `top-ready` blocker construction used by promotion checks and bundle validation
+
+## Derived Governance Refresh Source
+
+Code-level derived-governance refresh semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-system-derived-governance.js`
+
+When you need to change how self-smoke or governed export flows rebuild derived governance artifacts, update that file first.
+
+It is the shared source for:
+
+- governed refresh order for `runtime-proof`, `review-queue`, capability ratings, expert-source family scorecard, host-smoke scorecard, and investment backlog
+- self-smoke reconstruction used by `verify-skill-system --self-smoke`
+- derived-governance export payload construction for blocked `system-readiness` / `host-evolution` recovery loops
+
 ## Canonical Frontmatter
 
 Bundle skills use schema-version 2 frontmatter.
@@ -139,17 +310,14 @@ aliases: [vq]
 ---
 ```
 
+`visibility` currently supports `public`, `private`, `project`, and `internal`.
+Use `internal` for governed host-facing support skills such as `adapters/` that should stay packable and reviewable without participating in the ordinary public route surface.
+
 ## Lifecycle Model
 
 Every skill should move through an explicit lifecycle.
 
-| Status | Meaning | Expected behavior |
-| --- | --- | --- |
-| `draft` | Scaffold or incomplete design | May have narrow or placeholder routing; must not be marketed as top-tier |
-| `experimental` | Real but still under evaluation | Keep scope narrow and gather route/test evidence |
-| `stable` | Default production skill | Requires strong references, review rhythm, and trustworthy routing |
-| `deprecated` | Still present but no longer preferred | Keep migration notes explicit and avoid adding new depth here |
-| `archived` | Retained for history only | Remove from active route surface and stop treating it as a live capability |
+The current governed lifecycle matrix, including writable vs live vs review-governed vs runtime-proof-governed semantics and default runtime-proof levels, lives in the generated governance reference.
 
 Use `archive` before destructive deletion unless history is obviously disposable.
 
@@ -178,6 +346,7 @@ For a current or future skill to count as top-tier, it should satisfy all of the
    - Scripted skills expose `scripts/run.js`.
    - Stable scripted tools and guards keep `Runtime Proof` bullets aligned with `runtime-proof.generated.json`.
    - Governed scripted tools and guards declare `host-smoke-tier` and `host-smoke-target-level` in frontmatter; `host-smoke-freshness-days` is required when the target level is `host-smoked`.
+   - Use the generated governance reference for the current host-smoke tiers, target levels, cwd modes, freshness units, result statuses, and invalidation reasons.
 
 5. Governed host metadata
    - `agents/openai.yaml` should exist for any skill you expect to surface cleanly in host UIs.
@@ -204,8 +373,8 @@ This repository treats "top-tier now" and "easy to evolve later" as one requirem
 0. If the boundary is still fuzzy, record the demand before creating anything:
 
 ```bash
-node personal-skill-system/skills/tools/manage-skill/scripts/run.js record-opportunity --name <capability-name> --kind <domain|workflow|tool|guard|router|adapter>
-node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --name <capability-name> --kind <domain|workflow|tool|guard|router|adapter>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js record-opportunity --name <capability-name> --kind <kind>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --name <capability-name> --kind <kind>
 ```
 
 Use `admission-check --opportunity-id <id>` when the future-skill demand already exists in the governed queue.
@@ -216,14 +385,16 @@ Use `admission-check --opportunity-id <id>` when the future-skill demand already
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js create <kind> <skill-name>
 ```
 
-Supported scaffold kinds are `router`, `domain`, `workflow`, `tool`, `guard`, and `adapter`.
+Supported scaffold kinds come from centralized kind governance; use the generated governance reference for the current list.
 Use `adapter` for host-specific import notes, compatibility constraints, or capability hints that belong in the governed skill tree but should stay off the normal routed public surface.
 
-If the new skill is a `domain` or `workflow` and you want future governance surfaces scaffolded immediately, use:
+If the new skill kind supports capability-module scaffolding and you want future governance surfaces scaffolded immediately, use:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js create <kind> <skill-name> --scaffold-modules
 ```
+
+Current capability-module scaffold kinds are `domain` and `workflow`.
 
 This seeds:
 
@@ -231,6 +402,7 @@ This seeds:
 - placeholder `expert-modules` on the generated route entry
 - `thin` capability-module ratings for the new reference-backed modules
 - `next-batch` governance entries in `capability-ratings.generated.json` so unfinished module depth is queued explicitly instead of becoming hidden follow-up debt
+- `owner`, `last-reviewed`, and `review-cycle-days` from centralized review-metadata seed policy, using the scaffold creation date rather than copying the template's own review history
 
 2. Replace template placeholders:
    - description
@@ -250,6 +422,7 @@ This seeds:
 6. For stable-bound scripted tools and guards, write a `## Runtime Proof` section in `SKILL.md` and sync matching contracts into `personal-skill-system/registry/runtime-proof.generated.json`.
 
 7. Prefer `node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-runtime-proof <skill-name>` instead of hand-editing runtime-proof registry drift.
+   That governed sync should also auto-promote a stable scripted tool or guard from `declared-only` to the lifecycle-required proof floor once valid evidence tests and contracts already exist.
 
 8. Link at least one concrete runtime or governance test to that runtime-proof entry.
 
@@ -260,7 +433,7 @@ This seeds:
 10. Change lifecycle state through the governed command instead of hand-editing `status`:
 
 ```bash
-node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status <skill-name> <draft|experimental|stable|deprecated|archived>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status <skill-name> <status>
 ```
 
 11. Run:
@@ -278,6 +451,7 @@ node personal-skill-system/benchmark/scripts/generate-system-readiness.js
 ```
 
    `system-readiness.generated.json` is a derived governance snapshot. If the current host cannot rewrite that file but can still rewrite runtime-proof, scorecard, and invalidation artifacts, keep the core runtime-proof and host-smoke sync moving and carry the readiness rewrite failure as explicit follow-up debt instead of blocking all contract governance.
+   When generated governance artifact paths or write-mode expectations change, update the shared artifact catalog first instead of hand-editing separate path lists across readiness, verify-skill-system self-smoke, derived-governance export, or host-writeability probes. Use the generated governance reference for the current artifact id/path/mode catalog and writeability severity matrix.
 
 13. Add or update tests if the skill changes executable behavior or routing semantics.
 
@@ -373,3 +547,4 @@ Delete only after archive is unnecessary and generated surfaces can be safely up
 - [DESIGN.md](/D:/Download/gaming/new_program/code-abyss/DESIGN.md)
 - [README.md](/D:/Download/gaming/new_program/code-abyss/README.md)
 - [TOP_TIER_SKILL_STANDARD.md](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md)
+- [SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md)

@@ -1,5 +1,22 @@
 {
-  "schema-version": 1,
+  "schema-version": 2,
+  "generated-at": "2026-05-15T08:54:05.979Z",
+  "source": "managed-via-manage-skill",
+  "summary": {
+    "total": 5,
+    "active": 0,
+    "open": 0,
+    "planned": 0,
+    "in-progress": 0,
+    "blocked": 0,
+    "deferred": 0,
+    "implemented": 2,
+    "cancelled": 1,
+    "resolved": 0,
+    "advised-reuse": 2,
+    "advised-upgrade": 0,
+    "advised-noop": 0
+  },
   "entries": [
     {
       "request-id": "20260510-test-future-host-create-probe",

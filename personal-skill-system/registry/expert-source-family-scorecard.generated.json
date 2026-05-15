@@ -1,0 +1,58 @@
+{
+  "schema-version": 1,
+  "generated-at": "2026-05-15T09:51:00.095Z",
+  "sources": {
+    "family-registry": "registry/expert-source-families.generated.json",
+    "experimental-pack": "packs/experimental/manifest.json"
+  },
+  "experimental-pack": {
+    "file": "packs/experimental/manifest.json",
+    "parseError": null,
+    "includes": [
+      "docs/TOP_DEVELOPER_EMBEDDING.md",
+      "registry/expert-source-families.generated.json",
+      "registry/expert-source-families.schema.json",
+      "registry/expert-source-family-scorecard.generated.json",
+      "registry/expert-source-family-scorecard.schema.json",
+      "registry/expert-source-integration.schema.json",
+      "registry/top-developer-integration.generated.json"
+    ]
+  },
+  "summary": {
+    "total-families": 1,
+    "active-families": 1,
+    "archived-families": 0,
+    "families-with-parse-errors": 0,
+    "active-families-with-parse-errors": 0,
+    "experimental-pack-parse-errors": 0,
+    "active-raw-source-skills": 8,
+    "active-integrated-source-skills": 8,
+    "active-integrated-modules": 42,
+    "active-unmapped-raw-sources": 0,
+    "active-stale-mapped-sources": 0,
+    "active-missing-pack-includes": 0,
+    "archived-pack-includes": 0
+  },
+  "families": [
+    {
+      "id": "top-developer",
+      "title": "Top Developer",
+      "source": "top-developer-integration",
+      "label": "top-developer integration",
+      "status": "active",
+      "integrationFile": "registry/top-developer-integration.generated.json",
+      "rawRoot": "../top_developer",
+      "expectedPortable": true,
+      "parseError": null,
+      "rawRootExists": true,
+      "rawSourceSkills": 8,
+      "integratedSourceSkills": 8,
+      "integratedModules": 42,
+      "unmappedRawSources": [],
+      "staleMappedSources": [],
+      "experimentalPackRequired": true,
+      "experimentalPackIncluded": true,
+      "experimentalPackStatus": "aligned"
+    }
+  ]
+}

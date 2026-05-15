@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-10T12:00:14.531Z",
+  "generated-at": "2026-05-15T12:45:36.625Z",
   "source-runtime-proof": "registry/runtime-proof.generated.json",
   "runtime-run-dir": "benchmark/host-smoke/runtime-runs",
   "run-count": 13,
@@ -14,21 +14,21 @@
   "summary": {
     "host-smoke-capable-skills": 9,
     "levels": {
-      "declared-only": 0,
+      "declared-only": 1,
       "declared-and-tested": 6,
-      "host-smoked": 3
+      "host-smoked": 2
     },
     "evidence-status": {
-      "passing": 9,
-      "stale": 0,
+      "passing": 8,
+      "stale": 1,
       "failing": 0,
       "missing": 0,
       "contract-drift": 0,
       "invalid-contract": 0
     },
     "governance-status": {
-      "satisfied": 3,
-      "not-host-smoked": 6,
+      "satisfied": 2,
+      "not-host-smoked": 7,
       "stale": 0,
       "failing": 0,
       "missing": 0,
@@ -90,7 +90,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 10508837,
+        "ageMs": 445230931,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",
@@ -273,7 +273,7 @@
     {
       "skill": "verify-quality",
       "kind": "tool",
-      "level": "host-smoked",
+      "level": "declared-and-tested",
       "manifest": "skills/tools/verify-quality/scripts/smoke.json",
       "command-count": 1,
       "freshness": {
@@ -282,13 +282,13 @@
       },
       "freshness-status": {
         "required": true,
-        "fresh": true,
-        "stale": false,
-        "ageMs": 325368861,
+        "fresh": false,
+        "stale": true,
+        "ageMs": 760090955,
         "maxAgeMs": 604800000
       },
-      "evidence-status": "passing",
-      "governance-status": "satisfied",
+      "evidence-status": "stale",
+      "governance-status": "not-host-smoked",
       "latest-any-matches-contract": true,
       "latest-any": {
         "run-id": "host-smoke-20260506T173725670Z-codex",
@@ -315,7 +315,7 @@
     {
       "skill": "verify-security",
       "kind": "tool",
-      "level": "declared-and-tested",
+      "level": "declared-only",
       "manifest": "skills/tools/verify-security/scripts/smoke.json",
       "command-count": 1,
       "freshness-status": {
@@ -364,7 +364,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 10448056,
+        "ageMs": 445170150,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",

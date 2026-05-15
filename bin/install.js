@@ -84,6 +84,14 @@ const c = {
   cyn: s => `\x1b[36m${s}\x1b[0m`,
 };
 
+function formatHealthStatus(status) {
+  const value = String(status || '').trim() || 'unknown';
+  if (value === 'ready' || value === 'available') return c.grn(value);
+  if (value === 'attention' || value === 'degraded' || value === 'idle') return c.ylw(value);
+  if (value === 'blocked' || value === 'unavailable') return c.red(value);
+  return c.d(value);
+}
+
 function banner() {
   console.log(c.mag(`
    ██████╗ ██████╗ ██████╗ ███████╗
@@ -131,6 +139,72 @@ function detectGeminiAuth(settings) {
 
 function resolveManagedRootDir(tgt, rootName = tgt) {
   return path.join(HOME, getManagedRootRelativeDir(rootName));
+}
+
+function getInstalledBundleRoot(tgt) {
+  if (tgt === 'codex') {
+    return path.join(resolveManagedRootDir(tgt, 'agents'), 'personal-skill-system');
+  }
+  return path.join(resolveManagedRootDir(tgt), 'personal-skill-system');
+}
+
+function getInstalledManageSkillRunner(tgt) {
+  return path.join(getInstalledBundleRoot(tgt), 'skills', 'tools', 'manage-skill', 'scripts', 'run.js');
+}
+
+function persistInstallManifest(ctx) {
+  if (!ctx || !ctx.manifestPath || !ctx.manifest) return;
+  fs.writeFileSync(ctx.manifestPath, JSON.stringify(ctx.manifest, null, 2) + '\n');
+}
+
+function diagnoseInstalledHostEvolution(tgt) {
+  const bundleRoot = getInstalledBundleRoot(tgt);
+  const runtimeRoot = tgt === 'codex'
+    ? resolveManagedRootDir(tgt, 'agents')
+    : resolveManagedRootDir(tgt);
+  const runner = getInstalledManageSkillRunner(tgt);
+  const artifactPath = path.join(bundleRoot, 'benchmark', 'host-evolution.generated.json');
+
+  if (!fs.existsSync(runner)) {
+    return {
+      action: 'diagnose-host-evolution',
+      status: 'unavailable',
+      error: `manage-skill runner missing: ${runner}`,
+      'bundle-root': bundleRoot,
+      'runtime-root': runtimeRoot,
+      runner,
+    };
+  }
+
+  try {
+    const previousCwd = process.cwd();
+    try {
+      process.chdir(runtimeRoot);
+      delete require.cache[require.resolve(runner)];
+      const manageSkill = require(runner);
+      const parsed = manageSkill.main(['diagnose-host-evolution']);
+      if (fs.existsSync(artifactPath)) {
+        try {
+          parsed.artifact = path.relative(runtimeRoot, artifactPath).split(path.sep).join('/');
+        } catch {}
+      }
+      return {
+        ...parsed,
+        runner,
+      };
+    } finally {
+      process.chdir(previousCwd);
+    }
+  } catch (error) {
+    return {
+      action: 'diagnose-host-evolution',
+      status: 'unavailable',
+      error: String(error && error.message ? error.message : error).trim(),
+      'bundle-root': bundleRoot,
+      'runtime-root': runtimeRoot,
+      runner,
+    };
+  }
 }
 
 function normalizeManifestEntry(entry, defaultRoot) {
@@ -1005,24 +1079,37 @@ async function main() {
 
 function finish(ctx) {
   const tgt = ctx.manifest.target;
+  const hostEvolution = ctx.hostEvolution || diagnoseInstalledHostEvolution(tgt);
+  ctx.hostEvolution = hostEvolution;
+  ctx.manifest.host_evolution = hostEvolution;
+  try {
+    persistInstallManifest(ctx);
+  } catch (error) {
+    warn(`host-evolution manifest sync skipped: ${error.message}`);
+  }
   let reportPath = null;
   if (ctx.packPlan && ctx.packPlan.root) {
-    reportPath = writeReportArtifact(ctx.packPlan.root, `install-${tgt}`, {
-      version: VERSION,
-      target: tgt,
-      timestamp: new Date().toISOString(),
-      cwd: process.cwd(),
-      pack_plan: {
-        required: ctx.packPlan.required,
-        optional: ctx.packPlan.optional,
-        selected: ctx.packPlan.selected,
-        optional_policy: ctx.packPlan.optionalPolicy,
-        sources: ctx.packPlan.sources,
-      },
-      pack_reports: ctx.manifest.pack_reports || [],
-      installed: ctx.manifest.installed || [],
-      backups: ctx.manifest.backups || [],
-    });
+    try {
+      reportPath = writeReportArtifact(ctx.packPlan.root, `install-${tgt}`, {
+        version: VERSION,
+        target: tgt,
+        timestamp: new Date().toISOString(),
+        cwd: process.cwd(),
+        pack_plan: {
+          required: ctx.packPlan.required,
+          optional: ctx.packPlan.optional,
+          selected: ctx.packPlan.selected,
+          optional_policy: ctx.packPlan.optionalPolicy,
+          sources: ctx.packPlan.sources,
+        },
+        pack_reports: ctx.manifest.pack_reports || [],
+        installed: ctx.manifest.installed || [],
+        backups: ctx.manifest.backups || [],
+        host_evolution: hostEvolution,
+      });
+    } catch (error) {
+      warn(`report artifact skipped: ${error.message}`);
+    }
   }
   divider('安装完成');
   console.log('');
@@ -1036,6 +1123,21 @@ function finish(ctx) {
   }
   if (ctx.manifest.optional_policy) {
     console.log(`  ${c.b('Pack策略:')} ${ctx.manifest.optional_policy}`);
+  }
+  console.log(`  ${c.b('Self-evolution:')} ${formatHealthStatus(hostEvolution.status)}`);
+  if (hostEvolution.capabilities && hostEvolution.capabilities['create-authoritative-skill']) {
+    console.log(`  ${c.b('Skill create:')} ${formatHealthStatus(hostEvolution.capabilities['create-authoritative-skill'])}`);
+  }
+  if (hostEvolution.capabilities && hostEvolution.capabilities['rewrite-generated-governance']) {
+    console.log(`  ${c.b('Governance:')} ${formatHealthStatus(hostEvolution.capabilities['rewrite-generated-governance'])}`);
+  }
+  if (hostEvolution.error) {
+    console.log(`  ${c.b('Self-evolution detail:')} ${hostEvolution.error}`);
+  } else if (Array.isArray(hostEvolution.follow_up) && hostEvolution.follow_up.length > 0 && hostEvolution.status !== 'ready') {
+    console.log(`  ${c.b('Recovery:')} ${hostEvolution.follow_up[0]}`);
+  }
+  if (hostEvolution.artifact) {
+    console.log(`  ${c.b('Self-evolution artifact:')} ${hostEvolution.artifact}`);
   }
   if (Array.isArray(ctx.manifest.pack_reports) && ctx.manifest.pack_reports.length > 0) {
     ctx.manifest.pack_reports.forEach((report) => {

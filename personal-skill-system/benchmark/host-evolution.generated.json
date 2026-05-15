@@ -1,0 +1,87 @@
+{
+  "schema-version": 1,
+  "generated-at": "2026-05-15T09:51:00.095Z",
+  "sources": {
+    "system-readiness": "benchmark/system-readiness.generated.json",
+    "skill-investment-backlog": "registry/skill-investment-backlog.generated.json",
+    "pending-scaffolds": "registry/pending-scaffolds.generated.json",
+    "admission-ledger": "registry/admission-ledger.generated.json"
+  },
+  "status": "attention",
+  "capabilities": {
+    "create-authoritative-skill": "blocked",
+    "materialize-pending-scaffold": "idle",
+    "rewrite-generated-governance": "available"
+  },
+  "summary": {
+    "active-constraints": 1,
+    "blocked-governance-artifacts": 0,
+    "pending-scaffolds": 0,
+    "blocked-admissions": 0,
+    "host-writeability-backlog-items": 1
+  },
+  "active-constraints": [
+    {
+      "id": "authoritative-skill-tree",
+      "label": "authoritative skill tree create surface",
+      "mode": "create-child-directory",
+      "code": "EPERM",
+      "path": "skills/domains",
+      "severity": "high",
+      "message": "cannot create new governed skill because the authoritative skill tree cannot create child directories on this host: skills/domains (EPERM)"
+    }
+  ],
+  "pending-scaffolds": [],
+  "blocked-admissions": [],
+  "host-writeability-debt": [
+    {
+      "id": "host-writeability-authoritative-skill-create",
+      "category": "host-writeability",
+      "status": "open",
+      "priority": "high",
+      "source": "host-writeability",
+      "skill": null,
+      "kind": null,
+      "summary": "Restore host ability to create authoritative skill directories.",
+      "reasons": [
+        "artifact:authoritative-skill-tree",
+        "mode:create-child-directory",
+        "code:EPERM"
+      ],
+      "follow_up": [
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --kind domain \"<request>\"",
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain <skill-name> --scaffold-modules"
+      ]
+    }
+  ],
+  "readiness": {
+    "status": "blocked",
+    "generated-at": "2026-05-15T09:51:00.095Z",
+    "host-writeability": {
+      "status": "attention",
+      "total": 36,
+      "writable": 35,
+      "blocked": 1,
+      "critical": 0,
+      "high": 1,
+      "normal": 0,
+      "artifacts": [
+        {
+          "id": "authoritative-skill-tree",
+          "label": "authoritative skill tree create surface",
+          "mode": "create-child-directory",
+          "code": "EPERM"
+        }
+      ]
+    }
+  },
+  "follow_up": [
+    "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source host-writeability"
+  ],
+  "notes": [
+    "Generated from the current backlog, pending-scaffold registry, admission ledger, and live writeability probes.",
+    "This artifact is host-specific recovery guidance for self-evolution, not a substitute for registry/backlog validation.",
+    "Use it to understand whether future skill creation or generated-governance refreshes are blocked on the current runtime.",
+    "When derived benchmark artifacts are blocked, export benchmark/system-readiness.generated.json and benchmark/host-evolution.generated.json through the governed export path before syncing them back via distribution."
+  ]
+}

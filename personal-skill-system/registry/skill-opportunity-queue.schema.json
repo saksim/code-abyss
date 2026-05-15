@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/skill-opportunity-queue.schema.json",
+  "title": "Portable Personal Skill Opportunity Queue Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "source",
+    "summary",
+    "entries"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated-at": {
+      "$ref": "#/$defs/isoDateTime"
+    },
+    "source": {
+      "type": "string",
+      "const": "managed-via-manage-skill"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "active",
+        "open",
+        "planned",
+        "in-progress",
+        "blocked",
+        "deferred",
+        "implemented",
+        "cancelled",
+        "critical",
+        "high",
+        "normal",
+        "now",
+        "next",
+        "later"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in-progress": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deferred": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "implemented": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "cancelled": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "normal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "now": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "next": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "later": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "opportunity-id",
+          "summary",
+          "priority",
+          "status",
+          "horizon",
+          "recorded-at"
+        ],
+        "properties": {
+          "opportunity-id": {
+            "$ref": "#/$defs/registryId"
+          },
+          "summary": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "suggested-kind": {
+            "type": "string",
+            "enum": [
+              "router",
+              "domain",
+              "workflow",
+              "tool",
+              "guard",
+              "adapter"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "normal"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "planned",
+              "in-progress",
+              "blocked",
+              "deferred",
+              "implemented",
+              "cancelled"
+            ]
+          },
+          "horizon": {
+            "type": "string",
+            "enum": [
+              "now",
+              "next",
+              "later"
+            ]
+          },
+          "adjacent-skills": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/skillName"
+            },
+            "uniqueItems": true
+          },
+          "rationale": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/tag"
+            },
+            "uniqueItems": true
+          },
+          "recorded-at": {
+            "$ref": "#/$defs/isoDateTime"
+          },
+          "resolved-at": {
+            "$ref": "#/$defs/isoDateTime"
+          },
+          "created-skill": {
+            "$ref": "#/$defs/skillName"
+          },
+          "admission-request-id": {
+            "$ref": "#/$defs/registryId"
+          },
+          "note": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "registryId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "tag": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

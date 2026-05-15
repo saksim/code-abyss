@@ -1,0 +1,239 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/skill-investment-backlog.schema.json",
+  "title": "Portable Personal Skill Investment Backlog Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "sources",
+    "summary",
+    "items"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated-at": {
+      "$ref": "#/$defs/isoDateTime"
+    },
+    "sources": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "$ref": "#/$defs/backlogSourceKey"
+      },
+      "additionalProperties": {
+        "$ref": "#/$defs/nonEmptyString"
+      },
+      "required": [
+        "skill-opportunity-queue",
+        "admission-ledger",
+        "evolution-ledger",
+        "review-queue",
+        "template-scaffolds",
+        "scaffold-lineage",
+        "pending-scaffolds",
+        "top-tier-readiness",
+        "proof-governance",
+        "host-writeability",
+        "capability-ratings",
+        "route-fixtures",
+        "runtime-proof",
+        "host-smoke-scorecard",
+        "authoritative-skills"
+      ]
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "critical",
+        "high",
+        "normal",
+        "categories",
+        "sources"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "critical": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "high": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "normal": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "categories": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "enum": [
+              "future-skill-opportunity",
+              "new-skill-admission",
+              "existing-skill-evolution",
+              "review-cadence",
+              "template-governance",
+              "template-upgrade",
+              "pending-scaffold-materialization",
+              "top-tier-hardening",
+              "proof-governance",
+              "host-writeability",
+              "expert-source-integration"
+            ]
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "sources": {
+          "type": "object",
+          "propertyNames": {
+            "$ref": "#/$defs/backlogSourceKey"
+          },
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "category",
+          "status",
+          "priority",
+          "source",
+          "summary",
+          "reasons",
+          "follow_up"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/backlogItemId"
+          },
+          "category": {
+            "type": "string",
+            "enum": [
+              "future-skill-opportunity",
+              "new-skill-admission",
+              "existing-skill-evolution",
+              "review-cadence",
+              "template-governance",
+              "template-upgrade",
+              "pending-scaffold-materialization",
+              "top-tier-hardening",
+              "proof-governance",
+              "host-writeability",
+              "expert-source-integration"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "planned",
+              "in-progress",
+              "deferred",
+              "blocked",
+              "implemented",
+              "cancelled",
+              "resolved"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "normal"
+            ]
+          },
+          "source": {
+            "$ref": "#/$defs/backlogSourceKey"
+          },
+          "skill": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/skillName"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "kind": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "summary": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "reasons": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonEmptyString"
+            },
+            "uniqueItems": true
+          },
+          "follow_up": {
+            "type": "array",
+            "items": {
+              "$ref": "#/$defs/nonEmptyString"
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "backlogItemId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "backlogSourceKey": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

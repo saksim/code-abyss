@@ -5,7 +5,6 @@ scaffold-origin: tool-template
 scaffold-version: 1
 title: Verify Quality Tool
 description: Code-shape and maintainability scan for complexity, size, and quality smells. Use when the task is explicit quality validation.
-
 kind: tool
 visibility: public
 user-invocable: true
@@ -23,12 +22,11 @@ host-smoke-tier: critical
 host-smoke-target-level: host-smoked
 host-smoke-freshness-days: 7
 owner: self
-last-reviewed: 2026-04-17
+last-reviewed: 2026-05-15
 review-cycle-days: 45
 tags: [tool, quality]
 aliases: [vq, quality-audit, 质量审计]
 ---
-
 # Verify Quality Tool
 
 ## Read These References

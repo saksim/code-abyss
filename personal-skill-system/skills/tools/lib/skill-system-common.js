@@ -2,20 +2,16 @@
 
 const fs = require('fs');
 const path = require('path');
-
-const REQUIRED_FRONTMATTER_KEYS = [
-  'schema-version',
-  'name',
-  'description',
-  'kind',
-  'user-invocable',
-  'trigger-mode',
-  'priority',
-  'runtime',
-  'executor',
-  'supported-hosts',
-  'status'
-];
+const {
+  MIN_REFERENCE_FILES_BY_KIND,
+  KIND_BY_LAYER
+} = require('./skill-kind-governance');
+const {
+  REQUIRED_FRONTMATTER_KEYS
+} = require('./skill-frontmatter-governance');
+const {
+  getWriteabilityTrackedGovernanceArtifacts
+} = require('./skill-generated-artifact-governance');
 
 const EXPECTED_TOP_LEVEL_DIRS = [
   'docs',
@@ -25,96 +21,10 @@ const EXPECTED_TOP_LEVEL_DIRS = [
   'templates'
 ];
 
-const MIN_REFERENCE_FILES_BY_KIND = {
-  router: 2,
-  domain: 2,
-  workflow: 2,
-  tool: 2,
-  guard: 2,
-  adapter: 2
-};
-
-const KIND_BY_LAYER = {
-  routers: 'router',
-  domains: 'domain',
-  workflows: 'workflow',
-  tools: 'tool',
-  guards: 'guard',
-  adapters: 'adapter'
-};
-
 const SMOKE_CWD_MODES = new Set(['skill-dir', 'bundle-root']);
 
 function getGeneratedGovernanceArtifacts(bundleRoot) {
-  const root = path.resolve(bundleRoot);
-  return [
-    {
-      id: 'skill-opportunity-queue',
-      path: path.join(root, 'registry', 'skill-opportunity-queue.generated.json'),
-      mode: 'rewrite-file',
-      label: 'skill opportunity queue registry'
-    },
-    {
-      id: 'review-queue',
-      path: path.join(root, 'registry', 'review-queue.generated.json'),
-      mode: 'rewrite-file',
-      label: 'review queue registry'
-    },
-    {
-      id: 'admission-ledger',
-      path: path.join(root, 'registry', 'admission-ledger.generated.json'),
-      mode: 'rewrite-file',
-      label: 'admission ledger registry'
-    },
-    {
-      id: 'evolution-ledger',
-      path: path.join(root, 'registry', 'evolution-ledger.generated.json'),
-      mode: 'rewrite-file',
-      label: 'evolution ledger registry'
-    },
-    {
-      id: 'runtime-proof',
-      path: path.join(root, 'registry', 'runtime-proof.generated.json'),
-      mode: 'rewrite-file',
-      label: 'runtime-proof registry'
-    },
-    {
-      id: 'skill-investment-backlog',
-      path: path.join(root, 'registry', 'skill-investment-backlog.generated.json'),
-      mode: 'rewrite-file',
-      label: 'skill investment backlog registry'
-    },
-    {
-      id: 'pending-scaffolds',
-      path: path.join(root, 'registry', 'pending-scaffolds.generated.json'),
-      mode: 'rewrite-file',
-      label: 'pending scaffold registry'
-    },
-    {
-      id: 'host-smoke-scorecard',
-      path: path.join(root, 'benchmark', 'host-smoke', 'scorecard.generated.json'),
-      mode: 'rewrite-file',
-      label: 'host-smoke scorecard'
-    },
-    {
-      id: 'host-smoke-invalidation',
-      path: path.join(root, 'benchmark', 'host-smoke', 'invalidation.generated.json'),
-      mode: 'create-file',
-      label: 'host-smoke invalidation ledger'
-    },
-    {
-      id: 'system-readiness',
-      path: path.join(root, 'benchmark', 'system-readiness.generated.json'),
-      mode: 'rewrite-file',
-      label: 'system readiness artifact'
-    },
-    {
-      id: 'host-smoke-runtime-runs',
-      path: path.join(root, 'benchmark', 'host-smoke', 'runtime-runs'),
-      mode: 'write-dir',
-      label: 'host-smoke runtime-runs directory'
-    }
-  ];
+  return getWriteabilityTrackedGovernanceArtifacts(path.resolve(bundleRoot));
 }
 
 function collectGeneratedArtifactWriteability(bundleRoot, options = {}) {
@@ -331,6 +241,47 @@ function probeArtifactWriteAccess(targetPath, options = {}) {
         ok: false,
         mode,
         path: resolvedPath,
+        code: error && error.code ? error.code : 'UNKNOWN',
+        message: error && error.message ? error.message : String(error)
+      };
+    }
+  }
+
+  if (mode === 'create-or-rewrite-file') {
+    const parentDir = path.dirname(resolvedPath);
+    if (!fs.existsSync(parentDir) || !fs.statSync(parentDir).isDirectory()) {
+      return {
+        ok: false,
+        mode,
+        path: resolvedPath,
+        container: parentDir,
+        code: 'ENOENT',
+        message: 'parent directory does not exist'
+      };
+    }
+
+    const targetExists = fs.existsSync(resolvedPath);
+    try {
+      const probePath = targetExists
+        ? resolvedPath
+        : path.join(parentDir, `.codex-write-probe-${process.pid}-${Date.now()}-${Math.random().toString(16).slice(2)}.tmp`);
+      const fd = fs.openSync(probePath, targetExists ? 'r+' : 'wx');
+      fs.closeSync(fd);
+      if (!targetExists && fs.existsSync(probePath)) {
+        fs.rmSync(probePath, { force: true });
+      }
+      return {
+        ok: true,
+        mode,
+        path: resolvedPath,
+        container: parentDir
+      };
+    } catch (error) {
+      return {
+        ok: false,
+        mode,
+        path: resolvedPath,
+        container: parentDir,
         code: error && error.code ? error.code : 'UNKNOWN',
         message: error && error.message ? error.message : String(error)
       };

@@ -48,11 +48,22 @@ Operate on the authoritative skill tree under `personal-skill-system/skills/` on
 - `resolve-evolution`: close or annotate a governed evolution decision when the requested lifecycle action is executed, deferred, or intentionally cancelled
 - `show-review-queue`: inspect the governed review-cadence queue for live skills, including overdue and due-soon items
 - `show-investment-backlog`: inspect the governed skill investment portfolio so future add / deepen / deprecate work is prioritized from one generated backlog instead of scattered notes
+- `show-expert-source-families`: inspect governed expert-source family health across raw roots, integration ledgers, unmapped raw sources, stale mappings, and parse drift before deciding where to deepen the bundle next
+- `register-expert-source-family`: register a new governed expert-source family, seed its empty integration ledger, optionally create its raw source root, and wire it into the experimental pack so future expert corpora can enter governance without ad-hoc file editing
+- `update-expert-source-family`: update a governed expert-source family's metadata, integration ledger path, raw-root metadata, portability flag, or lifecycle status while keeping generated governance surfaces in sync
+- `archive-expert-source-family`: mark a governed expert-source family as archived so it remains in history but no longer blocks active experimental-pack or backlog governance
+- `restore-expert-source-family`: reactivate an archived expert-source family through the same governed path so pack includes, scorecards, and backlog obligations return without manual repair
+- `diagnose-host-evolution`: inspect whether the current host can still evolve the bundle in place, including authoritative create capability,
+  generated-governance writeability, blocked admissions, pending scaffolds, and the exact recovery commands needed to resume self-evolution
+- `export-derived-governance`: export host-specific derived governance artifacts when the current runtime can compute readiness/host-evolution state but cannot rewrite the blocked benchmark files in place
+- `apply-derived-governance-export`: copy a governed derived-governance export back into the current writable bundle snapshot and verify the fingerprint before sync;
+  `--latest` reuses the newest matching export for the current bundle snapshot instead of requiring a manual path lookup
 - `show-pending-scaffolds`: inspect governed scaffold payloads that were prepared on a constrained host but not yet materialized into the authoritative skill tree
 - `mark-reviewed`: update `last-reviewed` (and optionally `review-cycle-days`) for one skill and refresh the governed review queue
 - `assess-top-tier`: inspect whether a skill is actually ready to be treated as top-tier / `stable`, including capability-module depth and governed route/runtime surfaces
-- `create`: scaffold a new skill from the canonical template, including internal adapter skills, with optional capability-module governance scaffolding for new domain/workflow skills
-  and stamp scaffold lineage into frontmatter so future template upgrades can detect which generated skills are now behind the canonical scaffold
+- `create`: scaffold a new skill from the canonical template, including internal adapter skills, with optional capability-module governance scaffolding for kinds that support scaffolded capability modules today
+  and stamp scaffold lineage into frontmatter so future template upgrades can detect which generated skills are now behind the canonical scaffold;
+  the scaffolded skill seeds `owner`, `last-reviewed`, and `review-cycle-days` from centralized review-metadata governance instead of copying template review history verbatim
 - `materialize-pending-scaffold`: take a governed pending scaffold payload and write it into the authoritative skill tree on a writable host, then clear the pending record
 - `show`: inspect resolved paths and metadata for an existing skill
 - `update`: patch non-lifecycle frontmatter fields for an existing skill
@@ -64,6 +75,7 @@ Operate on the authoritative skill tree under `personal-skill-system/skills/` on
 - `archive`: mark a skill as archived without deleting it
 - `merge`: archive one skill as subsumed by a neighboring owner and resolve the governed evolution record with explicit `merged-into` history
 - `delete`: remove a skill directory from the authoritative tree, preferably after archive
+  and only after active governance references are cleared; historical intake/history ledgers remain valid only when a governed delete evolution result exists
 - `sync-scaffold-lineage`: backfill or refresh `scaffold-origin` and `scaffold-version` on existing skills from the canonical template for that skill kind,
   so historical skills can join the same governed scaffold lineage surface as newly created skills
 - `sync-host-metadata`: regenerate governed `agents/openai.yaml` files from authoritative `SKILL.md` metadata
@@ -75,6 +87,7 @@ Operate on the authoritative skill tree under `personal-skill-system/skills/` on
 - `sync-runtime-proof`: align runtime-proof registry entries with current scripted skill metadata and Runtime Proof bullets
   and suggest or auto-fill evidence tests from the Jest runtime corpus when explicit evidence is missing;
   when `scripts/smoke.json` exists on a stable scripted skill, the host-smoke contract is also synchronized;
+  if the stored runtime-proof level sits below the lifecycle-governed stable floor, the sync also raises it automatically;
   if a previous `host-smoked` level no longer has matching fresh passing evidence, the level is downgraded automatically
 - `run-host-smoke`: execute registry-backed host-smoke commands for one or all scripted skills and append evidence artifacts under `benchmark/host-smoke/runtime-runs/`
   while refreshing the bundle-wide host-smoke scorecard under `benchmark/host-smoke/scorecard.generated.json`;
@@ -115,13 +128,16 @@ Return:
 - `assess-top-tier` turns "this skill is top-tier enough" into a governed read-only check instead of a hand-waved label by inspecting capability-module ratings and stable-surface blockers together
 - `create` updates the authoritative skill tree and generated metadata together instead of leaving registry or route drift behind
 - `create` also records which canonical scaffold and template version seeded the new skill so future scaffold upgrades become governable drift instead of tribal knowledge
+- `create` seeds review metadata from centralized kind policy, so newly created skills start with current review baselines instead of inheriting stale template dates
 - `sync-scaffold-lineage` upgrades pre-lineage historical skills into the same canonical scaffold tracking model as newly created skills without hand-editing every frontmatter block
-- `create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new domain/workflow skills
+- `create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new capability-module scaffold kinds (currently `domain` and `workflow`)
 - `set-module-rating` upgrades or downgrades registered capability modules through a governed path instead of hand-editing rating buckets, `next-batch`, or the mirrored ratings doc
 - `set-status` updates lifecycle metadata through a governed path instead of allowing raw `status=` edits that can strand runtime-proof, ratings, or readiness artifacts
 - `set-status stable` now reuses the same top-tier readiness gate as `assess-top-tier`, so "stable" cannot drift away from the skill system's claimed top-tier standard
 - `assess-top-tier` also treats expired stable review cadence as a real blocker instead of allowing stale `stable` claims to persist forever
 - `archive` and `delete` remove active-route surfaces for the target skill, including route fixtures and ratings summary membership
+- `delete` also enforces centralized delete-governance blockers, refusing removal while active opportunity, admission, evolution, pending-scaffold, or expert-source dependencies still point at the skill
+- successful governed delete now records delete evidence in the evolution ledger, so historical admission/opportunity references to the removed skill remain explainable instead of turning into orphaned governance debt
 - `merge` turns a merge recommendation into an executable lifecycle move without inventing ad-hoc archive + ledger edits: the source skill is archived, active-route surfaces are removed, and the evolution ledger records which target inherited ownership
 - lifecycle mutations can also resolve recorded evolution requests so governance history follows the executed promote/deprecate/archive/delete action instead of staying as oral history
 - `sync-host-metadata` keeps `agents/openai.yaml` governed from authoritative skill metadata instead of allowing host UI labels or default prompts to drift, including nested runtime paths such as variant skills
@@ -130,6 +146,7 @@ Return:
 - governed route-fixture placeholders are refreshed from current trigger metadata during route sync and lifecycle restore flows, but stable/top-tier evidence still requires at least one non-placeholder route fixture
 - `sync-runtime-proof` can rebuild or update runtime-proof entries from authoritative skill metadata instead of requiring hand-edited registry drift repair and can suggest or auto-apply matching evidence tests for scripted skills based on existing Jest coverage
 - `sync-runtime-proof` also lifts skill-local `scripts/smoke.json` manifests into registry-backed host-smoke metadata so future host runners consume one consistent contract
+- `sync-runtime-proof` also auto-promotes stable scripted tools and guards to the lifecycle-governed minimum proof level once their declared contracts and evidence already satisfy that floor
 - `sync-runtime-proof` treats `host-smoked` as evidence-backed state instead of sticky status and automatically downgrades entries whose contract, pass state, or freshness proof no longer holds
 - `sync-runtime-proof` also invalidates drifted runtime host-smoke artifacts when a contract changes, so append-only evidence history stays cleanly governed without a separate manual cleanup pass
 - `run-host-smoke` executes the declared host-smoke contract and records append-only pass/fail evidence so `host-smoked` can be proven from artifacts instead of trust
@@ -138,6 +155,13 @@ Return:
 - `reconcile-host-smoke` invalidates drifted runtime host-smoke artifacts through a governed ledger instead of rewriting append-only run history and can chain directly into a rerun when fresh evidence is needed
 - `mark-reviewed` refreshes one skill's review metadata and the governed review queue together so long-lived top-tier skills can stay current without hand-editing queue artifacts
 - `show-investment-backlog` gives the bundle a first-class portfolio view for future skill additions, upgrades, deprecations, and template refreshes instead of relying on memory or stale roadmap docs
+- `show-expert-source-families` gives the bundle a family-level health board for expert-source ingestion, so maintainers can see which raw corpora are registered, portable, unmapped, stale, or parse-broken before touching deeper integration ledgers
+- `register-expert-source-family` turns future expert-source onboarding into a governed write path that seeds the family registry, integration ledger, experimental pack include, and derived portfolio surfaces together instead of relying on hand-edited registry sprawl
+- `update-expert-source-family` keeps expert-source family metadata and ledger location changes inside the same governed write path instead of spreading rename/edit drift across registry, pack, and backlog surfaces
+- `archive-expert-source-family` turns retired expert-source corpora into explicit lifecycle state rather than ad-hoc deletion, so history stays visible while active governance obligations stop firing
+- `restore-expert-source-family` makes expert-source lifecycle governance symmetric, so archived families can rejoin active pack, scorecard, and backlog surfaces without hand-editing multiple generated files
+- `diagnose-host-evolution` turns host writeability debt, blocked admissions, and deferred scaffold state into one action-oriented recovery view instead of forcing maintainers to reconstruct host limitations from readiness files, backlog entries, and error messages
+- `export-derived-governance` and `apply-derived-governance-export` turn blocked benchmark rewrites into a governed export/sync-back loop, so host-limited runtimes can hand derived readiness state to a writable bundle without losing fingerprint or artifact provenance
 - `create --opportunity-id` can close a governed future-skill opportunity at the same time as the concrete skill scaffold is created, so portfolio intent and shipped artifact stay linked
 - `create --defer-when-host-blocked` preserves the exact scaffold payload, host constraint, and rerun command in a governed pending scaffold registry instead of reducing blocked future-skill work to an opaque note
 - `materialize-pending-scaffold` reuses that governed payload on a writable host so deferred future-skill creation stays deterministic and audit-friendly

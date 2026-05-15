@@ -18,6 +18,10 @@ const {
   generateRouteCandidates,
   selectBestRouteCandidate
 } = require('../personal-skill-system/skills/tools/lib/skill-system-routing');
+const {
+  DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS,
+  DERIVED_GOVERNANCE_ARTIFACT_PATHS
+} = require('../personal-skill-system/skills/tools/lib/skill-system-derived-governance-contract');
 const manageSkillModulePath = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'manage-skill', 'scripts', 'run.js');
 
 describe('personal skill system tool runtime', () => {
@@ -352,7 +356,7 @@ describe('personal skill system tool runtime', () => {
         suggested_kind: 'guard'
       }));
       expect(payload.suggested_kind).toBe('guard');
-      expect(payload.follow_up[0]).toContain('create guard <skill-name>');
+      expect(payload.follow_up[0]).toBe('create the governed scaffold with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js create guard <skill-name>');
     } finally {
       process.chdir(originalCwd);
     }
@@ -409,6 +413,9 @@ describe('personal skill system tool runtime', () => {
       expect(routeMap.routes.some((route) => route.skill === 'verify-quality')).toBe(false);
 
       const ledgerPayload = manageSkill.main(['show-evolution-ledger', '--request-id', evolution['request-id']]);
+      expect(ledgerPayload.summary).toEqual(expect.objectContaining({
+        total: expect.any(Number)
+      }));
       expect(ledgerPayload.returned).toBe(1);
       expect(ledgerPayload.entries[0]).toEqual(expect.objectContaining({
         'request-id': evolution['request-id'],
@@ -803,6 +810,41 @@ describe('personal skill system tool runtime', () => {
     }
   });
 
+  test('manage-skill resolve-opportunity stamps resolved-at when the opportunity moves to a terminal status', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const recorded = manageSkill.main([
+        'record-opportunity',
+        '--kind', 'workflow',
+        '--priority', 'high',
+        '--horizon', 'next',
+        'we need a governed workflow for periodic portfolio pruning across the skill bundle'
+      ]);
+
+      const resolved = manageSkill.main([
+        'resolve-opportunity',
+        recorded.entry['opportunity-id'],
+        '--status', 'implemented'
+      ]);
+
+      expect(resolved.action).toBe('resolve-opportunity');
+      expect(resolved.entry).toEqual(expect.objectContaining({
+        'opportunity-id': recorded.entry['opportunity-id'],
+        status: 'implemented'
+      }));
+      expect(resolved.entry['resolved-at']).toBeTruthy();
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('manage-skill show-investment-backlog surfaces open future skill opportunities in the governed portfolio view', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
@@ -829,6 +871,45 @@ describe('personal skill system tool runtime', () => {
           source: 'skill-opportunity-queue',
           category: 'future-skill-opportunity',
           priority: 'critical'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill show-investment-backlog surfaces unmapped raw expert sources as integration debt', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'top_developer'), path.join(repoRoot, 'top_developer'), { recursive: true });
+
+    const extraSourceDir = path.join(repoRoot, 'top_developer', 'top-future-governance');
+    fs.mkdirSync(extraSourceDir, { recursive: true });
+    fs.writeFileSync(path.join(extraSourceDir, 'SKILL.md'), [
+      '---',
+      'name: top-future-governance',
+      'description: raw future expert source',
+      '---',
+      '',
+      '# Raw Future Governance',
+      ''
+    ].join('\n'));
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['show-investment-backlog', '--source', 'top-developer-integration']);
+
+      expect(payload.action).toBe('show-investment-backlog');
+      expect(payload.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'top-developer-source-top-future-governance',
+          source: 'top-developer-integration',
+          category: 'expert-source-integration',
+          priority: 'high'
         })
       ]));
     } finally {
@@ -875,6 +956,363 @@ describe('personal skill system tool runtime', () => {
     }
   });
 
+  test('manage-skill create --request-id inherits the linked governed opportunity automatically', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const recorded = manageSkill.main([
+        'record-opportunity',
+        '--kind', 'workflow',
+        '--priority', 'high',
+        '--horizon', 'next',
+        'we need a workflow for linked opportunity inheritance'
+      ]);
+      const admission = manageSkill.main([
+        'admission-check',
+        '--kind', 'workflow',
+        '--opportunity-id', recorded.entry['opportunity-id']
+      ]);
+
+      const created = manageSkill.main([
+        'create',
+        'workflow',
+        `linked-opportunity-inheritance-${Date.now()}`,
+        '--request-id',
+        admission['request-id']
+      ]);
+
+      expect(created.action).toBe('create');
+      expect(created['admission-request-id']).toBe(admission['request-id']);
+      expect(created['opportunity-id']).toBe(recorded.entry['opportunity-id']);
+
+      const queue = manageSkill.main(['show-opportunity-queue', '--opportunity-id', recorded.entry['opportunity-id']]);
+      expect(queue.entries[0]).toEqual(expect.objectContaining({
+        status: 'implemented',
+        'admission-request-id': admission['request-id'],
+        'created-skill': created.skill
+      }));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('show-investment-backlog can filter a newly registered expert-source family', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'top_developer'), path.join(repoRoot, 'top_developer'), { recursive: true });
+
+    const rawRoot = path.join(repoRoot, 'expert_research');
+    fs.mkdirSync(path.join(rawRoot, 'research-gap-two'), { recursive: true });
+    fs.writeFileSync(path.join(rawRoot, 'research-gap-two', 'SKILL.md'), [
+      '---',
+      'name: research-gap-two',
+      'description: raw research expert source',
+      '---',
+      '',
+      '# Research Gap Two',
+      ''
+    ].join('\n'));
+
+    const familiesPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-source-families.generated.json');
+    const families = JSON.parse(fs.readFileSync(familiesPath, 'utf8'));
+    families.families.push({
+      id: 'expert-research',
+      title: 'Expert Research',
+      source: 'expert-research-integration',
+      label: 'expert-research integration',
+      rawSourceLabel: 'raw expert research source',
+      integrationFile: 'registry/expert-research-integration.generated.json',
+      rawRoot: '../expert_research',
+      schemaVersion: 2,
+      integrationMode: 'capability-modules',
+      expectedPortable: true,
+      parseErrorSummary: 'Repair expert-research integration registry before the next expert-source extraction.',
+      unmappedSummaryTemplate: "Integrate raw expert research source '%s' into governed capability modules.",
+      sourceDescription: 'registry/expert-research-integration.generated.json + ../expert_research/**/SKILL.md when present',
+      backlogFollowUp: [
+        'review expert_research/%s/SKILL.md and decide extract-vs-admit'
+      ]
+    });
+    fs.writeFileSync(familiesPath, JSON.stringify(families, null, 2) + '\n', 'utf8');
+
+    fs.writeFileSync(
+      path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-research-integration.generated.json'),
+      JSON.stringify({
+        'schema-version': 2,
+        'integration-mode': 'capability-modules',
+        portable: true,
+        'module-count': 0,
+        groups: [],
+        modules: [],
+        'source-index': []
+      }, null, 2) + '\n',
+      'utf8'
+    );
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const payload = manageSkill.main(['show-investment-backlog', '--source', 'expert-research-integration']);
+
+      expect(payload.action).toBe('show-investment-backlog');
+      expect(payload.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'expert-research-source-research-gap-two',
+          source: 'expert-research-integration',
+          category: 'expert-source-integration',
+          priority: 'high'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill can register and inspect a governed expert-source family', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const registered = manageSkill.main([
+        'register-expert-source-family',
+        '--family-id', 'expert-research',
+        '--title', 'Expert Research',
+        '--create-raw-root'
+      ]);
+
+      expect(registered.action).toBe('register-expert-source-family');
+      expect(registered.family).toBe('expert-research');
+      expect(registered.source).toBe('expert-research-integration');
+      expect(registered.integrationFile).toBe('registry/expert-research-integration.generated.json');
+      expect(registered.rawRoot).toBe('../expert_research');
+
+      const familiesPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-source-families.generated.json');
+      const families = JSON.parse(fs.readFileSync(familiesPath, 'utf8'));
+      expect(families.families).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'expert-research',
+          source: 'expert-research-integration',
+          integrationFile: 'registry/expert-research-integration.generated.json',
+          rawRoot: '../expert_research'
+        })
+      ]));
+
+      const integrationPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-research-integration.generated.json');
+      const integration = JSON.parse(fs.readFileSync(integrationPath, 'utf8'));
+      expect(integration).toEqual(expect.objectContaining({
+        'schema-version': 2,
+        'integration-mode': 'capability-modules',
+        portable: true,
+        'module-count': 0
+      }));
+
+      const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'packs', 'experimental', 'manifest.json'), 'utf8'));
+      expect(manifest.includes).toContain('registry/expert-research-integration.generated.json');
+
+      expect(fs.existsSync(path.join(repoRoot, 'expert_research'))).toBe(true);
+
+      const shown = manageSkill.main([
+        'show-expert-source-families',
+        '--family', 'expert-research'
+      ]);
+
+      expect(shown.action).toBe('show-expert-source-families');
+      expect(shown.returned).toBe(1);
+      expect(shown.families[0]).toEqual(expect.objectContaining({
+        id: 'expert-research',
+        source: 'expert-research-integration',
+        status: 'active',
+        parseError: null,
+        rawRootExists: true,
+        rawSourceSkills: 0,
+        integratedModules: 0
+      }));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill can update an expert-source family and move its integration ledger', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main([
+        'register-expert-source-family',
+        '--family-id', 'expert-research',
+        '--title', 'Expert Research'
+      ]);
+
+      const payload = manageSkill.main([
+        'update-expert-source-family',
+        '--family-id', 'expert-research',
+        '--integration-file', 'registry/expert-research-v2.generated.json',
+        '--source', 'expert-research-v2',
+        '--raw-root', '../expert_research_v2'
+      ]);
+
+      expect(payload.action).toBe('update-expert-source-family');
+      expect(payload.family).toBe('expert-research');
+      expect(payload.integrationFile).toBe('registry/expert-research-v2.generated.json');
+      expect(payload.source).toBe('expert-research-v2');
+      expect(payload.rawRoot).toBe('../expert_research_v2');
+
+      const familiesPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-source-families.generated.json');
+      const families = JSON.parse(fs.readFileSync(familiesPath, 'utf8'));
+      expect(families.families).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'expert-research',
+          source: 'expert-research-v2',
+          integrationFile: 'registry/expert-research-v2.generated.json',
+          rawRoot: '../expert_research_v2',
+          status: 'active'
+        })
+      ]));
+
+      expect(fs.existsSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-research-integration.generated.json'))).toBe(false);
+      expect(fs.existsSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-research-v2.generated.json'))).toBe(true);
+
+      const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'packs', 'experimental', 'manifest.json'), 'utf8'));
+      expect(manifest.includes).toContain('registry/expert-research-v2.generated.json');
+      expect(manifest.includes).not.toContain('registry/expert-research-integration.generated.json');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill can archive an expert-source family and remove its active pack obligation', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main([
+        'register-expert-source-family',
+        '--family-id', 'expert-research',
+        '--title', 'Expert Research'
+      ]);
+
+      const archived = manageSkill.main([
+        'archive-expert-source-family',
+        'expert-research'
+      ]);
+
+      expect(archived.action).toBe('update-expert-source-family');
+      expect(archived.family).toBe('expert-research');
+      expect(archived.status).toBe('archived');
+
+      const shown = manageSkill.main([
+        'show-expert-source-families',
+        '--family', 'expert-research'
+      ]);
+      expect(shown.families[0]).toEqual(expect.objectContaining({
+        id: 'expert-research',
+        status: 'archived'
+      }));
+
+      const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'packs', 'experimental', 'manifest.json'), 'utf8'));
+      expect(manifest.includes).not.toContain('registry/expert-research-integration.generated.json');
+
+      const backlog = manageSkill.main(['show-investment-backlog', '--source', 'expert-research-integration']);
+      expect(backlog.items).toEqual([]);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill can restore an archived expert-source family and recover active governance surfaces', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      manageSkill.main([
+        'register-expert-source-family',
+        '--family-id', 'expert-research',
+        '--title', 'Expert Research'
+      ]);
+      manageSkill.main(['archive-expert-source-family', 'expert-research']);
+
+      const restored = manageSkill.main(['restore-expert-source-family', 'expert-research']);
+      expect(restored.action).toBe('update-expert-source-family');
+      expect(restored.family).toBe('expert-research');
+      expect(restored.status).toBe('active');
+
+      const shown = manageSkill.main([
+        'show-expert-source-families',
+        '--family', 'expert-research'
+      ]);
+      expect(shown.summary).toEqual(expect.objectContaining({
+        'active-families': expect.any(Number),
+        'archived-families': expect.any(Number)
+      }));
+      expect(shown.families[0]).toEqual(expect.objectContaining({
+        id: 'expert-research',
+        status: 'active'
+      }));
+
+      const manifest = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'packs', 'experimental', 'manifest.json'), 'utf8'));
+      expect(manifest.includes).toContain('registry/expert-research-integration.generated.json');
+
+      const familyScorecardPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'expert-source-family-scorecard.generated.json');
+      const familyScorecard = JSON.parse(fs.readFileSync(familyScorecardPath, 'utf8'));
+      expect(familyScorecard.families).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          id: 'expert-research',
+          status: 'active',
+          experimentalPackStatus: 'aligned'
+        })
+      ]));
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill refuses to archive the default expert-source family through shared governance policy', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'top_developer'), path.join(repoRoot, 'top_developer'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      expect(() => manageSkill.main(['archive-expert-source-family', 'top-developer']))
+        .toThrow("cannot archive default expert-source family 'top-developer'");
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('manage-skill admission-check --opportunity-id escalates a governed future opportunity into a linked admission request', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
@@ -916,6 +1354,9 @@ describe('personal skill system tool runtime', () => {
       }));
 
       const ledger = manageSkill.main(['show-admission-ledger', '--request-id', admission['request-id']]);
+      expect(ledger.summary).toEqual(expect.objectContaining({
+        total: expect.any(Number)
+      }));
       expect(ledger.entries[0]).toEqual(expect.objectContaining({
         'request-id': admission['request-id'],
         'opportunity-id': recorded.entry['opportunity-id']
@@ -966,6 +1407,34 @@ describe('personal skill system tool runtime', () => {
     }
   });
 
+  test('manage-skill delete refuses removal while an active opportunity still references the skill', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const skillName = `temp-delete-blocked-${Date.now()}`;
+      manageSkill.main(['create', 'workflow', skillName]);
+      manageSkill.main([
+        'record-opportunity',
+        '--kind', 'workflow',
+        '--priority', 'high',
+        '--horizon', 'next',
+        '--adjacent', skillName,
+        'we may need adjacent evolution support later'
+      ]);
+
+      expect(() => manageSkill.main(['delete', '--name', skillName]))
+        .toThrow(`cannot delete skill '${skillName}' because active governance dependencies remain: active skill opportunity`);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('manage-skill set-module-rating promotes one capability module and syncs next-batch/doc surfaces', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
@@ -1007,6 +1476,47 @@ describe('personal skill system tool runtime', () => {
 
       const ratingsDoc = fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'docs', 'CAPABILITY_MODULE_RATINGS.md'), 'utf8');
       expect(ratingsDoc).toContain(`- \`${firstModule}\` (\`${skillName}\`, \`strong-but-not-top\`): Close the remaining depth and evidence gaps before TOP-ready promotion.`);
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill set-module-rating refreshes top-tier backlog debt when a stable skill module is downgraded', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const registry = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'registry.generated.json'), 'utf8'));
+      const aiGroup = (registry['module-groups'] || []).find((group) => group['host-skill'] === 'ai');
+      expect(aiGroup).toBeTruthy();
+      const downgradedModule = aiGroup.modules[0].id;
+
+      const payload = manageSkill.main(['set-module-rating', downgradedModule, 'strong-but-not-top']);
+      expect(payload.action).toBe('set-module-rating');
+      expect(payload.module).toBe(downgradedModule);
+      expect(payload.rating).toBe('strong-but-not-top');
+
+      const backlog = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'skill-investment-backlog.generated.json'), 'utf8'));
+      expect(backlog.items).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          source: 'top-tier-readiness',
+          skill: 'ai',
+          category: 'top-tier-hardening'
+        })
+      ]));
+      const aiBacklogItem = backlog.items.find((item) => item.source === 'top-tier-readiness' && item.skill === 'ai');
+      expect(aiBacklogItem.reasons).toEqual(expect.arrayContaining([
+        expect.stringContaining(`${downgradedModule}:strong-but-not-top`)
+      ]));
+
+      const readiness = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'benchmark', 'system-readiness.generated.json'), 'utf8'));
+      expect(readiness.sources['skill-investment-backlog']).toBe('registry/skill-investment-backlog.generated.json');
+      expect(readiness.summary['investment-backlog-items']).toBeGreaterThan(0);
     } finally {
       process.chdir(originalCwd);
     }
@@ -1155,6 +1665,35 @@ describe('personal skill system tool runtime', () => {
     }
   });
 
+  test('manage-skill sync-runtime-proof auto-promotes a stable governed skill to declared-and-tested when evidence already exists', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'test'), path.join(repoRoot, 'test'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const runtimeProofPath = path.join(repoRoot, 'personal-skill-system', 'registry', 'runtime-proof.generated.json');
+      const runtimeProof = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
+      const entry = runtimeProof.proofs.find((item) => item.skill === 'verify-quality');
+      entry.level = 'declared-only';
+      fs.writeFileSync(runtimeProofPath, JSON.stringify(runtimeProof, null, 2) + '\n', 'utf8');
+
+      const payload = manageSkill.main(['sync-runtime-proof', 'verify-quality']);
+      expect(payload.status).toBe('updated');
+      expect(payload.level).toBe('declared-and-tested');
+
+      const synced = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
+      const syncedEntry = synced.proofs.find((item) => item.skill === 'verify-quality');
+      expect(syncedEntry.level).toBe('declared-and-tested');
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
   test('manage-skill rejects raw status edits through generic update', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
@@ -1172,7 +1711,7 @@ describe('personal skill system tool runtime', () => {
     }
   });
 
-  test('manage-skill set-status promotes scripted skills while syncing ratings and runtime-proof surfaces', () => {
+  test('manage-skill set-status can deprecate scripted skills while syncing ratings and runtime-proof surfaces', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
     fs.cpSync(path.join(__dirname, '..', 'test'), path.join(repoRoot, 'test'), { recursive: true });
@@ -1183,21 +1722,21 @@ describe('personal skill system tool runtime', () => {
       jest.resetModules();
       const manageSkill = require(manageSkillModulePath);
 
-      const payload = manageSkill.main(['set-status', 'verify-security', 'deprecated']);
+      const payload = manageSkill.main(['set-status', 'verify-quality', 'deprecated']);
       expect(payload.action).toBe('set-status');
       expect(payload.previous_status).toBe('stable');
       expect(payload.status).toBe('deprecated');
 
-      const skillFile = path.join(repoRoot, 'personal-skill-system', 'skills', 'tools', 'verify-security', 'SKILL.md');
+      const skillFile = path.join(repoRoot, 'personal-skill-system', 'skills', 'tools', 'verify-quality', 'SKILL.md');
       expect(fs.readFileSync(skillFile, 'utf8')).toContain('status: deprecated');
 
       const runtimeProof = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'runtime-proof.generated.json'), 'utf8'));
-      const proof = runtimeProof.proofs.find((item) => item.skill === 'verify-security');
+      const proof = runtimeProof.proofs.find((item) => item.skill === 'verify-quality');
       expect(proof.level).toBe('declared-only');
 
       const ratings = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'registry', 'capability-ratings.generated.json'), 'utf8'));
-      expect(ratings['skill-level-summary']['top-level-enough-now']).not.toContain('verify-security');
-      expect(ratings['skill-level-summary']['useful-overlay-not-top-level-alone']).toContain('verify-security');
+      expect(ratings['skill-level-summary']['top-level-enough-now']).not.toContain('verify-quality');
+      expect(ratings['skill-level-summary']['useful-overlay-not-top-level-alone']).toContain('verify-quality');
 
       const readiness = JSON.parse(fs.readFileSync(path.join(repoRoot, 'personal-skill-system', 'benchmark', 'system-readiness.generated.json'), 'utf8'));
       expect(readiness['schema-version']).toBe(1);
@@ -1254,7 +1793,7 @@ describe('personal skill system tool runtime', () => {
       expect(scorecard.summary['host-smoke-capable-skills']).toBeGreaterThanOrEqual(1);
       const verifyQuality = scorecard.skills.find((item) => item.skill === 'verify-quality');
       expect(verifyQuality['evidence-status']).toBe('passing');
-      expect(verifyQuality['governance-status']).toBe('satisfied');
+      expect(verifyQuality['governance-status']).toBe('not-host-smoked');
     } finally {
       process.chdir(originalCwd);
     }
@@ -1334,6 +1873,77 @@ describe('personal skill system tool runtime', () => {
       expect(entry.level).toBe('host-smoked');
     } finally {
       jest.dontMock(commonModulePath);
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill can export derived governance through the CLI action surface', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'test'), path.join(repoRoot, 'test'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const exportDir = path.join(repoRoot, '.tmp-derived-governance-export');
+      const payload = manageSkill.main(['export-derived-governance', '--output-dir', exportDir]);
+      expect(payload.action).toBe('export-derived-governance');
+      expect(payload.artifact).toBe('derived-governance-export');
+      expect(fs.existsSync(path.join(exportDir, 'manifest.json'))).toBe(true);
+      for (const artifactId of DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS) {
+        expect(fs.existsSync(path.join(exportDir, ...DERIVED_GOVERNANCE_ARTIFACT_PATHS[artifactId].split('/')))).toBe(true);
+      }
+    } finally {
+      process.chdir(originalCwd);
+    }
+  });
+
+  test('manage-skill can apply the latest matching derived governance export without an explicit path', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
+    fs.cpSync(path.join(__dirname, '..', 'test'), path.join(repoRoot, 'test'), { recursive: true });
+
+    const originalCwd = process.cwd();
+    try {
+      process.chdir(repoRoot);
+      jest.resetModules();
+      const manageSkill = require(manageSkillModulePath);
+
+      const exportRoot = path.join(repoRoot, '.code-abyss', 'derived-governance-exports');
+      const firstExport = path.join(exportRoot, 'older-export');
+      const latestExport = path.join(exportRoot, 'latest-export');
+
+      manageSkill.main(['export-derived-governance', '--output-dir', firstExport]);
+      manageSkill.main(['export-derived-governance', '--output-dir', latestExport]);
+
+      const readinessPath = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'system-readiness.generated.json');
+      const hostEvolutionPath = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'host-evolution.generated.json');
+      fs.writeFileSync(readinessPath, JSON.stringify({ stale: true }, null, 2) + '\n', 'utf8');
+      fs.writeFileSync(hostEvolutionPath, JSON.stringify({ stale: true }, null, 2) + '\n', 'utf8');
+
+      const payload = manageSkill.main(['apply-derived-governance-export', '--latest']);
+      expect(payload.action).toBe('apply-derived-governance-export');
+      expect(payload.selection).toBe('latest-matching-export');
+      expect(payload.source).toBe('.code-abyss/derived-governance-exports/latest-export');
+      expect(payload.synced).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          artifact: 'system-readiness',
+          file: 'personal-skill-system/benchmark/system-readiness.generated.json'
+        }),
+        expect.objectContaining({
+          artifact: 'host-evolution',
+          file: 'personal-skill-system/benchmark/host-evolution.generated.json'
+        })
+      ]));
+
+      const readiness = JSON.parse(fs.readFileSync(readinessPath, 'utf8'));
+      const hostEvolution = JSON.parse(fs.readFileSync(hostEvolutionPath, 'utf8'));
+      expect(readiness['schema-version']).toBe(1);
+      expect(hostEvolution['schema-version']).toBe(1);
+    } finally {
       process.chdir(originalCwd);
     }
   });
@@ -1548,7 +2158,7 @@ describe('personal skill system tool runtime', () => {
       const synced = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
       const syncedQuality = synced.proofs.find((item) => item.skill === 'verify-quality');
       expect(synced.proofs.some((item) => item.skill === 'ghost-runtime-proof')).toBe(false);
-      expect(syncedQuality.level).toBe('host-smoked');
+      expect(['host-smoked', 'declared-and-tested']).toContain(syncedQuality.level);
       expect(syncedQuality.contracts).toEqual([
         '`node scripts/run.js --target ./src --json` returns a structured quality report with issue entries and severity',
         'language-specific maintainability smells are surfaced as findings rather than only aggregate scores'
@@ -1572,7 +2182,15 @@ describe('personal skill system tool runtime', () => {
 
       manageSkill.main(['run-host-smoke', 'verify-quality', '--host', 'codex', '--promote-host-smoked']);
 
-      Date.now = () => new Date('2026-05-20T00:00:00Z').getTime();
+      const runsDir = path.join(repoRoot, 'personal-skill-system', 'benchmark', 'host-smoke', 'runtime-runs');
+      const latestRunFile = fs.readdirSync(runsDir)
+        .sort()
+        .map((name) => path.join(runsDir, name))
+        .pop();
+      const latestRun = JSON.parse(fs.readFileSync(latestRunFile, 'utf8'));
+      const staleNow = new Date(String(latestRun['executed-at']));
+      staleNow.setUTCDate(staleNow.getUTCDate() + 8);
+      Date.now = () => staleNow.getTime();
 
       const payload = manageSkill.main(['sync-runtime-proof', 'verify-quality']);
       expect(payload.status).toBe('updated');

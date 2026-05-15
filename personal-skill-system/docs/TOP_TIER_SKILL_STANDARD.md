@@ -23,6 +23,8 @@ The system should make two things true at the same time:
   Stable claims should be backed by route fixtures, runtime proof, host-smoke policy when relevant, and verification artifacts.
 - `Portfolio truth`
   New capability demand should be visible before implementation, and removal or merge decisions should leave clean history behind.
+  Raw expert-source material that has not yet been internalized should also appear as governed integration debt instead of living as tribal backlog.
+  New expert-source families should be onboarded by adding a family entry to `registry/expert-source-families.generated.json`, not by hardcoding another one-off validator path.
 
 ## What Top-Tier Means
 
@@ -55,10 +57,11 @@ Use this loop when the capability does not yet exist, or when removal or merge i
 
 1. record missing or long-horizon demand in the opportunity queue
 2. run admission to decide add vs reuse vs deepen
-3. scaffold in the correct layer only after the boundary is sharp
-4. fill references and proof surfaces before promoting reach
-5. graduate status only when evidence exists
-6. deprecate, archive, merge, or delete through governed lifecycle paths
+3. if valuable raw source material already exists outside the routed bundle, surface it as governed extraction debt before inventing a duplicate public skill
+4. scaffold in the correct layer only after the boundary is sharp
+5. fill references and proof surfaces before promoting reach
+6. graduate status only when evidence exists
+7. deprecate, archive, merge, or delete through governed lifecycle paths
 
 ## Promotion Criteria
 
@@ -128,11 +131,29 @@ Every future skill should start from the canonical scaffold and inherit:
 
 This is the main mechanism that keeps future additions cheap and consistent.
 
+Kind-level system rules should also stay centralized instead of being redefined in scattered validators, scaffolders, and routing helpers. Future kind expansion should start from one governed definition surface, then let downstream tooling consume it.
+
+Lifecycle-level system rules should stay centralized too. Status semantics, review-governed coverage, runtime-proof-governed coverage, and evolution-action defaults should come from one governed definition surface instead of being redefined separately in CLI flows, validators, and readiness tooling.
+
+Capability-ratings system rules should stay centralized too. Rating buckets, next-batch promotion policy, mirrored ratings-doc sync behavior, and top-ready blocker construction should come from one governed definition surface instead of being redefined separately across CLI write paths, validators, self-smoke refresh flows, and top-tier promotion checks.
+
+Host-level system rules should stay centralized as well. Host-smoke policy tiers, host-smoke contract enums, governed runtime-proof eligibility, and host-writeability severity rules should come from one governed definition surface instead of being redefined separately across runtime validators, readiness artifacts, host-smoke runners, and recovery tooling.
+
+Derived-governance refresh rules should stay centralized too. The refresh order and rebuild semantics for runtime-proof promotion floors, review queue regeneration, capability-ratings sync, expert-source scorecards, host-smoke scorecards, investment backlog regeneration, and blocked-host export payloads should come from one governed definition surface instead of being redefined separately in self-smoke scripts, export paths, and future recovery helpers.
+
+Runtime-proof system rules should stay centralized too. Runtime-proof schema version, minimum contract floor, evidence-test requirement semantics, entry-construction rules, and host-smoke-backed proof-policy error semantics should come from one governed definition surface instead of being redefined separately across CLI write paths, validators, backlog synthesis, and lifecycle promotion checks.
+
+Expert-source family system rules should stay centralized too. Family status semantics, default-family constraints, future-family id rules, default integration/raw-root conventions, and experimental-pack include obligations should come from one governed definition surface instead of being redefined separately across integration validators, pack manifests, and `manage-skill` family CRUD flows.
+
+Generated governance artifact rules should stay centralized too. The governed artifact catalog, including artifact ids, relative paths, write modes, and derived-governance fingerprint participation, should come from one definition surface instead of being redefined separately across writeability probes, self-smoke refresh flows, readiness diagnostics, derived-governance exports, and recovery tooling.
+
 Future demand should also be governable before a concrete skill exists:
 
 - record missing long-horizon capabilities in the governed opportunity queue first
 - escalate from opportunity queue to admission only when the capability boundary is sharp enough to evaluate add-vs-reuse honestly
 - close the originating opportunity when a real skill is created so portfolio intent and implementation stay linked
+- keep future-skill pipeline semantics centralized too: opportunity status, admission decision action, admission blocking state, and pending-scaffold active state should come from one governed definition surface instead of being redefined separately across queue writers, backlog synthesis, host-evolution diagnostics, and registry validation
+- keep admission and evolution ledger semantics centralized too: ledger paths, schema versions, canonical entry normalization, and validation rules should come from one governed definition surface instead of being redefined separately across CLI write paths, validators, self-smoke refresh flows, and host diagnostics
 
 ## Add / Iterate / Remove Protocol
 

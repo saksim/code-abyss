@@ -73,6 +73,7 @@ Its valuable content has been internalized into capability modules inside `perso
 
 If you want the provenance map, read:
 
+- `registry/expert-source-families.generated.json`
 - `registry/top-developer-integration.generated.json`
 - `docs/TOP_DEVELOPER_EMBEDDING.md`
 

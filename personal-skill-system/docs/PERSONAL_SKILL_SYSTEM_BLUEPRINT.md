@@ -74,11 +74,16 @@ They should not replace the router.
 ### 7. Expert depth should be normalized
 
 When several expert sources overlap, merge them into one reusable reference instead of duplicating them across public skills.
+Raw expert-source trees such as `top_developer/` should be treated as governed extraction inputs.
+Register each family in `registry/expert-source-families.generated.json`, then attach its integration ledger and raw root there so future source families can enter governance without code changes:
+their coverage, provenance mapping, and unmapped remainder should stay inspectable from generated governance surfaces instead of hidden in notes.
 
 ### 8. The system must improve itself
 
 The bundle should contain a first-class path for evolving the skill system itself.
 That is the role of `skill-evolution`.
+Install and distribution flows should also surface the current host's self-evolution readiness immediately,
+so a newly installed runtime can explain blocked create/write capabilities before maintainers attempt the next mutation.
 
 ## Routing doctrine
 
@@ -114,6 +119,10 @@ The default should be to keep tiers 1 and 2 small and move density into tier 3.
 - `personal-core`: reusable self-evolving baseline bundle
   It should carry the minimum closed loop required to route, scaffold, validate, and govern future skill changes on another host:
   `skills/`, `templates/`, `registry/`, `benchmark/`, and the core bundle docs that explain the operating model.
+  When this baseline is installed to a host runtime, shipping only the public `skills/` tree is not enough for self-evolution;
+  the host must also receive the sibling `personal-skill-system/` bundle root or an equivalent layout that keeps `templates/`, `registry/`, `benchmark/`, and `docs/` available locally.
+  Install completion should run or expose host-evolution diagnostics from that installed bundle root,
+  and persist the result as an installation artifact so self-evolution debt is visible at distribution time instead of only inside later governance commands.
 - `project-overlay`: project-specific local constraints
 - `work-private`: private assets and internal knowledge
 - `experimental`: unstable ideas and staging area for promotion
@@ -130,6 +139,7 @@ A serious personal skill system should maintain at least:
 - stale review rhythm
 - collision detection
 - encoding hygiene for portable files
+- host-evolution diagnostics that explain when a runtime can no longer mutate the authoritative bundle and how deferred work should resume on a writable host
 
 ## Maturity model
 
@@ -157,6 +167,7 @@ A serious personal skill system should maintain at least:
 ### Level 5: Self-evolving system
 
 - the bundle can audit, redesign, and harden itself through first-class skills and governance loops
+- host-limited runtimes can still explain blocked self-evolution precisely, preserve scaffold intent, and hand work back to a writable runtime without losing governance history
 
 ## Current direction
 

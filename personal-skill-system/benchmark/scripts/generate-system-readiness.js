@@ -11,7 +11,7 @@ const {
 
 function parseArgs(argv) {
   const args = {
-    root: path.resolve(__dirname, '..'),
+    root: path.resolve(__dirname, '..', '..'),
     output: null
   };
 

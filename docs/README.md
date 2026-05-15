@@ -38,6 +38,7 @@
 | [PACK_MANIFEST_SCHEMA.md](./PACK_MANIFEST_SCHEMA.md) | pack manifest 应该怎么写 | 新增第三方 pack 的人 |
 | [PACKS_LOCK_SCHEMA.md](./PACKS_LOCK_SCHEMA.md) | 项目级 pack 启用策略怎么声明 | 维护仓库级 pack 策略的人 |
 | [SKILL_AUTHORING.md](./SKILL_AUTHORING.md) | `SKILL.md` frontmatter 与脚本规则是什么 | 维护 skill 的人 |
+| [SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md](../personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md) | 当前治理枚举、状态机、工件清单是什么 | 需要最新 token 集合的人 |
 
 ## 根目录文档如何分工
 

@@ -26,6 +26,11 @@ Important distinction:
 - whole-skill status is currently `33 / 0 / 0`
 - this snapshot has no remaining non-top skill under the current weak-model-uplift audit frame
 
+For ongoing portfolio review, also read:
+
+- `skills/routers/sage/references/skill-investment-backlog.generated.md`
+- `registry/skill-investment-backlog.generated.json`
+
 ## 1. 鏈疆鏀瑰姩鎬昏锛堜腑鑻卞弻璇Е鍙戣ˉ鍏級
 
 鏈疆宸插皢 `PERSONAL_SKILL_SYSTEM` 涓墍鏈変細褰卞搷瑙﹀彂鍒ゅ畾鐨勫叧閿潰缁熶竴涓轰腑鑻卞弻璇細

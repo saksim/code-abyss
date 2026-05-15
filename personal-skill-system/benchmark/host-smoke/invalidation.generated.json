@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-10T08:18:10.954Z",
+  "generated-at": "2026-05-15T09:50:59.455Z",
   "entries": [
     {
       "skill": "manage-skill",
@@ -32,6 +32,39 @@
       "host": "codex",
       "manifest": "skills/tools/manage-skill/scripts/smoke.json",
       "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725661Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-quality",
+      "run-id": "host-smoke-20260506T121836Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-15T09:50:59.446Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-quality/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T121836Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-quality",
+      "run-id": "host-smoke-20260506T122040Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-15T09:50:59.446Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-quality/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T122040Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-quality",
+      "run-id": "host-smoke-20260506T122051Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-15T09:50:59.446Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-quality/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T122051Z-codex.json",
       "invalidated-by": "manage-skill sync-runtime-proof",
       "note": "Current host-smoke contract no longer matches this artifact."
     },

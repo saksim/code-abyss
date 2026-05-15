@@ -1,5 +1,9 @@
 'use strict';
 
+const {
+  shouldAppearOnActiveRouteSurface
+} = require('./skill-kind-governance');
+
 const EXPLICIT_HINTS = [
   'use ',
   'run ',
@@ -658,11 +662,7 @@ function shouldRequireExplicitInvocation(record) {
 }
 
 function isRoutedSkillRecord(record) {
-  return !!record
-    && record.userInvocable
-    && record.kind !== 'router'
-    && record.kind !== 'adapter'
-    && record.status !== 'archived';
+  return shouldAppearOnActiveRouteSurface(record);
 }
 
 function validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, skillRecords, moduleNames, moduleGroups, findings, rel) {
@@ -679,7 +679,7 @@ function validateRouteMap(targetDir, routeMapPath, routeMapData, registryNames, 
     if (record && route.kind !== record.kind) {
       findings.push({ severity: 'error', file: rel(targetDir, routeMapPath), message: `route '${route.skill}' declares kind '${route.kind}' but skill metadata says '${record.kind}'` });
     }
-    if (record && (!record.userInvocable || record.kind === 'router' || record.kind === 'adapter')) {
+    if (record && !shouldAppearOnActiveRouteSurface(record)) {
       findings.push({ severity: 'error', file: rel(targetDir, routeMapPath), message: `skill '${route.skill}' should not appear on the active route surface` });
     }
     if (record && record.status === 'archived') {

@@ -3,11 +3,21 @@
 const fs = require('fs');
 const path = require('path');
 const { rel, parseJsonFile } = require('./skill-system-common');
-
-const PENDING_SCAFFOLD_REGISTRY_SCHEMA_VERSION = 1;
-const PENDING_SCAFFOLD_KINDS = new Set(['router', 'domain', 'workflow', 'tool', 'guard', 'adapter']);
-const PENDING_SCAFFOLD_STATUSES = new Set(['planned', 'in-progress', 'blocked', 'deferred']);
-const ACTIVE_PENDING_SCAFFOLD_STATUSES = new Set(['planned', 'in-progress', 'blocked', 'deferred']);
+const {
+  FUTURE_SKILL_KINDS,
+  PENDING_SCAFFOLD_STATUS_ORDER,
+  ACTIVE_PENDING_SCAFFOLD_STATUSES,
+  normalizeGovernedGeneratedAt,
+  buildGovernedFutureRegistryDocument,
+  buildStatusCountSummary,
+  normalizePendingScaffoldStatus,
+  isKnownPendingScaffoldStatus
+} = require('./skill-future-governance');
+const {
+  PENDING_SCAFFOLD_REGISTRY_SCHEMA_VERSION
+} = require('./skill-future-registry-schema-governance');
+const PENDING_SCAFFOLD_KINDS = FUTURE_SKILL_KINDS;
+const PENDING_SCAFFOLD_STATUSES = new Set(PENDING_SCAFFOLD_STATUS_ORDER);
 
 function normalizeString(value) {
   return String(value == null ? '' : value).trim();
@@ -15,11 +25,6 @@ function normalizeString(value) {
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
-}
-
-function normalizePendingScaffoldStatus(value) {
-  const normalized = normalizeString(value).toLowerCase();
-  return PENDING_SCAFFOLD_STATUSES.has(normalized) ? normalized : 'blocked';
 }
 
 function getPendingScaffoldRegistryPath(bundleRoot) {
@@ -178,40 +183,26 @@ function normalizePendingScaffoldEntries(entries) {
 }
 
 function summarizePendingScaffoldRegistry(entries) {
-  const summary = {
-    total: 0,
-    active: 0,
-    planned: 0,
-    'in-progress': 0,
-    blocked: 0,
-    deferred: 0
-  };
-
-  for (const entry of Array.isArray(entries) ? entries : []) {
-    const status = normalizePendingScaffoldStatus(entry && entry.status);
-    summary.total += 1;
-    summary[status] += 1;
-    if (ACTIVE_PENDING_SCAFFOLD_STATUSES.has(status)) {
-      summary.active += 1;
-    }
-  }
-
-  return summary;
+  return buildStatusCountSummary(
+    PENDING_SCAFFOLD_STATUS_ORDER,
+    entries,
+    normalizePendingScaffoldStatus,
+    (status) => ACTIVE_PENDING_SCAFFOLD_STATUSES.has(status)
+  );
 }
 
 function buildPendingScaffoldRegistry(entries, options = {}) {
-  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const now = normalizeGovernedGeneratedAt(options.now);
   const normalizedEntries = normalizePendingScaffoldEntries(entries);
-  return {
-    'schema-version': PENDING_SCAFFOLD_REGISTRY_SCHEMA_VERSION,
-    'generated-at': new Date(now).toISOString(),
-    source: 'managed-via-manage-skill',
-    summary: summarizePendingScaffoldRegistry(normalizedEntries),
-    entries: normalizedEntries
-  };
+  return buildGovernedFutureRegistryDocument(
+    PENDING_SCAFFOLD_REGISTRY_SCHEMA_VERSION,
+    normalizedEntries,
+    summarizePendingScaffoldRegistry(normalizedEntries),
+    { now }
+  );
 }
 
-function validatePendingScaffoldRegistry(bundleRoot, skillRecords, findings) {
+function validatePendingScaffoldRegistry(bundleRoot, skillRecords, findings, options = {}) {
   const file = getPendingScaffoldRegistryPath(bundleRoot);
   if (!fs.existsSync(file)) {
     return {
@@ -234,8 +225,9 @@ function validatePendingScaffoldRegistry(bundleRoot, skillRecords, findings) {
   }
 
   const actual = parsed.data || {};
-  const actualGeneratedAt = new Date(normalizeString(actual['generated-at']));
-  const now = Number.isNaN(actualGeneratedAt.getTime()) ? Date.now() : actualGeneratedAt.getTime();
+  const actualGeneratedAtText = normalizeString(actual['generated-at']);
+  const actualGeneratedAtMs = Date.parse(actualGeneratedAtText);
+  const now = Number.isFinite(actualGeneratedAtMs) ? actualGeneratedAtMs : Date.now();
   const expected = buildPendingScaffoldRegistry(actual.entries, { now });
   const comparableActual = {
     ...actual,
@@ -244,6 +236,20 @@ function validatePendingScaffoldRegistry(bundleRoot, skillRecords, findings) {
   const skillNames = new Set((Array.isArray(skillRecords) ? skillRecords : []).map((record) => normalizeString(record.name)));
   const seenIds = new Set();
   const seenSkills = new Set();
+  const opportunityIds = new Set(
+    Array.isArray(options.opportunityEntries)
+      ? options.opportunityEntries
+          .map((entry) => normalizeString(entry && entry['opportunity-id']))
+          .filter(Boolean)
+      : []
+  );
+  const admissionByRequestId = new Map(
+    Array.isArray(options.admissionEntries)
+      ? options.admissionEntries
+          .map((entry) => [normalizeString(entry && entry['request-id']), entry])
+          .filter(([requestId]) => requestId)
+      : []
+  );
 
   if (actual['schema-version'] !== PENDING_SCAFFOLD_REGISTRY_SCHEMA_VERSION) {
     findings.push({
@@ -261,7 +267,7 @@ function validatePendingScaffoldRegistry(bundleRoot, skillRecords, findings) {
     });
   }
 
-  if (Number.isNaN(actualGeneratedAt.getTime())) {
+  if (!actualGeneratedAtText || !Number.isFinite(actualGeneratedAtMs)) {
     findings.push({
       severity: 'error',
       file: rel(bundleRoot, file),
@@ -276,6 +282,8 @@ function validatePendingScaffoldRegistry(bundleRoot, skillRecords, findings) {
     const status = normalizePendingScaffoldStatus(entry && entry.status);
     const files = normalizePendingScaffoldFiles(entry && entry.files);
     const recordedAt = normalizeString(entry && entry['recorded-at']);
+    const requestId = normalizeString(entry && entry['request-id']);
+    const opportunityId = normalizeString(entry && entry['opportunity-id']);
 
     if (!pendingId) {
       findings.push({
@@ -339,6 +347,46 @@ function validatePendingScaffoldRegistry(bundleRoot, skillRecords, findings) {
         file: rel(bundleRoot, file),
         message: `pending scaffold '${pendingId}' has invalid recorded-at`
       });
+    }
+    if (requestId) {
+      const admissionEntry = admissionByRequestId.get(requestId) || null;
+      if (!admissionEntry) {
+        findings.push({
+          severity: 'error',
+          file: rel(bundleRoot, file),
+          message: `pending scaffold '${pendingId}' references unknown request-id '${requestId}'`
+        });
+      } else {
+        const admissionOpportunityId = normalizeString(admissionEntry['opportunity-id']);
+        const admissionStatus = normalizeString(admissionEntry.status);
+        if (opportunityId && admissionOpportunityId && opportunityId !== admissionOpportunityId) {
+          findings.push({
+            severity: 'error',
+            file: rel(bundleRoot, file),
+            message: `pending scaffold '${pendingId}' links opportunity-id '${opportunityId}' but admission request '${requestId}' is linked to '${admissionOpportunityId}'`
+          });
+        }
+        if (
+          ACTIVE_PENDING_SCAFFOLD_STATUSES.has(status)
+          && admissionStatus
+          && !['blocked', 'deferred', 'planned', 'in-progress', 'open'].includes(admissionStatus)
+        ) {
+          findings.push({
+            severity: 'error',
+            file: rel(bundleRoot, file),
+            message: `pending scaffold '${pendingId}' remains active while admission request '${requestId}' is '${admissionStatus}'`
+          });
+        }
+      }
+    }
+    if (opportunityId) {
+      if (!opportunityIds.has(opportunityId)) {
+        findings.push({
+          severity: 'error',
+          file: rel(bundleRoot, file),
+          message: `pending scaffold '${pendingId}' references unknown opportunity-id '${opportunityId}'`
+        });
+      }
     }
   }
 

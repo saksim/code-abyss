@@ -1,0 +1,144 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/expert-source-families.schema.json",
+  "title": "Portable Personal Skill Expert-Source Family Registry Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "families"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "title",
+          "source",
+          "label",
+          "rawSourceLabel",
+          "integrationFile",
+          "rawRoot",
+          "status",
+          "schemaVersion",
+          "integrationMode",
+          "expectedPortable",
+          "parseErrorSummary",
+          "unmappedSummaryTemplate",
+          "unmappedReason",
+          "staleReason",
+          "sourceDescription",
+          "backlogFollowUp"
+        ],
+        "properties": {
+          "id": {
+            "$ref": "#/$defs/registryId"
+          },
+          "title": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "source": {
+            "$ref": "#/$defs/registryId"
+          },
+          "label": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "rawSourceLabel": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "integrationFile": {
+            "$ref": "#/$defs/portablePath"
+          },
+          "rawRoot": {
+            "type": "string",
+            "minLength": 1
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "archived"
+            ]
+          },
+          "schemaVersion": {
+            "type": "integer",
+            "const": 2
+          },
+          "integrationMode": {
+            "type": "string",
+            "const": "capability-modules"
+          },
+          "expectedPortable": {
+            "type": "boolean"
+          },
+          "parseErrorSummary": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "unmappedSummaryTemplate": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "unmappedReason": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "staleReason": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "backlogFollowUp": {
+            "$ref": "#/$defs/stringList"
+          },
+          "sourceDescription": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "registryId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "stringList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "skillNameList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/skillName"
+      }
+    }
+  }
+}

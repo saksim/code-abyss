@@ -75,6 +75,7 @@ split by judgement task, not by original source file.
 
 The machine-readable source of truth for this split is now:
 
+- `registry/expert-source-families.generated.json`
 - `registry/top-developer-integration.generated.json`
 
 ## Pack strategy

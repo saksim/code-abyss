@@ -45,6 +45,7 @@ aliases: [skill-system-audit, 技能系统审计]
 - admission/evolution ledger integrity
 - future skill opportunity queue integrity
 - skill investment backlog integrity
+- expert-source family scorecard integrity
 - route-map completeness for user-invocable skills
 - reference link existence
 - runtime and script contract alignment
@@ -56,7 +57,7 @@ aliases: [skill-system-audit, 技能系统审计]
 ## Runtime Proof
 
 - `node scripts/run.js --target ./personal-skill-system --json` returns a structured bundle-health report with findings and metrics
-- governance drift in registry, route fixtures, future opportunity queue, investment backlog, stable skill standards, runtime host-smoke evidence, host writeability, or template integrity is reported as explicit findings
+- governance drift in registry, route fixtures, future opportunity queue, investment backlog, expert-source family scorecards, stable skill standards, runtime host-smoke evidence, host writeability, or template integrity is reported as explicit findings
 - `node scripts/run.js --target ./personal-skill-system --self-smoke --json` validates the tool on a temporary writable copy, so host-smoke can prove bundle-audit correctness even when the live host cannot rewrite every generated artifact in place
 
 ## Run

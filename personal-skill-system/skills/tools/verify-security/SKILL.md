@@ -5,7 +5,6 @@ scaffold-origin: tool-template
 scaffold-version: 1
 title: Verify Security Tool
 description: Rule-based security scan for dangerous patterns, trust-boundary violations, and common vulnerability clues. Use when the task is explicit security validation.
-
 kind: tool
 visibility: public
 user-invocable: true
@@ -18,7 +17,7 @@ executor: node
 permissions: [Read, Grep, Bash]
 risk-level: medium
 supported-hosts: [codex, claude, gemini]
-status: stable
+status: deprecated
 host-smoke-tier: standard
 host-smoke-target-level: declared-and-tested
 owner: self
@@ -27,7 +26,6 @@ review-cycle-days: 30
 tags: [tool, security]
 aliases: [vs, security-audit, 安全校验]
 ---
-
 # Verify Security Tool
 
 ## Read These References

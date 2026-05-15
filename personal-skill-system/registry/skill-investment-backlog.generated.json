@@ -1,31 +1,59 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-10T12:00:14.589Z",
+  "generated-at": "2026-05-15T12:45:36.717Z",
   "sources": {
     "skill-opportunity-queue": "registry/skill-opportunity-queue.generated.json",
     "admission-ledger": "registry/admission-ledger.generated.json",
     "evolution-ledger": "registry/evolution-ledger.generated.json",
     "review-queue": "registry/review-queue.generated.json",
+    "template-scaffolds": "templates/skill/**/SKILL.md",
+    "scaffold-lineage": "templates/skill/**/SKILL.md + skills/**/SKILL.md scaffold metadata",
     "pending-scaffolds": "registry/pending-scaffolds.generated.json",
+    "top-tier-readiness": "registry/capability-ratings.generated.json + registry/review-queue.generated.json + registry/route-fixtures.generated.json",
+    "proof-governance": "registry/runtime-proof.generated.json + benchmark/host-smoke/scorecard.generated.json",
+    "host-writeability": "live write-access probes across generated governance artifacts and authoritative skill tree",
     "capability-ratings": "registry/capability-ratings.generated.json",
     "route-fixtures": "registry/route-fixtures.generated.json",
     "runtime-proof": "registry/runtime-proof.generated.json",
     "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",
-    "authoritative-skills": "skills/**/SKILL.md"
+    "authoritative-skills": "skills/**/SKILL.md",
+    "top-developer-integration": "registry/top-developer-integration.generated.json + ../top_developer/**/SKILL.md when present"
   },
   "summary": {
     "total": 2,
-    "critical": 0,
-    "high": 2,
+    "critical": 1,
+    "high": 1,
     "normal": 0,
     "categories": {
-      "host-writeability": 2
+      "proof-governance": 1,
+      "host-writeability": 1
     },
     "sources": {
-      "host-writeability": 2
+      "proof-governance": 1,
+      "host-writeability": 1
     }
   },
   "items": [
+    {
+      "id": "proof-verify-quality",
+      "category": "proof-governance",
+      "status": "open",
+      "priority": "critical",
+      "source": "proof-governance",
+      "skill": "verify-quality",
+      "kind": "tool",
+      "summary": "Close proof-governance debt for 'verify-quality'.",
+      "reasons": [
+        "host-smoke-level:declared-and-tested",
+        "host-smoke-governance:not-host-smoked",
+        "host-smoke-evidence:stale"
+      ],
+      "follow_up": [
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-runtime-proof verify-quality",
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier verify-quality",
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js run-host-smoke verify-quality --host codex"
+      ]
+    },
     {
       "id": "host-writeability-authoritative-skill-create",
       "category": "host-writeability",
@@ -43,24 +71,6 @@
       "follow_up": [
         "node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --kind domain \"<request>\"",
         "node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain <skill-name> --scaffold-modules"
-      ]
-    },
-    {
-      "id": "host-writeability-system-readiness",
-      "category": "host-writeability",
-      "status": "open",
-      "priority": "high",
-      "source": "host-writeability",
-      "skill": null,
-      "kind": null,
-      "summary": "Restore host write access for 'system readiness artifact'.",
-      "reasons": [
-        "artifact:system-readiness",
-        "mode:rewrite-file",
-        "code:EPERM"
-      ],
-      "follow_up": [
-        "npm run verify:skill-system"
       ]
     }
   ]

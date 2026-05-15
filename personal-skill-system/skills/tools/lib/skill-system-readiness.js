@@ -9,6 +9,10 @@ const {
   collectGeneratedArtifactWriteability,
   probeDirectoryCreateAccess
 } = require('./skill-system-common');
+const {
+  getGovernanceArtifactPath,
+  getGovernanceArtifactRelativePath
+} = require('./skill-generated-artifact-governance');
 const { collectSkillRecords } = require('./skill-system-skills');
 const {
   getHostSmokeScorecardPath,
@@ -17,18 +21,72 @@ const {
 const {
   isGovernedRuntimeProofRecord,
   normalizeHostSmokePolicy,
-  deriveHostSmokePolicyFromRecord
-} = require('./skill-system-governance');
+  deriveHostSmokePolicyFromRecord,
+  HOST_SMOKE_POLICY_TIERS,
+  getHostWriteabilitySeverity,
+  AUTHORITATIVE_SKILL_TREE_CONSTRAINT
+} = require('./skill-host-governance');
 const {
   getReviewQueuePath,
   summarizeReviewQueue,
   buildReviewQueue,
   validateReviewQueue
 } = require('./skill-review-governance');
+const {
+  buildHostEvolutionReport,
+  getHostEvolutionPath
+} = require('./skill-system-host-evolution');
+const {
+  buildExpertSourceFamilyScorecard,
+  getExpertSourceFamilyScorecardPath
+} = require('./expert-source-integration');
+const {
+  shouldAppearOnActiveRouteSurface
+} = require('./skill-kind-governance');
 
 const SYSTEM_READINESS_SCHEMA_VERSION = 1;
-const HOST_SMOKE_POLICY_TIERS = new Set(['critical', 'standard', 'experimental']);
 const SYSTEM_READINESS_STATUSES = new Set(['ready', 'attention', 'blocked']);
+const SYSTEM_READINESS_STATUS_ORDER = Object.freeze([...SYSTEM_READINESS_STATUSES]);
+const SYSTEM_READINESS_SIGNAL_ORDER = Object.freeze([
+  'benchmark',
+  'route-evidence',
+  'runtime-proof',
+  'host-smoke',
+  'review-cadence',
+  'investment-backlog',
+  'expert-source-families',
+  'host-writeability'
+]);
+const SYSTEM_READINESS_HOST_SMOKE_SOURCE_KEYS = Object.freeze([
+  'benchmark-summary',
+  'host-smoke-scorecard',
+  'runtime-proof',
+  'route-fixtures',
+  'review-queue',
+  'skill-opportunity-queue',
+  'expert-source-family-scorecard',
+  'pending-scaffolds',
+  'skill-investment-backlog'
+]);
+const SYSTEM_READINESS_SUMMARY_KEYS = Object.freeze([
+  'live-scripted-skills',
+  'stable-user-invocable-skills',
+  'route-evidence-covered-skills',
+  'runtime-proof-entries',
+  'host-smoke-capable-skills',
+  'review-governed-skills',
+  'review-overdue-skills',
+  'review-due-soon-skills',
+  'review-missing-metadata-skills',
+  'investment-backlog-items',
+  'investment-backlog-critical',
+  'investment-backlog-high',
+  'active-expert-source-families',
+  'active-expert-source-unmapped-raw-sources',
+  'host-writeability-blocked-artifacts'
+]);
+const SYSTEM_READINESS_NOTES_MIN_ITEMS = 1;
+const SYSTEM_READINESS_BENCHMARK_SUMMARY_STATUS_ORDER = Object.freeze(['empty', 'ok', 'partial']);
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -43,19 +101,27 @@ function getBenchmarkSummarySchemaPath(bundleRoot) {
 }
 
 function getSystemReadinessPath(bundleRoot) {
-  return path.join(bundleRoot, 'benchmark', 'system-readiness.generated.json');
+  return getGovernanceArtifactPath(bundleRoot, 'system-readiness');
 }
 
 function getSystemReadinessSchemaPath(bundleRoot) {
   return path.join(bundleRoot, 'benchmark', 'system-readiness.schema.json');
 }
 
+function getHostEvolutionGeneratedPath(bundleRoot) {
+  return getHostEvolutionPath(bundleRoot);
+}
+
+function getHostEvolutionSchemaPath(bundleRoot) {
+  return path.join(bundleRoot, 'benchmark', 'host-evolution.schema.json');
+}
+
 function getRuntimeProofPath(bundleRoot) {
-  return path.join(bundleRoot, 'registry', 'runtime-proof.generated.json');
+  return getGovernanceArtifactPath(bundleRoot, 'runtime-proof');
 }
 
 function getRouteFixturesPath(bundleRoot) {
-  return path.join(bundleRoot, 'registry', 'route-fixtures.generated.json');
+  return getGovernanceArtifactPath(bundleRoot, 'route-fixtures');
 }
 
 function getReviewQueueGeneratedPath(bundleRoot) {
@@ -63,11 +129,11 @@ function getReviewQueueGeneratedPath(bundleRoot) {
 }
 
 function getSkillInvestmentBacklogPath(bundleRoot) {
-  return path.join(bundleRoot, 'registry', 'skill-investment-backlog.generated.json');
+  return getGovernanceArtifactPath(bundleRoot, 'skill-investment-backlog');
 }
 
 function getPendingScaffoldRegistryPath(bundleRoot) {
-  return path.join(bundleRoot, 'registry', 'pending-scaffolds.generated.json');
+  return getGovernanceArtifactPath(bundleRoot, 'pending-scaffolds');
 }
 
 function portablePath(bundleRoot, targetPath) {
@@ -235,9 +301,7 @@ function buildRouteEvidenceSignal(skillRecords, routeFixtures) {
   const stableUserInvocable = (Array.isArray(skillRecords) ? skillRecords : []).filter((record) =>
     record
     && record.status === 'stable'
-    && record.userInvocable
-    && record.kind !== 'router'
-    && record.kind !== 'adapter'
+    && shouldAppearOnActiveRouteSurface(record)
   );
 
   const fixtures = Array.isArray(routeFixtures) ? routeFixtures : [];
@@ -308,10 +372,11 @@ function buildHostWriteabilitySignal(bundleRoot) {
   const probes = collectGeneratedArtifactWriteability(bundleRoot);
   const skillCreateProbe = probeDirectoryCreateAccess(path.join(bundleRoot, 'skills', 'domains', `__create-probe__-${Date.now()}`));
   const failed = probes.filter((probe) => probe.ok !== true);
-  const critical = failed.filter((probe) => ['runtime-proof', 'host-smoke-scorecard', 'host-smoke-runtime-runs'].includes(probe.id)).length;
-  const createBlocked = skillCreateProbe.ok !== true ? 1 : 0;
-  const high = failed.filter((probe) => probe.id === 'system-readiness').length + createBlocked;
-  const normal = Math.max(failed.length - critical - (high - createBlocked), 0);
+  const counts = {
+    critical: 0,
+    high: 0,
+    normal: 0
+  };
 
   const artifacts = failed.map((probe) => ({
     id: probe.id,
@@ -319,24 +384,53 @@ function buildHostWriteabilitySignal(bundleRoot) {
     mode: probe.mode,
     code: probe.code || 'UNKNOWN'
   }));
+  for (const probe of failed) {
+    counts[getHostWriteabilitySeverity(probe.id)] += 1;
+  }
   if (!skillCreateProbe.ok) {
     artifacts.push({
-      id: 'authoritative-skill-tree',
-      label: 'authoritative skill tree create surface',
-      mode: 'create-child-directory',
+      id: AUTHORITATIVE_SKILL_TREE_CONSTRAINT.id,
+      label: AUTHORITATIVE_SKILL_TREE_CONSTRAINT.label,
+      mode: AUTHORITATIVE_SKILL_TREE_CONSTRAINT.mode,
       code: skillCreateProbe.code || 'UNKNOWN'
     });
+    counts[getHostWriteabilitySeverity(AUTHORITATIVE_SKILL_TREE_CONSTRAINT.id)] += 1;
   }
 
   return {
-    status: critical > 0 ? 'blocked' : (failed.length + createBlocked) > 0 ? 'attention' : 'ready',
+    status: counts.critical > 0 ? 'blocked' : artifacts.length > 0 ? 'attention' : 'ready',
     total: probes.length + 1,
     writable: (probes.length - failed.length) + (skillCreateProbe.ok ? 1 : 0),
-    blocked: failed.length + createBlocked,
-    critical,
-    high,
-    normal,
+    blocked: artifacts.length,
+    critical: counts.critical,
+    high: counts.high,
+    normal: counts.normal,
     artifacts
+  };
+}
+
+function buildExpertSourceFamiliesSignal(scorecard) {
+  const summary = isPlainObject(scorecard && scorecard.summary) ? scorecard.summary : {};
+  const activeFamilies = Number(summary['active-families'] || 0);
+  const parseErrors = Number(summary['active-families-with-parse-errors'] || 0);
+  const unmapped = Number(summary['active-unmapped-raw-sources'] || 0);
+  const stale = Number(summary['active-stale-mapped-sources'] || 0);
+  const missingIncludes = Number(summary['active-missing-pack-includes'] || 0);
+  const status = parseErrors > 0
+    ? 'blocked'
+    : (unmapped > 0 || stale > 0 || missingIncludes > 0)
+      ? 'attention'
+      : 'ready';
+
+  return {
+    status,
+    'total-families': Number(summary['total-families'] || 0),
+    'active-families': activeFamilies,
+    'archived-families': Number(summary['archived-families'] || 0),
+    'active-parse-errors': parseErrors,
+    'active-unmapped-raw-sources': unmapped,
+    'active-stale-mapped-sources': stale,
+    'active-missing-pack-includes': missingIncludes
   };
 }
 
@@ -373,6 +467,8 @@ function buildSystemReadiness(bundleRoot, context = {}) {
     : runtimeProofs.filter((proof) => proof && proof['host-smoke']);
   const reviewQueue = context.reviewQueue || buildReviewQueue(bundleRoot, skillRecords, { now });
   const investmentBacklog = context.investmentBacklog || parseJsonFile(getSkillInvestmentBacklogPath(bundleRoot)).data || { summary: { total: 0, critical: 0, high: 0, normal: 0 } };
+  const expertSourceFamilyScorecard = context.expertSourceFamilyScorecard
+    || buildExpertSourceFamilyScorecard(bundleRoot, context.registryData || {}, { now });
 
   const scorecard = context.hostSmokeScorecard || buildHostSmokeScorecard(bundleRoot, hostSmokeProofs, { now });
   const policyEntries = normalizeHostSmokePolicyEntries(scorecard, runtimeProofs, skillRecords);
@@ -384,6 +480,7 @@ function buildSystemReadiness(bundleRoot, context = {}) {
   const hostSmokeSignal = buildHostSmokeSignal(scorecard, policyEntries);
   const reviewCadenceSignal = buildReviewCadenceSignal(reviewQueue);
   const investmentBacklogSignal = buildInvestmentBacklogSignal(investmentBacklog);
+  const expertSourceFamiliesSignal = buildExpertSourceFamiliesSignal(expertSourceFamilyScorecard);
   const hostWriteabilitySignal = buildHostWriteabilitySignal(bundleRoot);
   const overallStatus = classifyReadinessStatus([
     benchmarkSignal.status,
@@ -392,6 +489,7 @@ function buildSystemReadiness(bundleRoot, context = {}) {
     hostSmokeSignal.status,
     reviewCadenceSignal.status,
     investmentBacklogSignal.status,
+    expertSourceFamiliesSignal.status,
     hostWriteabilitySignal.status
   ]);
 
@@ -401,10 +499,11 @@ function buildSystemReadiness(bundleRoot, context = {}) {
     sources: {
       'benchmark-summary': portablePath(bundleRoot, getBenchmarkSummaryPath(bundleRoot)),
       'host-smoke-scorecard': portablePath(bundleRoot, getHostSmokeScorecardPath(bundleRoot)),
-      'runtime-proof': 'registry/runtime-proof.generated.json',
-      'route-fixtures': 'registry/route-fixtures.generated.json',
+      'runtime-proof': getGovernanceArtifactRelativePath('runtime-proof'),
+      'route-fixtures': getGovernanceArtifactRelativePath('route-fixtures'),
       'review-queue': portablePath(bundleRoot, getReviewQueueGeneratedPath(bundleRoot)),
-      'skill-opportunity-queue': portablePath(bundleRoot, path.join(bundleRoot, 'registry', 'skill-opportunity-queue.generated.json')),
+      'skill-opportunity-queue': getGovernanceArtifactRelativePath('skill-opportunity-queue'),
+      'expert-source-family-scorecard': portablePath(bundleRoot, getExpertSourceFamilyScorecardPath(bundleRoot)),
       'pending-scaffolds': portablePath(bundleRoot, getPendingScaffoldRegistryPath(bundleRoot)),
       'skill-investment-backlog': portablePath(bundleRoot, getSkillInvestmentBacklogPath(bundleRoot))
     },
@@ -416,6 +515,7 @@ function buildSystemReadiness(bundleRoot, context = {}) {
       'host-smoke': hostSmokeSignal,
       'review-cadence': reviewCadenceSignal,
       'investment-backlog': investmentBacklogSignal,
+      'expert-source-families': expertSourceFamiliesSignal,
       'host-writeability': hostWriteabilitySignal
     },
     'host-smoke-policy': policyEntries,
@@ -432,10 +532,12 @@ function buildSystemReadiness(bundleRoot, context = {}) {
       'investment-backlog-items': Number((investmentBacklogSignal && investmentBacklogSignal.total) || 0),
       'investment-backlog-critical': Number((investmentBacklogSignal && investmentBacklogSignal.critical) || 0),
       'investment-backlog-high': Number((investmentBacklogSignal && investmentBacklogSignal.high) || 0),
+      'active-expert-source-families': Number((expertSourceFamiliesSignal && expertSourceFamiliesSignal['active-families']) || 0),
+      'active-expert-source-unmapped-raw-sources': Number((expertSourceFamiliesSignal && expertSourceFamiliesSignal['active-unmapped-raw-sources']) || 0),
       'host-writeability-blocked-artifacts': Number((hostWriteabilitySignal && hostWriteabilitySignal.blocked) || 0)
     },
     notes: [
-      'Generated from benchmark summary, route fixtures, runtime proof registry, host-smoke scorecard, review queue, skill opportunity queue, pending scaffold registry, and skill investment backlog.',
+      'Generated from benchmark summary, route fixtures, runtime proof registry, host-smoke scorecard, review queue, skill opportunity queue, expert-source family scorecard, pending scaffold registry, and skill investment backlog.',
       'Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter.',
       'Generated artifact writeability is tracked separately so host-level execution constraints do not get mistaken for skill-content defects.'
     ]
@@ -444,11 +546,27 @@ function buildSystemReadiness(bundleRoot, context = {}) {
 
 function writeSystemReadiness(bundleRoot, context = {}) {
   const baseContext = collectSystemReadinessContext(bundleRoot);
-  const payload = buildSystemReadiness(bundleRoot, {
+  const mergedContext = {
     ...baseContext,
     ...context
-  });
+  };
+  const payload = buildSystemReadiness(bundleRoot, mergedContext);
   const file = getSystemReadinessPath(bundleRoot);
+  fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  const hostEvolution = writeHostEvolution(bundleRoot, {
+    ...mergedContext,
+    report: buildHostEvolutionReport(bundleRoot, mergedContext)
+  });
+  return {
+    file,
+    payload,
+    hostEvolution
+  };
+}
+
+function writeHostEvolution(bundleRoot, context = {}) {
+  const payload = context.report || buildHostEvolutionReport(bundleRoot, context);
+  const file = getHostEvolutionGeneratedPath(bundleRoot);
   fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
   return {
     file,
@@ -535,23 +653,89 @@ function validateSystemReadiness(bundleRoot, findings, context = {}) {
   }
 }
 
+function validateHostEvolution(bundleRoot, findings, context = {}) {
+  const schemaPath = getHostEvolutionSchemaPath(bundleRoot);
+  const schema = parseJsonFile(schemaPath);
+  if (schema.error) {
+    findings.push({
+      severity: 'warning',
+      file: portablePath(bundleRoot, schemaPath),
+      message: `host evolution schema parse failed: ${schema.error}`
+    });
+  }
+
+  const reportPath = getHostEvolutionGeneratedPath(bundleRoot);
+  const parsed = parseJsonFile(reportPath);
+  if (parsed.error) {
+    findings.push({
+      severity: 'warning',
+      file: portablePath(bundleRoot, reportPath),
+      message: `host evolution report parse failed: ${parsed.error}`
+    });
+    return;
+  }
+
+  const actual = parsed.data || {};
+  const actualGeneratedAt = new Date(String(actual['generated-at'] || '').trim());
+  const now = Number.isNaN(actualGeneratedAt.getTime()) ? Date.now() : actualGeneratedAt.getTime();
+  const expected = buildHostEvolutionReport(bundleRoot, {
+    ...context,
+    now
+  });
+
+  if (actual['schema-version'] !== expected['schema-version']) {
+    findings.push({
+      severity: 'error',
+      file: portablePath(bundleRoot, reportPath),
+      message: `host evolution report has unsupported schema-version '${actual['schema-version']}'`
+    });
+  }
+
+  const comparableActual = {
+    ...actual,
+    'generated-at': expected['generated-at']
+  };
+
+  if (JSON.stringify(comparableActual) !== JSON.stringify(expected)) {
+    const probe = probeArtifactWriteAccess(reportPath, { mode: 'rewrite-file' });
+    findings.push({
+      severity: probe.ok ? 'error' : 'warning',
+      file: portablePath(bundleRoot, reportPath),
+      message: probe.ok
+        ? 'host evolution report is out of sync with live host constraints, backlog debt, or pending scaffold state'
+        : `host evolution report is out of sync with live host constraints, backlog debt, or pending scaffold state, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
+    });
+  }
+}
+
 function validateReviewCadence(bundleRoot, findings, context = {}) {
   return validateReviewQueue(bundleRoot, context.skillRecords || [], findings, context);
 }
 
 module.exports = {
   SYSTEM_READINESS_SCHEMA_VERSION,
+  SYSTEM_READINESS_STATUS_ORDER,
+  SYSTEM_READINESS_SIGNAL_ORDER,
+  SYSTEM_READINESS_HOST_SMOKE_SOURCE_KEYS,
+  SYSTEM_READINESS_SUMMARY_KEYS,
+  SYSTEM_READINESS_NOTES_MIN_ITEMS,
+  SYSTEM_READINESS_BENCHMARK_SUMMARY_STATUS_ORDER,
   getBenchmarkSummaryPath,
   getBenchmarkSummarySchemaPath,
   getSystemReadinessPath,
   getSystemReadinessSchemaPath,
+  getHostEvolutionGeneratedPath,
+  getHostEvolutionSchemaPath,
   getReviewQueueGeneratedPath,
   determineHostSmokePolicyExpectation,
   normalizeHostSmokePolicyEntries,
   buildSystemReadiness,
+  buildHostEvolutionReport,
   collectSystemReadinessContext,
   writeSystemReadiness,
+  writeHostEvolution,
   validateBenchmarkSummary,
   validateSystemReadiness,
+  validateHostEvolution,
   validateReviewCadence
 };

@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/evolution-ledger.schema.json",
+  "title": "Portable Personal Skill Evolution Ledger Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "source",
+    "summary",
+    "entries"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 2
+    },
+    "generated-at": {
+      "$ref": "#/$defs/isoDateTime"
+    },
+    "source": {
+      "type": "string",
+      "const": "managed-via-manage-skill"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "active",
+        "open",
+        "implemented",
+        "resolved",
+        "advised-noop"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "open": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "implemented": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "resolved": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "advised-noop": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "request-id",
+          "skill",
+          "request",
+          "decision",
+          "status",
+          "recorded-at"
+        ],
+        "properties": {
+          "request-id": {
+            "$ref": "#/$defs/registryId"
+          },
+          "skill": {
+            "$ref": "#/$defs/skillName"
+          },
+          "request": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "decision": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "action"
+            ],
+            "properties": {
+              "action": {
+                "type": "string",
+                "enum": [
+                  "status-already-correct",
+                  "upgrade-existing-skill",
+                  "promote-to-stable",
+                  "deprecate-skill",
+                  "archive-skill",
+                  "delete-skill",
+                  "merge-into-skill"
+                ]
+              },
+              "target_status": {
+                "type": "string",
+                "enum": [
+                  "draft",
+                  "experimental",
+                  "stable",
+                  "deprecated",
+                  "archived",
+                  "deleted"
+                ]
+              },
+              "target_skill": {
+                "$ref": "#/$defs/skillName"
+              },
+              "note": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            }
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "open",
+              "implemented",
+              "resolved",
+              "advised-noop"
+            ]
+          },
+          "recorded-at": {
+            "$ref": "#/$defs/isoDateTime"
+          },
+          "resolved-at": {
+            "$ref": "#/$defs/isoDateTime"
+          },
+          "executed-action": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "result-status": {
+            "type": "string",
+            "enum": [
+              "draft",
+              "experimental",
+              "stable",
+              "deprecated",
+              "archived",
+              "deleted"
+            ]
+          },
+          "merged-into": {
+            "$ref": "#/$defs/skillName"
+          },
+          "note": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "registryId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "tag": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

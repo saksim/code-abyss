@@ -24,6 +24,7 @@ const { validateRouteMap, validateRouteFixtures, validateGovernedRouteFixtures, 
 const {
   validateBenchmarkSummary,
   validateSystemReadiness,
+  validateHostEvolution,
   validateReviewCadence
 } = require('./skill-system-readiness');
 const {
@@ -39,7 +40,75 @@ const {
   isGovernedRuntimeProofRecord,
   normalizeHostSmokePolicy,
   hostSmokePoliciesEqual
-} = require('./skill-system-governance');
+} = require('./skill-host-governance');
+const {
+  RUNTIME_PROOF_LEVELS,
+  getSkillLevelBucketForStatus
+} = require('./skill-lifecycle-governance');
+const {
+  shouldAppearInSkillLevelSummary
+} = require('./skill-kind-governance');
+const {
+  RUNTIME_PROOF_SCHEMA_VERSION,
+  MIN_RUNTIME_PROOF_CONTRACTS,
+  normalizeEvidenceTests,
+  hasRequiredRuntimeProofEvidenceTests
+} = require('./skill-runtime-proof-governance');
+const {
+  CAPABILITY_RATING_BUCKET_SEQUENCE,
+  CAPABILITY_NEXT_BATCH_BUCKET_SEQUENCE,
+  SKILL_LEVEL_SUMMARY_BUCKETS,
+  STABLE_TOP_TIER_BLOCKER_COUNT_FIELDS,
+  EMPTY_NEXT_BATCH_LINE,
+  summarizeBlockingReviewDebt,
+  buildCapabilityModuleTopReadyBlockers,
+  buildCapabilityRatingsDocSnapshot,
+  getCapabilityRatingsDocPath,
+  getCapabilityRatingsPath
+} = require('./skill-capability-ratings-governance');
+const {
+  validateCapabilityRatingsSchema
+} = require('./skill-capability-ratings-schema-governance');
+const {
+  validateAdmissionLedger,
+  validateEvolutionLedger,
+  collectDeleteEvidenceBySkill
+} = require('./skill-ledger-governance');
+const {
+  buildDeleteDependencySummary
+} = require('./skill-delete-governance');
+const {
+  validateExpertSourceIntegrations,
+  validateExpertSourceFamilyScorecard,
+  buildExpertSourceTopTierBlockerMap
+} = require('./expert-source-integration');
+const {
+  validateExpertSourceSchemas
+} = require('./skill-expert-source-schema-governance');
+const {
+  validateSkillRegistry
+} = require('./skill-registry-governance');
+const {
+  validateSkillCatalog
+} = require('./skill-registry-governance');
+const {
+  validateAuthoringGovernanceReference
+} = require('./skill-authoring-governance');
+const {
+  validateSkillFrontmatterSchema
+} = require('./skill-frontmatter-schema-governance');
+const {
+  validateFutureRegistrySchemas
+} = require('./skill-future-registry-schema-governance');
+const {
+  validateSkillInvestmentBacklogSchema
+} = require('./skill-investment-backlog-schema-governance');
+const {
+  validateReviewQueueSchema
+} = require('./skill-review-queue-schema-governance');
+const {
+  validateReadinessSchemas
+} = require('./skill-readiness-schema-governance');
 
 function validateRegistryEntries(targetDir, registryPath, registryData, skillRecords, findings) {
   const registrySkills = Array.isArray(registryData && registryData.skills) ? registryData.skills : [];
@@ -62,197 +131,6 @@ function validateRegistryEntries(targetDir, registryPath, registryData, skillRec
     registrySkills,
     registryNames
   };
-}
-
-function validateAdmissionLedger(targetDir, skillRecords, findings) {
-  const ledgerPath = path.join(targetDir, 'registry', 'admission-ledger.generated.json');
-  const parsed = parseJsonFile(ledgerPath);
-  if (parsed.error) {
-    findings.push({
-      severity: 'error',
-      file: rel(targetDir, ledgerPath),
-      message: `admission ledger parse failed: ${parsed.error}`
-    });
-    return { entries: [] };
-  }
-
-  const data = parsed.data || {};
-  const entries = Array.isArray(data.entries) ? data.entries : [];
-  const requestIds = new Set();
-  const skillNames = new Set((Array.isArray(skillRecords) ? skillRecords : []).map((record) => record.name));
-  const opportunityQueuePath = path.join(targetDir, 'registry', 'skill-opportunity-queue.generated.json');
-  const opportunityQueue = parseJsonFile(opportunityQueuePath);
-  const opportunityIds = new Set(
-    Array.isArray(opportunityQueue.data && opportunityQueue.data.entries)
-      ? opportunityQueue.data.entries
-          .map((entry) => String(entry && entry['opportunity-id'] || '').trim())
-          .filter(Boolean)
-      : []
-  );
-
-  if (data['schema-version'] !== 1) {
-    findings.push({
-      severity: 'error',
-      file: rel(targetDir, ledgerPath),
-      message: `admission ledger has unsupported schema-version '${data['schema-version']}'`
-    });
-  }
-
-  for (const entry of entries) {
-    const requestId = String(entry && entry['request-id'] || '').trim();
-    const request = String(entry && entry.request || '').trim();
-    const recordedAt = String(entry && entry['recorded-at'] || '').trim();
-    const decisionAction = String(entry && entry.decision && entry.decision.action || '').trim();
-    const status = String(entry && entry.status || '').trim();
-    const opportunityId = String(entry && entry['opportunity-id'] || '').trim();
-
-    if (!requestId) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: 'admission ledger entry is missing request-id' });
-      continue;
-    }
-    if (requestIds.has(requestId)) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger duplicates request-id '${requestId}'` });
-      continue;
-    }
-    requestIds.add(requestId);
-
-    if (!request) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' is missing request text` });
-    }
-    if (!decisionAction) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' is missing decision.action` });
-    }
-    if (!recordedAt || Number.isNaN(Date.parse(recordedAt))) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' has invalid recorded-at` });
-    }
-    if (entry && entry['resolved-at'] && Number.isNaN(Date.parse(String(entry['resolved-at'])))) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' has invalid resolved-at` });
-    }
-    if (opportunityId && !opportunityIds.has(opportunityId)) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `admission ledger entry '${requestId}' references unknown opportunity-id '${opportunityId}'` });
-    }
-    if (status === 'implemented') {
-      const createdSkill = String(entry && entry['created-skill'] || '').trim();
-      if (!createdSkill) {
-        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented admission ledger entry '${requestId}' is missing created-skill` });
-      } else if (!skillNames.has(createdSkill)) {
-        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented admission ledger entry '${requestId}' references unknown created-skill '${createdSkill}'` });
-      }
-    }
-    if (decisionAction === 'create-new-skill' && status === 'open') {
-      findings.push({ severity: 'warning', file: rel(targetDir, ledgerPath), message: `admission request '${requestId}' still recommends creating a new skill and remains open` });
-    }
-  }
-
-  return { entries };
-}
-
-function validateEvolutionLedger(targetDir, skillRecords, findings) {
-  const ledgerPath = path.join(targetDir, 'registry', 'evolution-ledger.generated.json');
-  const parsed = parseJsonFile(ledgerPath);
-  if (parsed.error) {
-    findings.push({
-      severity: 'error',
-      file: rel(targetDir, ledgerPath),
-      message: `evolution ledger parse failed: ${parsed.error}`
-    });
-    return { entries: [] };
-  }
-
-  const data = parsed.data || {};
-  const entries = Array.isArray(data.entries) ? data.entries : [];
-  const requestIds = new Set();
-  const skillNames = new Set((Array.isArray(skillRecords) ? skillRecords : []).map((record) => record.name));
-
-  if (data['schema-version'] !== 1) {
-    findings.push({
-      severity: 'error',
-      file: rel(targetDir, ledgerPath),
-      message: `evolution ledger has unsupported schema-version '${data['schema-version']}'`
-    });
-  }
-
-  for (const entry of entries) {
-    const requestId = String(entry && entry['request-id'] || '').trim();
-    const skill = String(entry && entry.skill || '').trim();
-    const request = String(entry && entry.request || '').trim();
-    const recordedAt = String(entry && entry['recorded-at'] || '').trim();
-    const decisionAction = String(entry && entry.decision && entry.decision.action || '').trim();
-    const status = String(entry && entry.status || '').trim();
-    const targetStatus = String(entry && entry.decision && entry.decision.target_status || '').trim();
-
-    if (!requestId) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: 'evolution ledger entry is missing request-id' });
-      continue;
-    }
-    if (requestIds.has(requestId)) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger duplicates request-id '${requestId}'` });
-      continue;
-    }
-    requestIds.add(requestId);
-
-    if (!skill) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' is missing skill` });
-    } else if (
-      !skillNames.has(skill)
-      && !['implemented', 'resolved', 'advised-noop'].includes(status)
-      && String(entry && entry['result-status'] || '').trim() !== 'deleted'
-    ) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' references unknown skill '${skill}'` });
-    }
-    if (!request) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' is missing request text` });
-    }
-    if (!decisionAction) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' is missing decision.action` });
-    }
-    if (!recordedAt || Number.isNaN(Date.parse(recordedAt))) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has invalid recorded-at` });
-    }
-    if (entry && entry['resolved-at'] && Number.isNaN(Date.parse(String(entry['resolved-at'])))) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has invalid resolved-at` });
-    }
-    if (decisionAction && ![
-      'status-already-correct',
-      'upgrade-existing-skill',
-      'promote-to-stable',
-      'deprecate-skill',
-      'archive-skill',
-      'delete-skill',
-      'merge-into-skill'
-    ].includes(decisionAction)) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has unsupported decision.action '${decisionAction}'` });
-    }
-    if (targetStatus && !['draft', 'experimental', 'stable', 'deprecated', 'archived', 'deleted'].includes(targetStatus)) {
-      findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger entry '${requestId}' has unsupported decision.target_status '${targetStatus}'` });
-    }
-    if (decisionAction === 'merge-into-skill') {
-      const targetSkill = String(entry && entry.decision && entry.decision.target_skill || '').trim();
-      if (!targetSkill) {
-        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger merge entry '${requestId}' is missing decision.target_skill` });
-      } else if (!skillNames.has(targetSkill)) {
-        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `evolution ledger merge entry '${requestId}' references unknown target_skill '${targetSkill}'` });
-      }
-    }
-    if (status === 'implemented') {
-      const executedAction = String(entry && entry['executed-action'] || '').trim();
-      const resultStatus = String(entry && entry['result-status'] || '').trim();
-      if (!executedAction) {
-        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented evolution ledger entry '${requestId}' is missing executed-action` });
-      }
-      if (!resultStatus) {
-        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented evolution ledger entry '${requestId}' is missing result-status` });
-      }
-      if (resultStatus && resultStatus !== 'deleted' && !skillNames.has(skill)) {
-        findings.push({ severity: 'error', file: rel(targetDir, ledgerPath), message: `implemented evolution ledger entry '${requestId}' references missing skill '${skill}' for non-delete result` });
-      }
-    }
-    if (status === 'open' && decisionAction !== 'status-already-correct') {
-      findings.push({ severity: 'warning', file: rel(targetDir, ledgerPath), message: `evolution request '${requestId}' for '${skill || 'unknown'}' remains open` });
-    }
-  }
-
-  return { entries };
 }
 
 function validateModuleGroups(targetDir, registryPath, registryData, registryNames, findings) {
@@ -283,8 +161,8 @@ function validateModuleGroups(targetDir, registryPath, registryData, registryNam
   };
 }
 
-function validateCapabilityRatings(targetDir, skillRecords, moduleNames, findings) {
-  const ratingsPath = path.join(targetDir, 'registry', 'capability-ratings.generated.json');
+function validateCapabilityRatings(targetDir, skillRecords, moduleNames, findings, options = {}) {
+  const ratingsPath = getCapabilityRatingsPath(targetDir);
   const ratings = parseJsonFile(ratingsPath);
   if (ratings.error) {
     findings.push({ severity: 'warning', file: rel(targetDir, ratingsPath), message: `capability ratings parse failed: ${ratings.error}` });
@@ -295,9 +173,14 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
   const buckets = data['rating-buckets'] || {};
   const ratedModules = new Set();
   const moduleRatingsBySkill = new Map();
+  const registryData = validateSkillRegistry(targetDir, []);
+  const expertSourceTopTierState = options.expertSourceTopTierState
+    || buildExpertSourceTopTierBlockerMap(targetDir, registryData, {
+      integrations: options.expertSourceIntegrations
+    });
   const moduleGroups = new Map(
-    (Array.isArray(parseJsonFile(path.join(targetDir, 'registry', 'registry.generated.json')).data?.['module-groups'])
-      ? parseJsonFile(path.join(targetDir, 'registry', 'registry.generated.json')).data['module-groups']
+    (Array.isArray(registryData && registryData['module-groups'])
+      ? registryData['module-groups']
       : []
     ).map((group) => [
       String(group && group['host-skill'] || '').trim(),
@@ -308,7 +191,7 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
         : []
     ])
   );
-  for (const bucketName of ['top-ready', 'strong-but-not-top', 'thin']) {
+  for (const bucketName of CAPABILITY_RATING_BUCKET_SEQUENCE.slice().reverse()) {
     for (const moduleId of Array.isArray(buckets[bucketName]) ? buckets[bucketName] : []) {
       if (ratedModules.has(moduleId)) {
         findings.push({ severity: 'error', file: rel(targetDir, ratingsPath), message: `capability module '${moduleId}' is duplicated across rating buckets` });
@@ -326,20 +209,7 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
     if (ownedModules.length < 1) {
       continue;
     }
-    const nonTopModules = ownedModules
-      .map((moduleId) => {
-        if ((Array.isArray(buckets['top-ready']) ? buckets['top-ready'] : []).includes(moduleId)) {
-          return { module: moduleId, rating: 'top-ready' };
-        }
-        if ((Array.isArray(buckets['strong-but-not-top']) ? buckets['strong-but-not-top'] : []).includes(moduleId)) {
-          return { module: moduleId, rating: 'strong-but-not-top' };
-        }
-        if ((Array.isArray(buckets.thin) ? buckets.thin : []).includes(moduleId)) {
-          return { module: moduleId, rating: 'thin' };
-        }
-        return { module: moduleId, rating: 'unrated' };
-      })
-      .filter((item) => item.rating !== 'top-ready');
+    const nonTopModules = buildCapabilityModuleTopReadyBlockers(data, ownedModules);
 
     moduleRatingsBySkill.set(record.name, ownedModules);
 
@@ -348,6 +218,15 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
         severity: 'error',
         file: rel(targetDir, ratingsPath),
         message: `stable skill '${record.name}' has non-top-ready capability modules: ${nonTopModules.map((item) => `${item.module} (${item.rating})`).join(', ')}`
+      });
+    }
+
+    const expertSourceBlockers = expertSourceTopTierState.blockersBySkill.get(String(record.name || '').trim()) || [];
+    for (const blocker of expertSourceBlockers) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: `stable skill '${record.name}' is blocked by expert-source governance: ${blocker.message}`
       });
     }
   }
@@ -363,7 +242,9 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
     findings.push({ severity: 'warning', file: rel(targetDir, ratingsPath), message: `capability ratings total (${counts.total || 0}) does not match rated module count (${ratedModules.size})` });
   }
 
-  validateSkillLevelSummary(targetDir, ratingsPath, data, skillRecords, findings);
+  validateSkillLevelSummary(targetDir, ratingsPath, data, skillRecords, findings, {
+    expertSourceTopTierState
+  });
   validateCapabilityNextBatch(targetDir, ratingsPath, data, moduleNames, findings);
   validateCapabilityRatingsDoc(targetDir, ratingsPath, data, findings);
 
@@ -375,20 +256,20 @@ function validateCapabilityRatings(targetDir, skillRecords, moduleNames, finding
   };
 }
 
-function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRecords, findings) {
+function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRecords, findings, options = {}) {
   const summary = ratingsData['skill-level-summary'];
   if (!summary) {
     findings.push({ severity: 'warning', file: rel(targetDir, ratingsPath), message: 'capability ratings are missing skill-level-summary' });
     return;
   }
 
-  const activeSkills = skillRecords.filter((record) => record.status !== 'archived' && record.kind !== 'adapter');
-  const activeNames = new Set(activeSkills.map((record) => record.name));
-  const bucketNames = [
-    'top-level-enough-now',
-    'strong-uplift-but-not-top-yet',
-    'useful-overlay-not-top-level-alone',
-  ];
+  const ratedSkills = skillRecords.filter((record) =>
+    record
+    && shouldAppearInSkillLevelSummary(record)
+    && getSkillLevelBucketForStatus(record.status)
+  );
+  const ratedNames = new Set(ratedSkills.map((record) => record.name));
+  const bucketNames = [...SKILL_LEVEL_SUMMARY_BUCKETS];
   const seen = new Map();
   const membership = new Map();
 
@@ -405,7 +286,7 @@ function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRec
       }
       seen.set(skillName, bucketName);
       membership.set(skillName, bucketName);
-      if (!activeNames.has(skillName)) {
+      if (!ratedNames.has(skillName)) {
         findings.push({
           severity: 'error',
           file: rel(targetDir, ratingsPath),
@@ -415,7 +296,7 @@ function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRec
     }
   }
 
-  for (const record of activeSkills) {
+  for (const record of ratedSkills) {
     if (!membership.has(record.name)) {
       findings.push({
         severity: 'error',
@@ -424,11 +305,15 @@ function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRec
       });
       continue;
     }
-    if (record.status === 'stable' && membership.get(record.name) !== 'top-level-enough-now') {
+    if (
+      record.status === 'stable'
+      && membership.get(record.name) !== 'top-level-enough-now'
+      && membership.get(record.name) !== 'strong-uplift-but-not-top-yet'
+    ) {
       findings.push({
         severity: 'error',
         file: rel(targetDir, ratingsPath),
-        message: `stable skill '${record.name}' must be rated in 'top-level-enough-now'`
+        message: `stable skill '${record.name}' must be rated in 'top-level-enough-now' or 'strong-uplift-but-not-top-yet'`
       });
     }
   }
@@ -458,12 +343,27 @@ function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRec
   }
 
   const declaredTotal = Number(countFields['total-skills-rated'] || 0);
-  if (declaredTotal !== activeSkills.length) {
+  if (declaredTotal !== ratedSkills.length) {
     findings.push({
       severity: 'error',
       file: rel(targetDir, ratingsPath),
-      message: `skill-level-summary total (${declaredTotal}) does not match active skill count (${activeSkills.length})`
+      message: `skill-level-summary total (${declaredTotal}) does not match rated skill count (${ratedSkills.length})`
     });
+  }
+
+  const expectedReviewDebt = summarizeBlockingReviewDebt(skillRecords, {
+    expertSourceBlockersBySkill: options.expertSourceTopTierState && options.expertSourceTopTierState.blockersBySkill
+  });
+  for (const field of STABLE_TOP_TIER_BLOCKER_COUNT_FIELDS) {
+    const expected = Number(expectedReviewDebt[field] || 0);
+    const declared = Number(countFields[field] || 0);
+    if (declared !== expected) {
+      findings.push({
+        severity: 'error',
+        file: rel(targetDir, ratingsPath),
+        message: `skill-level-summary count for '${field}' is ${declared}, expected ${expected}`
+      });
+    }
   }
 }
 
@@ -489,10 +389,11 @@ function extractMarkdownSectionLines(text, heading) {
 function validateCapabilityNextBatch(targetDir, ratingsPath, ratingsData, moduleNames, findings) {
   const buckets = ratingsData['rating-buckets'] || {};
   const nextBatch = Array.isArray(ratingsData['next-batch']) ? ratingsData['next-batch'] : [];
-  const expectedModuleIds = new Set([
-    ...(Array.isArray(buckets['thin']) ? buckets['thin'] : []),
-    ...(Array.isArray(buckets['strong-but-not-top']) ? buckets['strong-but-not-top'] : [])
-  ]);
+  const expectedModuleIds = new Set(
+    CAPABILITY_NEXT_BATCH_BUCKET_SEQUENCE.flatMap((bucketName) =>
+      Array.isArray(buckets[bucketName]) ? buckets[bucketName] : []
+    )
+  );
   const seenModules = new Set();
 
   for (const entry of nextBatch) {
@@ -544,7 +445,7 @@ function validateCapabilityNextBatch(targetDir, ratingsPath, ratingsData, module
 }
 
 function validateCapabilityRatingsDoc(targetDir, ratingsPath, ratingsData, findings) {
-  const docPath = path.join(targetDir, 'docs', 'CAPABILITY_MODULE_RATINGS.md');
+  const docPath = getCapabilityRatingsDocPath(targetDir);
   if (!fs.existsSync(docPath)) {
     findings.push({ severity: 'warning', file: rel(targetDir, ratingsPath), message: 'CAPABILITY_MODULE_RATINGS.md is missing' });
     return;
@@ -591,16 +492,14 @@ function validateCapabilityRatingsDoc(targetDir, ratingsPath, ratingsData, findi
       message: "ratings doc is missing 'Next Batch' section"
     });
   } else {
-    const generatedNextBatch = Array.isArray(ratingsData['next-batch']) ? ratingsData['next-batch'] : [];
-    const expectedNextBatchLines = generatedNextBatch.length < 1
-      ? ['- `(none; the current bundle is fully promoted in this snapshot)`']
-      : generatedNextBatch.map((entry) => {
-          const moduleId = String(entry && entry.module || '').trim() || 'unknown-module';
-          const hostSkill = String(entry && entry['host-skill'] || '').trim() || 'unknown-skill';
-          const rating = String(entry && entry.rating || '').trim() || 'unknown-rating';
-          const nextStep = String(entry && entry['next-step'] || '').trim() || 'fill in the next promotion step';
-          return `- \`${moduleId}\` (\`${hostSkill}\`, \`${rating}\`): ${nextStep}`;
-        });
+    const snapshot = buildCapabilityRatingsDocSnapshot(ratingsData);
+    const expectedNextBatchLines = String(snapshot.nextBatchSection || '')
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean);
+    if (expectedNextBatchLines.length < 1) {
+      expectedNextBatchLines.push(EMPTY_NEXT_BATCH_LINE);
+    }
     if (JSON.stringify(nextBatchLines) !== JSON.stringify(expectedNextBatchLines)) {
       findings.push({
         severity: 'error',
@@ -721,7 +620,7 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
   const stableScriptedNames = new Set(stableScriptedRecords.map((record) => record.name));
   const governedRuntimeProofNames = new Set(governedRuntimeProofRecords.map((record) => record.name));
   const knownKinds = new Set(['tool', 'guard']);
-  const knownLevels = new Set(['declared-only', 'declared-and-tested', 'host-smoked']);
+  const knownLevels = RUNTIME_PROOF_LEVELS;
   const registeredSkills = new Set();
   const allowKinds = new Set(((((schemaData.properties || {}).proofs || {}).items || {}).properties || {}).kind?.enum || []);
   const allowLevels = new Set(((((schemaData.properties || {}).proofs || {}).items || {}).properties || {}).level?.enum || []);
@@ -734,7 +633,7 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
     });
   }
 
-  if (registryData['schema-version'] !== 1) {
+  if (registryData['schema-version'] !== RUNTIME_PROOF_SCHEMA_VERSION) {
     findings.push({
       severity: 'error',
       file: rel(targetDir, registryPath),
@@ -786,11 +685,11 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
     }
 
     const contracts = Array.isArray(proof.contracts) ? proof.contracts : [];
-    const evidenceTests = Array.isArray(proof['evidence-tests']) ? proof['evidence-tests'] : [];
+    const evidenceTests = normalizeEvidenceTests(proof['evidence-tests']);
     const hostSmoke = normalizeHostSmokeContract(proof['host-smoke']);
     const hostSmokePolicy = normalizeHostSmokePolicy(proof['host-smoke-policy']);
     const expectedHostSmokePolicy = normalizeHostSmokePolicy(record.hostSmokePolicy);
-    if (contracts.length < 2) {
+    if (contracts.length < MIN_RUNTIME_PROOF_CONTRACTS) {
       findings.push({
         severity: 'error',
         file: rel(targetDir, registryPath),
@@ -798,7 +697,7 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
       });
     }
 
-    if (proof.level !== 'declared-only' && evidenceTests.length < 1) {
+    if (!hasRequiredRuntimeProofEvidenceTests(proof.level, evidenceTests)) {
       findings.push({
         severity: 'error',
         file: rel(targetDir, registryPath),
@@ -1132,9 +1031,22 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
   const routeMap = parseJsonFile(routeMapPath);
   const routeFixtures = parseJsonFile(routeFixturesPath);
   const opportunityQueue = validateSkillOpportunityQueue(targetDir, skillRecords, findings);
-  const pendingScaffolds = validatePendingScaffoldRegistry(targetDir, skillRecords, findings);
-  const admissionLedger = validateAdmissionLedger(targetDir, skillRecords, findings);
+  const opportunityIds = new Set(
+    Array.isArray(opportunityQueue && opportunityQueue.entries)
+      ? opportunityQueue.entries
+          .map((entry) => String(entry && entry['opportunity-id'] || '').trim())
+          .filter(Boolean)
+      : []
+  );
   const evolutionLedger = validateEvolutionLedger(targetDir, skillRecords, findings);
+  const deleteEvidenceBySkill = collectDeleteEvidenceBySkill(skillRecords, evolutionLedger);
+  const admissionLedger = validateAdmissionLedger(targetDir, skillRecords, opportunityIds, findings, {
+    deleteEvidenceBySkill
+  });
+  const pendingScaffolds = validatePendingScaffoldRegistry(targetDir, skillRecords, findings, {
+    opportunityEntries: opportunityQueue && opportunityQueue.entries,
+    admissionEntries: admissionLedger && admissionLedger.entries
+  });
 
   if (registry.error) {
     findings.push({ severity: 'error', file: rel(targetDir, registryPath), message: `registry parse failed: ${registry.error}` });
@@ -1146,9 +1058,50 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
     findings.push({ severity: 'warning', file: rel(targetDir, routeFixturesPath), message: `route fixtures parse failed: ${routeFixtures.error}` });
   }
 
-  const { registrySkills, registryNames } = validateRegistryEntries(targetDir, registryPath, registry.data, skillRecords, findings);
-  const { moduleGroups, moduleNames } = validateModuleGroups(targetDir, registryPath, registry.data, registryNames, findings);
-  const capabilityRatings = validateCapabilityRatings(targetDir, skillRecords, moduleNames, findings);
+  const governedRegistry = validateSkillRegistry(targetDir, findings);
+  validateSkillCatalog(targetDir, governedRegistry, findings);
+  validateAuthoringGovernanceReference(targetDir, findings);
+  validateSkillFrontmatterSchema(targetDir, findings);
+  validateFutureRegistrySchemas(targetDir, findings);
+  validateCapabilityRatingsSchema(targetDir, findings);
+  validateSkillInvestmentBacklogSchema(targetDir, findings);
+  validateReviewQueueSchema(targetDir, findings);
+  validateExpertSourceSchemas(targetDir, findings);
+  validateReadinessSchemas(targetDir, findings);
+
+  const { registrySkills, registryNames } = validateRegistryEntries(targetDir, registryPath, governedRegistry, skillRecords, findings);
+  const { moduleGroups, moduleNames } = validateModuleGroups(targetDir, registryPath, governedRegistry, registryNames, findings);
+  const expertSourceIntegrations = validateExpertSourceIntegrations(targetDir, governedRegistry || {}, findings);
+  for (const deletedSkill of deleteEvidenceBySkill.keys()) {
+    const deleteGovernance = buildDeleteDependencySummary(deletedSkill, {
+      opportunityEntries: opportunityQueue && opportunityQueue.entries,
+      admissionEntries: admissionLedger && admissionLedger.entries,
+      evolutionEntries: evolutionLedger && evolutionLedger.entries,
+      pendingScaffoldEntries: pendingScaffolds && pendingScaffolds.entries,
+      expertSourceFamilies: expertSourceIntegrations && expertSourceIntegrations.families
+    });
+    for (const blocker of deleteGovernance.blockers) {
+      findings.push({
+        severity: 'error',
+        file: blocker.file,
+        message: `deleted skill '${deletedSkill}' still has active delete blockers: ${blocker.message}`
+      });
+    }
+  }
+  const expertSourceTopTierState = buildExpertSourceTopTierBlockerMap(targetDir, governedRegistry || {}, {
+    integrations: expertSourceIntegrations
+  });
+  const capabilityRatings = validateCapabilityRatings(targetDir, skillRecords, moduleNames, findings, {
+    expertSourceIntegrations,
+    expertSourceTopTierState
+  });
+  const expertSourceFamilyScorecard = validateExpertSourceFamilyScorecard(
+    targetDir,
+    findings,
+    governedRegistry || {},
+    expertSourceIntegrations
+  );
+  const topDeveloperIntegration = expertSourceIntegrations.primary;
   const routes = validateRouteMap(targetDir, routeMapPath, routeMap.data, registryNames, skillRecords, moduleNames, moduleGroups, findings, rel);
   const fixtures = validateRouteFixtures(targetDir, routeFixturesPath, routeFixtures.data, routeMap.data, registryNames, findings, rel);
   validateGovernedRouteFixtures(targetDir, routeFixturesPath, routeFixtures.data, skillRecords, findings, rel);
@@ -1159,7 +1112,7 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
   });
   const investmentBacklog = validateSkillInvestmentBacklog(targetDir, findings, {
     skillRecords,
-    registryData: registry.data || {},
+    registryData: governedRegistry || {},
     ratingsData: capabilityRatings && capabilityRatings.data ? capabilityRatings.data : {},
     reviewQueueData: reviewQueue,
     opportunityQueueData: opportunityQueue,
@@ -1175,6 +1128,7 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
     routeFixtures: fixtures,
     reviewQueue
   });
+  validateHostEvolution(targetDir, findings);
   validateGeneratedArtifactWriteability(targetDir, findings);
 
   return {
@@ -1183,6 +1137,9 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
     moduleNames,
     capabilityRatings,
     runtimeProof,
+    expertSourceIntegrations,
+    expertSourceFamilyScorecard,
+    topDeveloperIntegration,
     reviewQueue,
     investmentBacklog,
     opportunityQueue,

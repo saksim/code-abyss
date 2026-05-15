@@ -18,12 +18,20 @@ const {
   expectedKindFromPath
 } = require('./skill-system-common');
 const {
+  isKnownSkillVisibility,
+  isKnownSkillTriggerMode,
+  isKnownSkillRuntime,
+  isKnownSkillExecutor,
+  isKnownSkillRiskLevel,
+  isKnownSupportedHost
+} = require('./skill-frontmatter-governance');
+const {
   normalizeHostSmokeTier,
   normalizeHostSmokeTargetLevel,
   normalizeHostSmokeFreshnessDays,
   deriveHostSmokePolicyFromRecord,
   isGovernedRuntimeProofRecord
-} = require('./skill-system-governance');
+} = require('./skill-host-governance');
 const {
   OPENAI_METADATA_KEYS,
   buildOpenAiMetadata,
@@ -31,22 +39,24 @@ const {
 } = require('./skill-system-host-metadata');
 const {
   normalizeReviewDate,
-  normalizeReviewCycleDays
+  normalizeReviewCycleDays,
+  normalizeReviewOwner
 } = require('./skill-review-governance');
+const {
+  isReviewGovernedSkillStatus
+} = require('./skill-lifecycle-governance');
+const {
+  MIN_RUNTIME_PROOF_CONTRACTS
+} = require('./skill-runtime-proof-governance');
 const {
   SCAFFOLD_ORIGIN_FIELD,
   SCAFFOLD_VERSION_FIELD,
   readTemplateLineage
 } = require('./skill-system-templates');
-
-const TOP_TIER_REFERENCE_FLOOR_BY_KIND = {
-  router: 2,
-  domain: 3,
-  workflow: 3,
-  tool: 2,
-  guard: 2,
-  adapter: 2
-};
+const {
+  TOP_TIER_REFERENCE_FLOOR_BY_KIND,
+  shouldTrackScaffoldLineage
+} = require('./skill-kind-governance');
 
 function normalizeStringList(value) {
   return (Array.isArray(value) ? value : [])
@@ -77,10 +87,40 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
   const scaffoldVersion = Number(data[SCAFFOLD_VERSION_FIELD]);
   const stableLike = data.status === 'stable';
   const deprecatedLike = data.status === 'deprecated';
-  const liveGoverned = stableLike || data.status === 'experimental' || deprecatedLike;
+  const liveGoverned = isReviewGovernedSkillStatus(data.status);
   for (const key of REQUIRED_FRONTMATTER_KEYS) {
     if (!(key in data)) {
       findings.push({ severity: 'error', file: relative, message: `missing frontmatter key '${key}'` });
+    }
+  }
+
+  if ('visibility' in data && !isKnownSkillVisibility(data.visibility)) {
+    findings.push({ severity: 'error', file: relative, message: `visibility '${data.visibility}' is not supported` });
+  }
+
+  if ('runtime' in data && !isKnownSkillRuntime(data.runtime)) {
+    findings.push({ severity: 'error', file: relative, message: `runtime '${data.runtime}' is not supported` });
+  }
+
+  if ('executor' in data && !isKnownSkillExecutor(data.executor)) {
+    findings.push({ severity: 'error', file: relative, message: `executor '${data.executor}' is not supported` });
+  }
+
+  if ('risk-level' in data && !isKnownSkillRiskLevel(data['risk-level'])) {
+    findings.push({ severity: 'error', file: relative, message: `risk-level '${data['risk-level']}' is not supported` });
+  }
+
+  const triggerModes = Array.isArray(data['trigger-mode']) ? data['trigger-mode'] : [];
+  for (const triggerMode of triggerModes) {
+    if (!isKnownSkillTriggerMode(triggerMode)) {
+      findings.push({ severity: 'error', file: relative, message: `trigger-mode '${triggerMode}' is not supported` });
+    }
+  }
+
+  const supportedHosts = Array.isArray(data['supported-hosts']) ? data['supported-hosts'] : [];
+  for (const host of supportedHosts) {
+    if (!isKnownSupportedHost(host)) {
+      findings.push({ severity: 'error', file: relative, message: `supported-host '${host}' is not declared in frontmatter governance` });
     }
   }
 
@@ -149,7 +189,7 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
     }
     if (stableLike) {
       const proofItems = readBulletSectionItems(text, 'Runtime Proof');
-      if (proofItems.length < 2) {
+      if (proofItems.length < MIN_RUNTIME_PROOF_CONTRACTS) {
         findings.push({
           severity: 'warning',
           file: relative,
@@ -313,7 +353,7 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
     }
   }
 
-  if (!['router', 'adapter'].includes(data.kind || '')) {
+  if (shouldTrackScaffoldLineage(data.kind)) {
     if (!scaffoldOrigin || !Number.isInteger(scaffoldVersion) || scaffoldVersion < 1) {
       const severity = data.status === 'draft' ? 'warning' : 'info';
       findings.push({
@@ -386,7 +426,7 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
     kind: data.kind,
     userInvocable: data['user-invocable'] === true,
     status: data.status,
-    owner: String(data.owner || '').trim(),
+    owner: normalizeReviewOwner(data.owner, ''),
     runtime: data.runtime,
     priority: Number.isInteger(data.priority) ? data.priority : null,
     supportedHosts: normalizeStringList(data['supported-hosts']),

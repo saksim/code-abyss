@@ -89,3 +89,5 @@ If no skill is clearly dominant, ask at most one clarification question.
   Read when the problem is route precedence, conflict handling, or escalation depth.
 - `references/skill-catalog.md`
   Read when you need a compact map of major skills and their responsibilities.
+- `references/skill-catalog.generated.md`
+  Read for the generated registry-backed skill inventory that stays in sync with the authoritative tree.

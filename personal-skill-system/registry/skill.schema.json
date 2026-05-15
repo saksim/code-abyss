@@ -46,7 +46,8 @@
         "domain",
         "workflow",
         "tool",
-        "guard"
+        "guard",
+        "adapter"
       ]
     },
     "visibility": {
@@ -54,7 +55,8 @@
       "enum": [
         "public",
         "private",
-        "project"
+        "project",
+        "internal"
       ],
       "default": "public"
     },

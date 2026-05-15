@@ -1,0 +1,245 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/capability-ratings.schema.json",
+  "title": "Portable Personal Skill Capability Ratings Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "scope",
+    "rating-buckets",
+    "counts",
+    "skill-level-summary",
+    "next-batch",
+    "notes"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 2
+    },
+    "scope": {
+      "type": "string",
+      "const": "capability-modules"
+    },
+    "rating-buckets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thin",
+        "strong-but-not-top",
+        "top-ready"
+      ],
+      "properties": {
+        "thin": {
+          "$ref": "#/$defs/moduleIdList"
+        },
+        "strong-but-not-top": {
+          "$ref": "#/$defs/moduleIdList"
+        },
+        "top-ready": {
+          "$ref": "#/$defs/moduleIdList"
+        }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "thin",
+        "strong-but-not-top",
+        "top-ready",
+        "total"
+      ],
+      "properties": {
+        "thin": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "strong-but-not-top": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "top-ready": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "skill-level-summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "top-level-enough-now",
+        "strong-uplift-but-not-top-yet",
+        "useful-overlay-not-top-level-alone",
+        "counts"
+      ],
+      "properties": {
+        "source": {
+          "$ref": "#/$defs/portablePath"
+        },
+        "top-level-enough-now": {
+          "$ref": "#/$defs/skillNameList"
+        },
+        "strong-uplift-but-not-top-yet": {
+          "$ref": "#/$defs/skillNameList"
+        },
+        "useful-overlay-not-top-level-alone": {
+          "$ref": "#/$defs/skillNameList"
+        },
+        "counts": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "top-level-enough-now",
+            "strong-uplift-but-not-top-yet",
+            "useful-overlay-not-top-level-alone",
+            "total-skills-rated",
+            "stable-overdue",
+            "stable-missing-metadata",
+            "stable-expert-source-blocked",
+            "stable-blocked-total"
+          ],
+          "properties": {
+            "top-level-enough-now": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "strong-uplift-but-not-top-yet": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "useful-overlay-not-top-level-alone": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "total-skills-rated": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-overdue": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-missing-metadata": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-expert-source-blocked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-blocked-total": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "next-batch": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scope",
+          "module",
+          "host-skill",
+          "host-kind",
+          "rating",
+          "priority",
+          "next-step"
+        ],
+        "properties": {
+          "scope": {
+            "type": "string",
+            "const": "capability-module"
+          },
+          "module": {
+            "$ref": "#/$defs/moduleId"
+          },
+          "host-skill": {
+            "$ref": "#/$defs/skillName"
+          },
+          "host-kind": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "rating": {
+            "type": "string",
+            "enum": [
+              "thin",
+              "strong-but-not-top"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "upgrade-now",
+              "promote-next"
+            ]
+          },
+          "path": {
+            "$ref": "#/$defs/portablePath"
+          },
+          "capability": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "next-step": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "moduleId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "skillNameList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/skillName"
+      }
+    },
+    "moduleIdList": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/moduleId"
+      }
+    }
+  }
+}

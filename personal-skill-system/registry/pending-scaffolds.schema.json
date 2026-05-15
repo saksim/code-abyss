@@ -1,0 +1,236 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/pending-scaffolds.schema.json",
+  "title": "Portable Personal Skill Pending Scaffold Registry Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "source",
+    "summary",
+    "entries"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated-at": {
+      "$ref": "#/$defs/isoDateTime"
+    },
+    "source": {
+      "type": "string",
+      "const": "managed-via-manage-skill"
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "total",
+        "active",
+        "planned",
+        "in-progress",
+        "blocked",
+        "deferred"
+      ],
+      "properties": {
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "active": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "planned": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "in-progress": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "deferred": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "pending-id",
+          "kind",
+          "skill",
+          "path",
+          "status",
+          "recorded-at",
+          "files"
+        ],
+        "properties": {
+          "pending-id": {
+            "$ref": "#/$defs/registryId"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "router",
+              "domain",
+              "workflow",
+              "tool",
+              "guard",
+              "adapter"
+            ]
+          },
+          "skill": {
+            "$ref": "#/$defs/skillName"
+          },
+          "path": {
+            "$ref": "#/$defs/portablePath"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "in-progress",
+              "blocked",
+              "deferred"
+            ]
+          },
+          "recorded-at": {
+            "$ref": "#/$defs/isoDateTime"
+          },
+          "files": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "path",
+                "content"
+              ],
+              "properties": {
+                "path": {
+                  "$ref": "#/$defs/portablePath"
+                },
+                "content": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "request-id": {
+            "$ref": "#/$defs/registryId"
+          },
+          "opportunity-id": {
+            "$ref": "#/$defs/registryId"
+          },
+          "rerun-command": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "note": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "template-origin": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "template-version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "host-constraint": {
+            "type": "object",
+            "additionalProperties": false,
+            "minProperties": 1,
+            "properties": {
+              "type": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "mode": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "code": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "parent": {
+                "$ref": "#/$defs/portablePath"
+              }
+            }
+          },
+          "capability-modules": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "$ref": "#/$defs/nonEmptyString"
+                },
+                "path": {
+                  "$ref": "#/$defs/portablePath"
+                },
+                "capability": {
+                  "$ref": "#/$defs/nonEmptyString"
+                }
+              }
+            }
+          },
+          "create-placeholder-route": {
+            "type": "boolean"
+          },
+          "scaffold-modules": {
+            "type": "boolean"
+          },
+          "shared": {
+            "type": "object"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "registryId": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 160
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "tag": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

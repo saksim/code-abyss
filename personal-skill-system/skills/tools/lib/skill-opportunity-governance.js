@@ -3,27 +3,28 @@
 const fs = require('fs');
 const path = require('path');
 const { rel, parseJsonFile } = require('./skill-system-common');
+const {
+  FUTURE_SKILL_KINDS,
+  FUTURE_SKILL_PRIORITY_ORDER,
+  FUTURE_SKILL_HORIZON_ORDER,
+  OPPORTUNITY_STATUS_ORDER,
+  ACTIVE_OPPORTUNITY_STATUSES,
+  normalizeGovernedGeneratedAt,
+  buildGovernedFutureRegistryDocument,
+  buildStatusCountSummary,
+  normalizeFuturePriority,
+  normalizeFutureHorizon,
+  normalizeOpportunityStatus,
+  isKnownOpportunityStatus
+} = require('./skill-future-governance');
+const {
+  SKILL_OPPORTUNITY_QUEUE_SCHEMA_VERSION
+} = require('./skill-future-registry-schema-governance');
 
-const SKILL_OPPORTUNITY_QUEUE_SCHEMA_VERSION = 1;
-const OPPORTUNITY_PRIORITIES = ['critical', 'high', 'normal'];
-const OPPORTUNITY_HORIZONS = ['now', 'next', 'later'];
-const OPPORTUNITY_KINDS = new Set(['router', 'domain', 'workflow', 'tool', 'guard', 'adapter']);
-const OPPORTUNITY_STATUSES = new Set([
-  'open',
-  'planned',
-  'in-progress',
-  'blocked',
-  'deferred',
-  'implemented',
-  'cancelled'
-]);
-const ACTIVE_OPPORTUNITY_STATUSES = new Set([
-  'open',
-  'planned',
-  'in-progress',
-  'blocked',
-  'deferred'
-]);
+const OPPORTUNITY_PRIORITIES = [...FUTURE_SKILL_PRIORITY_ORDER];
+const OPPORTUNITY_HORIZONS = [...FUTURE_SKILL_HORIZON_ORDER];
+const OPPORTUNITY_KINDS = FUTURE_SKILL_KINDS;
+const OPPORTUNITY_STATUSES = new Set(OPPORTUNITY_STATUS_ORDER);
 
 function getSkillOpportunityQueuePath(bundleRoot) {
   return path.join(bundleRoot, 'registry', 'skill-opportunity-queue.generated.json');
@@ -42,18 +43,11 @@ function uniqueSorted(values) {
 }
 
 function normalizeOpportunityPriority(value) {
-  const normalized = normalizeString(value).toLowerCase();
-  return OPPORTUNITY_PRIORITIES.includes(normalized) ? normalized : 'normal';
-}
-
-function normalizeOpportunityStatus(value) {
-  const normalized = normalizeString(value).toLowerCase();
-  return OPPORTUNITY_STATUSES.has(normalized) ? normalized : 'open';
+  return normalizeFuturePriority(value);
 }
 
 function normalizeOpportunityHorizon(value) {
-  const normalized = normalizeString(value).toLowerCase();
-  return OPPORTUNITY_HORIZONS.includes(normalized) ? normalized : 'next';
+  return normalizeFutureHorizon(value);
 }
 
 function normalizeOpportunityEntries(entries) {
@@ -115,51 +109,39 @@ function normalizeOpportunityEntries(entries) {
 }
 
 function summarizeSkillOpportunityQueue(entries) {
-  const summary = {
-    total: 0,
-    active: 0,
-    open: 0,
-    planned: 0,
-    'in-progress': 0,
-    blocked: 0,
-    deferred: 0,
-    implemented: 0,
-    cancelled: 0,
-    critical: 0,
-    high: 0,
-    normal: 0,
-    now: 0,
-    next: 0,
-    later: 0
-  };
+  const summary = buildStatusCountSummary(
+    OPPORTUNITY_STATUS_ORDER,
+    entries,
+    normalizeOpportunityStatus,
+    (status) => ACTIVE_OPPORTUNITY_STATUSES.has(status)
+  );
+  summary.critical = 0;
+  summary.high = 0;
+  summary.normal = 0;
+  summary.now = 0;
+  summary.next = 0;
+  summary.later = 0;
 
   for (const entry of Array.isArray(entries) ? entries : []) {
-    const status = normalizeOpportunityStatus(entry && entry.status);
     const priority = normalizeOpportunityPriority(entry && entry.priority);
     const horizon = normalizeOpportunityHorizon(entry && entry.horizon);
 
-    summary.total += 1;
-    summary[status] += 1;
     summary[priority] += 1;
     summary[horizon] += 1;
-    if (ACTIVE_OPPORTUNITY_STATUSES.has(status)) {
-      summary.active += 1;
-    }
   }
 
   return summary;
 }
 
 function buildSkillOpportunityQueue(entries, options = {}) {
-  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const now = normalizeGovernedGeneratedAt(options.now);
   const normalizedEntries = normalizeOpportunityEntries(entries);
-  return {
-    'schema-version': SKILL_OPPORTUNITY_QUEUE_SCHEMA_VERSION,
-    'generated-at': new Date(now).toISOString(),
-    source: 'managed-via-manage-skill',
-    summary: summarizeSkillOpportunityQueue(normalizedEntries),
-    entries: normalizedEntries
-  };
+  return buildGovernedFutureRegistryDocument(
+    SKILL_OPPORTUNITY_QUEUE_SCHEMA_VERSION,
+    normalizedEntries,
+    summarizeSkillOpportunityQueue(normalizedEntries),
+    { now }
+  );
 }
 
 function validateSkillOpportunityQueue(bundleRoot, skillRecords, findings) {
@@ -178,8 +160,9 @@ function validateSkillOpportunityQueue(bundleRoot, skillRecords, findings) {
   }
 
   const actual = parsed.data || {};
-  const actualGeneratedAt = new Date(normalizeString(actual['generated-at']));
-  const now = Number.isNaN(actualGeneratedAt.getTime()) ? Date.now() : actualGeneratedAt.getTime();
+  const actualGeneratedAtText = normalizeString(actual['generated-at']);
+  const actualGeneratedAtMs = Date.parse(actualGeneratedAtText);
+  const now = Number.isFinite(actualGeneratedAtMs) ? actualGeneratedAtMs : Date.now();
   const expected = buildSkillOpportunityQueue(actual.entries, { now });
   const comparableActual = {
     ...actual,
@@ -196,7 +179,7 @@ function validateSkillOpportunityQueue(bundleRoot, skillRecords, findings) {
     });
   }
 
-  if (normalizeString(actual.source) !== expected.source) {
+  if (normalizeString(actual.source) !== normalizeString(expected.source)) {
     findings.push({
       severity: 'error',
       file: rel(bundleRoot, file),
@@ -204,7 +187,7 @@ function validateSkillOpportunityQueue(bundleRoot, skillRecords, findings) {
     });
   }
 
-  if (Number.isNaN(actualGeneratedAt.getTime())) {
+  if (!actualGeneratedAtText || !Number.isFinite(actualGeneratedAtMs)) {
     findings.push({
       severity: 'error',
       file: rel(bundleRoot, file),
@@ -255,7 +238,7 @@ function validateSkillOpportunityQueue(bundleRoot, skillRecords, findings) {
         message: `skill opportunity queue entry '${opportunityId}' has unsupported suggested-kind '${suggestedKind}'`
       });
     }
-    if (!OPPORTUNITY_STATUSES.has(normalizeString(entry && entry.status).toLowerCase())) {
+    if (!isKnownOpportunityStatus(entry && entry.status)) {
       findings.push({
         severity: 'error',
         file: rel(bundleRoot, file),

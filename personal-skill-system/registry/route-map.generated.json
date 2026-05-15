@@ -1037,14 +1037,14 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
-        "review-findings-and-severity",
-        "review-test-surface-mapping",
-        "review-mocks-fixtures-and-isolation",
-        "review-ci-signal-quality",
-        "review-release-readiness-and-rollback",
-        "review-git-and-pr-discipline",
         "review-cause-model-and-proof",
-        "review-recurrence-prevention-and-defect-governance"
+        "review-ci-signal-quality",
+        "review-findings-and-severity",
+        "review-git-and-pr-discipline",
+        "review-mocks-fixtures-and-isolation",
+        "review-recurrence-prevention-and-defect-governance",
+        "review-release-readiness-and-rollback",
+        "review-test-surface-mapping"
       ],
       "aliases": [
         "代码评审",
@@ -1197,9 +1197,9 @@
       "auto-chain": [],
       "expert-modules": [
         "security-authn-authz-boundaries",
-        "security-secret-lifecycle-and-rotation",
+        "security-detection-response-and-recovery",
         "security-layered-controls-and-trust-zones",
-        "security-detection-response-and-recovery"
+        "security-secret-lifecycle-and-rotation"
       ],
       "aliases": [
         "安全审计",
@@ -1281,8 +1281,8 @@
       ],
       "expert-modules": [
         "architecture-decision-framing",
-        "architecture-option-scoring",
         "architecture-migration-and-rollback",
+        "architecture-option-scoring",
         "architecture-org-and-ownership-tradeoffs"
       ],
       "aliases": [
@@ -1366,9 +1366,9 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
+        "reliability-governance-boundaries-and-escalations",
         "reliability-governance-decision-rules",
-        "reliability-governance-deep-reference-index",
-        "reliability-governance-boundaries-and-escalations"
+        "reliability-governance-deep-reference-index"
       ],
       "aliases": [
         "可靠性治理",
@@ -1515,13 +1515,13 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
-        "architecture-requirements-and-constraints",
-        "architecture-pattern-selection",
         "architecture-middleware-evolution",
-        "architecture-reliability-and-ha",
+        "architecture-pattern-selection",
         "architecture-performance-architecture",
-        "architecture-security-architecture",
-        "architecture-platform-governance"
+        "architecture-platform-governance",
+        "architecture-reliability-and-ha",
+        "architecture-requirements-and-constraints",
+        "architecture-security-architecture"
       ],
       "aliases": [
         "系统设计",
@@ -1608,9 +1608,9 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
+        "host-governance-boundaries-and-escalations",
         "host-governance-decision-rules",
-        "host-governance-deep-reference-index",
-        "host-governance-boundaries-and-escalations"
+        "host-governance-deep-reference-index"
       ],
       "aliases": [
         "宿主治理",
@@ -1655,121 +1655,6 @@
       }
     },
     {
-      "skill": "chart-visualization",
-      "kind": "domain",
-      "priority": 77,
-      "namespace": "visualization",
-      "supported-hosts": [
-        "codex",
-        "claude",
-        "gemini"
-      ],
-      "activation": {
-        "intent-tags": [
-          "knowledge",
-          "design",
-          "execute"
-        ],
-        "trigger-keywords": [
-          "chart",
-          "chart visualization",
-          "data visualization",
-          "g2",
-          "antv g2",
-          "s2",
-          "pivot table",
-          "cross table",
-          "infographic",
-          "narrative text visualization",
-          "t8",
-          "图表",
-          "数据可视化",
-          "图表生成",
-          "透视表",
-          "交叉表",
-          "信息图",
-          "叙事可视化",
-          "阈值线",
-          "参考线",
-          "区间高亮",
-          "游标线",
-          "共享提示",
-          "图片标注",
-          "图标散点"
-        ],
-        "negative-keywords": [
-          "ui layout",
-          "pure visual polish",
-          "ux copywriting",
-          "纯视觉润色",
-          "用户体验"
-        ],
-        "requires-explicit-invocation": false
-      },
-      "conflicts-with": [
-        "frontend-design"
-      ],
-      "auto-chain": [],
-      "expert-modules": [
-        "chart-visualization-g2-spec-guardrails",
-        "chart-visualization-g2-chart-selection",
-        "chart-visualization-g2-mark-and-transform-basics",
-        "chart-visualization-g2-interaction-and-tooltips",
-        "chart-visualization-s2-sheet-model-and-config",
-        "chart-visualization-s2-framework-bindings",
-        "chart-visualization-chart-image-api",
-        "chart-visualization-icon-retrieval-api",
-        "chart-visualization-infographic-dsl",
-        "chart-visualization-narrative-t8",
-        "chart-visualization-g2-components-and-layout",
-        "chart-visualization-g2-data-scales-and-coordinates",
-        "chart-visualization-g2-annotations-and-reference-marks",
-        "chart-visualization-g2-shared-tooltip-and-navigation",
-        "chart-visualization-s2-advanced-table-features",
-        "chart-visualization-s2-customization-and-extensions"
-      ],
-      "aliases": [
-        "data-visualization",
-        "图表可视化"
-      ],
-      "rationale": {
-        "primary-intent": "chart semantics/spec/config correctness for G2/S2/T8 flows",
-        "why-this-route": "chart-visualization should win when prompt intent aligns with chart semantics/spec/config correctness for G2/S2/T8 flows and positive route signals outweigh adjacent candidates.",
-        "wins-when": [
-          "chart",
-          "chart visualization",
-          "data visualization",
-          "g2",
-          "antv g2",
-          "s2",
-          "pivot table",
-          "cross table",
-          "data-visualization",
-          "图表可视化"
-        ],
-        "avoid-when": [
-          "ui layout",
-          "pure visual polish",
-          "ux copywriting",
-          "纯视觉润色",
-          "用户体验"
-        ],
-        "boundary-notes": "Prefer chart-visualization for G2/S2/spec semantics and validation; if request is pure UI aesthetics/layout without data semantics, frontend-design may be adjacent. Declared conflicts: frontend-design."
-      },
-      "confidence": {
-        "minimum-score": 43,
-        "strong-score": 58,
-        "very-strong-score": 71,
-        "requires-fallback-below-minimum": true
-      },
-      "fallback": {
-        "mode": "ask-one-question",
-        "clarify-question": "Should this route use chart-visualization or frontend-design as the primary skill for this request?",
-        "default-action": "route-to-highest-score-after-clarification",
-        "safe-skill": "frontend-design"
-      }
-    },
-    {
       "skill": "infrastructure",
       "kind": "domain",
       "priority": 77,
@@ -1811,12 +1696,12 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
-        "infrastructure-control-plane-and-tenancy",
         "infrastructure-cluster-shape-and-environment-strategy",
-        "infrastructure-traffic-governance-and-mesh-adoption",
-        "infrastructure-runtime-policy-and-identity-plane",
+        "infrastructure-control-plane-and-tenancy",
+        "infrastructure-dr-exercises-and-recovery-operations",
         "infrastructure-failover-topology-and-consistency",
-        "infrastructure-dr-exercises-and-recovery-operations"
+        "infrastructure-runtime-policy-and-identity-plane",
+        "infrastructure-traffic-governance-and-mesh-adoption"
       ],
       "aliases": [
         "平台基础设施",
@@ -1898,10 +1783,10 @@
         "ui-design"
       ],
       "expert-modules": [
-        "frontend-design-information-architecture-and-interaction",
-        "frontend-design-information-architecture",
-        "frontend-design-interaction-patterns",
         "frontend-design-hierarchy-and-visual-systems",
+        "frontend-design-information-architecture",
+        "frontend-design-information-architecture-and-interaction",
+        "frontend-design-interaction-patterns",
         "frontend-design-motion-and-state-transitions",
         "frontend-design-responsive-and-implementation-constraints"
       ],
@@ -1938,6 +1823,109 @@
         "clarify-question": "Should this route use frontend-design or architecture as the primary skill for this request?",
         "default-action": "route-to-highest-score-after-clarification",
         "safe-skill": "architecture"
+      }
+    },
+    {
+      "skill": "chart-visualization",
+      "kind": "domain",
+      "priority": 74,
+      "namespace": "visualization",
+      "supported-hosts": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "activation": {
+        "intent-tags": [
+          "knowledge"
+        ],
+        "trigger-keywords": [
+          "交叉表",
+          "数据可视化",
+          "透视表",
+          "图表",
+          "图表生成",
+          "信息图",
+          "叙事可视化",
+          "antv g2",
+          "chart",
+          "chart visualization",
+          "cross table",
+          "data visualization",
+          "g2",
+          "infographic",
+          "narrative text visualization",
+          "pivot table",
+          "s2",
+          "t8"
+        ],
+        "negative-keywords": [
+          "纯视觉润色",
+          "pure visual polish",
+          "ui layout",
+          "ux copywriting"
+        ],
+        "requires-explicit-invocation": false
+      },
+      "conflicts-with": [],
+      "auto-chain": [],
+      "expert-modules": [
+        "chart-visualization-chart-image-api",
+        "chart-visualization-g2-annotations-and-reference-marks",
+        "chart-visualization-g2-chart-selection",
+        "chart-visualization-g2-components-and-layout",
+        "chart-visualization-g2-data-scales-and-coordinates",
+        "chart-visualization-g2-interaction-and-tooltips",
+        "chart-visualization-g2-mark-and-transform-basics",
+        "chart-visualization-g2-shared-tooltip-and-navigation",
+        "chart-visualization-g2-spec-guardrails",
+        "chart-visualization-icon-retrieval-api",
+        "chart-visualization-infographic-dsl",
+        "chart-visualization-narrative-t8",
+        "chart-visualization-s2-advanced-table-features",
+        "chart-visualization-s2-customization-and-extensions",
+        "chart-visualization-s2-framework-bindings",
+        "chart-visualization-s2-sheet-model-and-config"
+      ],
+      "aliases": [
+        "图表可视化",
+        "data-visualization"
+      ],
+      "rationale": {
+        "primary-intent": "chart semantics/spec/config correctness for G2/S2/T8 flows",
+        "why-this-route": "chart-visualization should win when prompt intent aligns with chart semantics/spec/config correctness for G2/S2/T8 flows and positive route signals outweigh adjacent candidates.",
+        "wins-when": [
+          "chart",
+          "chart visualization",
+          "data visualization",
+          "g2",
+          "antv g2",
+          "s2",
+          "pivot table",
+          "cross table",
+          "data-visualization",
+          "图表可视化"
+        ],
+        "avoid-when": [
+          "ui layout",
+          "pure visual polish",
+          "ux copywriting",
+          "纯视觉润色",
+          "用户体验"
+        ],
+        "boundary-notes": "Prefer chart-visualization for G2/S2/spec semantics and validation; if request is pure UI aesthetics/layout without data semantics, frontend-design may be adjacent. Declared conflicts: frontend-design."
+      },
+      "confidence": {
+        "minimum-score": 43,
+        "strong-score": 58,
+        "very-strong-score": 71,
+        "requires-fallback-below-minimum": true
+      },
+      "fallback": {
+        "mode": "ask-one-question",
+        "clarify-question": "Should this route use chart-visualization or frontend-design as the primary skill for this request?",
+        "default-action": "route-to-highest-score-after-clarification",
+        "safe-skill": "frontend-design"
       }
     },
     {
@@ -1983,10 +1971,10 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
-        "data-product-framing",
         "data-batch-and-orchestration",
-        "data-streaming-and-state",
-        "data-contracts-quality-and-reconciliation"
+        "data-contracts-quality-and-reconciliation",
+        "data-product-framing",
+        "data-streaming-and-state"
       ],
       "aliases": [
         "数据管道",
@@ -2065,10 +2053,10 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
-        "orchestration-work-decomposition",
-        "orchestration-ownership-and-write-boundaries",
         "orchestration-dependency-and-integration",
-        "orchestration-status-and-handoffs"
+        "orchestration-ownership-and-write-boundaries",
+        "orchestration-status-and-handoffs",
+        "orchestration-work-decomposition"
       ],
       "aliases": [
         "任务编排",
@@ -2152,15 +2140,15 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
-        "development-python-design-and-types",
+        "development-batching-caching-and-concurrency",
+        "development-bottleneck-diagnosis",
+        "development-config-and-runtime-boundaries",
+        "development-observability-and-shutdown",
         "development-python-concurrency",
+        "development-python-design-and-types",
         "development-python-memory-and-runtime",
         "development-query-shape-and-orm",
-        "development-transactions-pagination-and-write-paths",
-        "development-bottleneck-diagnosis",
-        "development-batching-caching-and-concurrency",
-        "development-config-and-runtime-boundaries",
-        "development-observability-and-shutdown"
+        "development-transactions-pagination-and-write-paths"
       ],
       "aliases": [
         "开发",
@@ -2242,10 +2230,10 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
+        "devops-alerts-runbooks-and-diagnosis",
         "devops-release-gate-design",
         "devops-rollback-and-release-operations",
-        "devops-signal-design-and-instrumentation",
-        "devops-alerts-runbooks-and-diagnosis"
+        "devops-signal-design-and-instrumentation"
       ],
       "aliases": [
         "运维流程",
@@ -2324,12 +2312,12 @@
         "mobile-dev"
       ],
       "expert-modules": [
-        "mobile-lifecycle-and-state",
+        "mobile-battery-and-performance-budget",
         "mobile-lifecycle-and-interruption",
+        "mobile-lifecycle-and-state",
+        "mobile-native-bridge-and-platform-boundaries",
         "mobile-offline-sync-and-conflict",
         "mobile-permission-and-privacy-boundaries",
-        "mobile-battery-and-performance-budget",
-        "mobile-native-bridge-and-platform-boundaries",
         "mobile-release-and-observability"
       ],
       "rationale": {
@@ -2409,14 +2397,14 @@
       "conflicts-with": [],
       "auto-chain": [],
       "expert-modules": [
-        "ai-task-definition",
-        "ai-eval-design-and-acceptance",
-        "ai-retrieval-objective-and-corpus-shaping",
-        "ai-chunking-ranking-and-grounding",
-        "ai-tool-authority-and-boundaries",
         "ai-agent-loop-and-state-control",
+        "ai-chunking-ranking-and-grounding",
+        "ai-eval-design-and-acceptance",
         "ai-guardrail-policy-and-fallbacks",
-        "ai-latency-cost-and-reliability"
+        "ai-latency-cost-and-reliability",
+        "ai-retrieval-objective-and-corpus-shaping",
+        "ai-task-definition",
+        "ai-tool-authority-and-boundaries"
       ],
       "aliases": [
         "大模型",
@@ -2489,9 +2477,9 @@
         "brutalist-style"
       ],
       "expert-modules": [
-        "neubrutalism-graphic-hierarchy-and-tokens",
+        "neubrutalism-accessibility-and-density-controls",
         "neubrutalism-component-recipes",
-        "neubrutalism-accessibility-and-density-controls"
+        "neubrutalism-graphic-hierarchy-and-tokens"
       ],
       "rationale": {
         "primary-intent": "neubrutalism style-system application",
@@ -2560,9 +2548,9 @@
         "soft-ui"
       ],
       "expert-modules": [
-        "claymorphism-surface-and-shadow-system",
+        "claymorphism-accessibility-and-responsive-constraints",
         "claymorphism-component-recipes",
-        "claymorphism-accessibility-and-responsive-constraints"
+        "claymorphism-surface-and-shadow-system"
       ],
       "rationale": {
         "primary-intent": "claymorphism style-system application",
@@ -2631,9 +2619,9 @@
         "frosted-ui"
       ],
       "expert-modules": [
-        "glassmorphism-layering-and-contrast",
+        "glassmorphism-accessibility-and-responsive-constraints",
         "glassmorphism-component-recipes",
-        "glassmorphism-accessibility-and-responsive-constraints"
+        "glassmorphism-layering-and-contrast"
       ],
       "rationale": {
         "primary-intent": "glassmorphism style-system application",
@@ -2704,8 +2692,8 @@
         "apple-liquid-glass"
       ],
       "expert-modules": [
-        "liquid-glass-depth-and-motion-language",
         "liquid-glass-component-recipes",
+        "liquid-glass-depth-and-motion-language",
         "liquid-glass-fallback-contrast-and-legibility"
       ],
       "rationale": {

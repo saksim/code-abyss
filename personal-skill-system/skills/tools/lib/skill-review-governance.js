@@ -3,10 +3,25 @@
 const fs = require('fs');
 const path = require('path');
 const { rel } = require('./skill-system-common');
+const {
+  SKILL_KIND_ORDER
+} = require('./skill-kind-governance');
+const {
+  REVIEW_GOVERNED_SKILL_STATUSES
+} = require('./skill-lifecycle-governance');
 
 const REVIEW_QUEUE_SCHEMA_VERSION = 1;
 const REVIEW_DUE_SOON_DAYS = 7;
-const GOVERNED_REVIEW_STATUSES = new Set(['stable', 'experimental', 'deprecated']);
+const DEFAULT_SKILL_OWNER = 'self';
+const DEFAULT_REVIEW_CYCLE_DAYS = 60;
+const REVIEW_CYCLE_DAYS_BY_KIND = Object.freeze({
+  router: 90,
+  domain: 60,
+  workflow: 60,
+  tool: 45,
+  guard: 45,
+  adapter: 60
+});
 const REVIEW_QUEUE_STATUSES = new Set(['scheduled', 'due-soon', 'overdue', 'missing-metadata']);
 const REVIEW_QUEUE_PRIORITIES = new Set(['critical', 'high', 'normal']);
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
@@ -16,7 +31,7 @@ function getReviewQueuePath(bundleRoot) {
 }
 
 function isGovernedReviewStatus(status) {
-  return GOVERNED_REVIEW_STATUSES.has(String(status || '').trim());
+  return REVIEW_GOVERNED_SKILL_STATUSES.has(String(status || '').trim());
 }
 
 function normalizeReviewDate(value) {
@@ -34,6 +49,52 @@ function normalizeReviewDate(value) {
 function normalizeReviewCycleDays(value) {
   const parsed = Number(value);
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function normalizeReviewOwner(value, fallback = DEFAULT_SKILL_OWNER) {
+  const owner = String(value == null ? '' : value).trim();
+  if (owner) {
+    return owner;
+  }
+  if (fallback == null) {
+    return '';
+  }
+  return String(fallback).trim();
+}
+
+function formatUtcDate(value) {
+  const parsed = value instanceof Date
+    ? value
+    : new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return parsed.toISOString().slice(0, 10);
+}
+
+function getDefaultReviewCycleDaysForKind(kind) {
+  const normalizedKind = String(kind == null ? '' : kind).trim().toLowerCase();
+  return REVIEW_CYCLE_DAYS_BY_KIND[normalizedKind] || DEFAULT_REVIEW_CYCLE_DAYS;
+}
+
+function listReviewMetadataPolicies() {
+  return SKILL_KIND_ORDER.map((kind) => ({
+    kind,
+    owner: DEFAULT_SKILL_OWNER,
+    'review-cycle-days': getDefaultReviewCycleDaysForKind(kind)
+  }));
+}
+
+function buildSeedReviewMetadata(kind, options = {}) {
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const explicitLastReviewed = normalizeReviewDate(options.lastReviewed) || formatUtcDate(options.lastReviewed);
+  const explicitReviewCycleDays = normalizeReviewCycleDays(options.reviewCycleDays);
+
+  return {
+    owner: normalizeReviewOwner(options.owner, DEFAULT_SKILL_OWNER),
+    'last-reviewed': explicitLastReviewed || formatUtcDate(now),
+    'review-cycle-days': explicitReviewCycleDays || getDefaultReviewCycleDaysForKind(kind)
+  };
 }
 
 function startOfUtcDay(timestamp) {
@@ -83,7 +144,7 @@ function buildReviewQueueEntry(record, options = {}) {
     skill: String(record && record.name || '').trim(),
     kind: String(record && record.kind || '').trim(),
     status: String(record && record.status || '').trim(),
-    owner: String(record && record.owner || '').trim() || 'unassigned',
+    owner: normalizeReviewOwner(record && record.owner, 'unassigned'),
     file: String(record && record.file || '').trim(),
     'last-reviewed': lastReviewed,
     'review-cycle-days': reviewCycleDays,
@@ -346,10 +407,17 @@ function validateReviewQueue(bundleRoot, skillRecords, findings, options = {}) {
 module.exports = {
   REVIEW_QUEUE_SCHEMA_VERSION,
   REVIEW_DUE_SOON_DAYS,
+  DEFAULT_SKILL_OWNER,
+  REVIEW_CYCLE_DAYS_BY_KIND,
   getReviewQueuePath,
   isGovernedReviewStatus,
   normalizeReviewDate,
   normalizeReviewCycleDays,
+  normalizeReviewOwner,
+  formatUtcDate,
+  getDefaultReviewCycleDaysForKind,
+  listReviewMetadataPolicies,
+  buildSeedReviewMetadata,
   buildReviewQueueEntry,
   buildReviewQueueEntries,
   summarizeReviewQueue,

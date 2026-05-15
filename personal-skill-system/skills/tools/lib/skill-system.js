@@ -80,6 +80,13 @@ function analyzeSkillSystem(targetDir) {
     packCount: 0,
     routeFixtures: 0,
     runtimeProofs: 0,
+    expertSourceFamilies: 0,
+    archivedExpertSourceFamilies: 0,
+    rawExpertSourceSkills: 0,
+    integratedExpertSourceSkills: 0,
+    integratedExpertModules: 0,
+    unmappedRawExpertSources: 0,
+    staleMappedExpertSources: 0,
     templateScaffolds: 0,
     legacyRootMirrorFiles: 0,
     legacyRootMirrorDirs: 0
@@ -105,6 +112,22 @@ function analyzeSkillSystem(targetDir) {
   summary.routeEntries = generated.routes.length;
   summary.routeFixtures = generated.fixtures.length;
   summary.runtimeProofs = generated.runtimeProof.proofs.length;
+  summary.expertSourceFamilies = Array.isArray(generated.expertSourceIntegrations && generated.expertSourceIntegrations.families)
+    ? generated.expertSourceIntegrations.families.length
+    : 0;
+  summary.archivedExpertSourceFamilies = Array.isArray(generated.expertSourceFamilyScorecard && generated.expertSourceFamilyScorecard.families)
+    ? generated.expertSourceFamilyScorecard.families.filter((entry) => entry && entry.status === 'archived').length
+    : 0;
+  summary.rawExpertSourceSkills = Number(generated.expertSourceIntegrations && generated.expertSourceIntegrations.totals && generated.expertSourceIntegrations.totals.rawSourceSkills || 0);
+  summary.integratedExpertSourceSkills = Number(generated.expertSourceIntegrations && generated.expertSourceIntegrations.totals && generated.expertSourceIntegrations.totals.integratedSourceSkills || 0);
+  summary.integratedExpertModules = Number(generated.expertSourceIntegrations && generated.expertSourceIntegrations.totals && generated.expertSourceIntegrations.totals.integratedModules || 0);
+  summary.unmappedRawExpertSources = Number(generated.expertSourceIntegrations && generated.expertSourceIntegrations.totals && generated.expertSourceIntegrations.totals.unmappedRawSources || 0);
+  summary.staleMappedExpertSources = Number(
+    generated.expertSourceFamilyScorecard
+    && generated.expertSourceFamilyScorecard.summary
+    && generated.expertSourceFamilyScorecard.summary['active-stale-mapped-sources']
+    || 0
+  );
   summary.packCount = analyzePackManifests(targetDir, findings, rel);
 
   return {

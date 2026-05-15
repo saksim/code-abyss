@@ -2,17 +2,25 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+  RUNTIME_PROOF_LEVELS
+} = require('./skill-lifecycle-governance');
+const {
+  getGovernanceArtifactPath,
+  getGovernanceArtifactRelativePath
+} = require('./skill-generated-artifact-governance');
+const {
+  HOST_SMOKE_RESULT_STATUSES,
+  HOST_SMOKE_COMMAND_CWD_MODES,
+  HOST_SMOKE_FRESHNESS_UNITS,
+  HOST_SMOKE_EVIDENCE_STATUSES,
+  HOST_SMOKE_GOVERNANCE_STATUSES,
+  HOST_SMOKE_INVALIDATION_REASONS
+} = require('./skill-host-governance');
 
 const HOST_SMOKE_RUN_SCHEMA_VERSION = 1;
 const HOST_SMOKE_SCORECARD_SCHEMA_VERSION = 1;
 const HOST_SMOKE_INVALIDATION_SCHEMA_VERSION = 1;
-const HOST_SMOKE_RESULT_STATUSES = new Set(['pass', 'fail']);
-const HOST_SMOKE_COMMAND_CWD_MODES = new Set(['skill-dir', 'bundle-root']);
-const HOST_SMOKE_FRESHNESS_UNITS = new Set(['hours', 'days']);
-const HOST_SMOKE_EVIDENCE_STATUSES = new Set(['passing', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract']);
-const HOST_SMOKE_GOVERNANCE_STATUSES = new Set(['satisfied', 'not-host-smoked', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract']);
-const HOST_SMOKE_LEVELS = new Set(['declared-only', 'declared-and-tested', 'host-smoked']);
-const HOST_SMOKE_INVALIDATION_REASONS = new Set(['contract-drift', 'manual-reset', 'superseded']);
 
 function isPlainObject(value) {
   return !!value && typeof value === 'object' && !Array.isArray(value);
@@ -82,7 +90,7 @@ function getHostSmokeRunSchemaPath(bundleRoot) {
 }
 
 function getHostSmokeScorecardPath(bundleRoot) {
-  return path.join(bundleRoot, 'benchmark', 'host-smoke', 'scorecard.generated.json');
+  return getGovernanceArtifactPath(bundleRoot, 'host-smoke-scorecard');
 }
 
 function getHostSmokeScorecardSchemaPath(bundleRoot) {
@@ -90,7 +98,7 @@ function getHostSmokeScorecardSchemaPath(bundleRoot) {
 }
 
 function getHostSmokeInvalidationPath(bundleRoot) {
-  return path.join(bundleRoot, 'benchmark', 'host-smoke', 'invalidation.generated.json');
+  return getGovernanceArtifactPath(bundleRoot, 'host-smoke-invalidation');
 }
 
 function getHostSmokeInvalidationSchemaPath(bundleRoot) {
@@ -616,7 +624,7 @@ function buildHostSmokeSkillScorecardEntry(proof, index, now = Date.now()) {
   return {
     skill: normalized.skill,
     kind: normalized.kind,
-    level: HOST_SMOKE_LEVELS.has(normalized.level) ? normalized.level : 'declared-only',
+    level: RUNTIME_PROOF_LEVELS.has(normalized.level) ? normalized.level : 'declared-only',
     manifest: String(contract && contract.manifest || '').trim(),
     'command-count': contract ? contract.commands.length : 0,
     ...(contract && contract.freshness ? { freshness: contract.freshness } : {}),
@@ -643,7 +651,7 @@ function buildHostSmokeScorecard(bundleRoot, proofs, options = {}) {
 
   const summary = {
     'host-smoke-capable-skills': scorecardSkills.length,
-    levels: emptyCountMap(['declared-only', 'declared-and-tested', 'host-smoked']),
+    levels: emptyCountMap([...RUNTIME_PROOF_LEVELS]),
     'evidence-status': emptyCountMap(['passing', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract']),
     'governance-status': emptyCountMap(['satisfied', 'not-host-smoked', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract'])
   };
@@ -657,7 +665,7 @@ function buildHostSmokeScorecard(bundleRoot, proofs, options = {}) {
   return {
     'schema-version': HOST_SMOKE_SCORECARD_SCHEMA_VERSION,
     'generated-at': new Date(now).toISOString(),
-    'source-runtime-proof': 'registry/runtime-proof.generated.json',
+    'source-runtime-proof': getGovernanceArtifactRelativePath('runtime-proof'),
     'runtime-run-dir': portablePath(bundleRoot, getHostSmokeRuntimeRunsDir(bundleRoot)),
     'run-count': index.runs.length,
     'artifact-error-count': index.errors.length + (((index.invalidationIndex && index.invalidationIndex.errors) || []).length),

@@ -4,6 +4,11 @@
   "description": "Staging area for unstable skills and heavy expert overlays before promotion into personal-core.",
   "includes": [
     "docs/TOP_DEVELOPER_EMBEDDING.md",
+    "registry/expert-source-families.generated.json",
+    "registry/expert-source-families.schema.json",
+    "registry/expert-source-family-scorecard.generated.json",
+    "registry/expert-source-family-scorecard.schema.json",
+    "registry/expert-source-integration.schema.json",
     "registry/top-developer-integration.generated.json"
   ],
   "targets": [

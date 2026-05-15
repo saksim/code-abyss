@@ -39,9 +39,9 @@ describe('pack registry', () => {
     expect(pack).toMatchObject({
       name: 'abyss',
     });
-    expect(pack.hosts.claude.files).toHaveLength(4);
-    expect(pack.hosts.codex.files).toHaveLength(3);
-    expect(pack.hosts.gemini.files).toHaveLength(2);
+    expect(pack.hosts.claude.files).toHaveLength(5);
+    expect(pack.hosts.codex.files).toHaveLength(4);
+    expect(pack.hosts.gemini.files).toHaveLength(3);
   });
 
   test('读取 gstack manifest', () => {
@@ -57,17 +57,20 @@ describe('pack registry', () => {
     expect(getPackHostFiles(projectRoot, 'abyss', 'claude')).toEqual([
       { src: 'config/CLAUDE.md', dest: 'CLAUDE.md', root: 'claude' },
       { src: 'output-styles', dest: 'output-styles', root: 'claude' },
+      { src: 'personal-skill-system', dest: 'personal-skill-system', root: 'claude' },
       { src: 'personal-skill-system/skills', dest: 'skills', root: 'claude' },
       { src: 'bin/lib', dest: 'bin/lib', root: 'claude' },
     ]);
 
     expect(getPackHostFiles(projectRoot, 'abyss', 'codex')).toEqual([
       { src: 'config/instruction.md', dest: 'instruction.md', root: 'codex' },
+      { src: 'personal-skill-system', dest: 'personal-skill-system', root: 'agents' },
       { src: 'personal-skill-system/skills', dest: 'skills', root: 'codex' },
       { src: 'bin/lib', dest: 'bin/lib', root: 'codex' },
     ]);
 
     expect(getPackHostFiles(projectRoot, 'abyss', 'gemini')).toEqual([
+      { src: 'personal-skill-system', dest: 'personal-skill-system', root: 'gemini' },
       { src: 'personal-skill-system/skills', dest: 'skills', root: 'gemini' },
       { src: 'bin/lib', dest: 'bin/lib', root: 'gemini' },
     ]);

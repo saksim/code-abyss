@@ -18,17 +18,15 @@ const {
   buildOpenAiMetadata,
   readOpenAiMetadataFile
 } = require('./skill-system-host-metadata');
-
-const TEMPLATE_KINDS = ['adapter', 'domain', 'guard', 'router', 'tool', 'workflow'];
-const SCRIPTED_TEMPLATE_KINDS = new Set(['guard', 'tool']);
-const MIN_TEMPLATE_REFERENCES_BY_KIND = {
-  adapter: 2,
-  router: 2,
-  domain: 3,
-  workflow: 3,
-  tool: 2,
-  guard: 2
-};
+const {
+  buildReviewQueueEntry,
+  normalizeReviewOwner
+} = require('./skill-review-governance');
+const {
+  TEMPLATE_KINDS,
+  SCRIPTED_TEMPLATE_KINDS,
+  TEMPLATE_REFERENCE_FLOOR_BY_KIND
+} = require('./skill-kind-governance');
 const TEMPLATE_VERSION_FIELD = 'template-version';
 const SCAFFOLD_ORIGIN_FIELD = 'scaffold-origin';
 const SCAFFOLD_VERSION_FIELD = 'scaffold-version';
@@ -67,29 +65,44 @@ function readTemplateLineage(targetDir, kind) {
   };
 }
 
-function validateTemplateScaffold(targetDir, kind, findings) {
+function buildTemplateRecord(targetDir, kind, findings) {
   const templateDir = getTemplateDir(targetDir, kind);
   const skillFile = path.join(templateDir, 'SKILL.md');
   const relative = rel(targetDir, skillFile);
 
   if (!fs.existsSync(templateDir) || !fs.statSync(templateDir).isDirectory()) {
     findings.push({ severity: 'error', file: rel(targetDir, templateDir), message: `missing template scaffold directory for '${kind}'` });
-    return false;
+    return null;
   }
 
   const text = readUtf8(skillFile);
   if (text == null) {
     findings.push({ severity: 'error', file: relative, message: 'template SKILL.md is unreadable as utf8 text' });
-    return false;
+    return null;
   }
 
   const parsed = parseFrontmatter(text);
   if (parsed.error) {
     findings.push({ severity: 'error', file: relative, message: `template frontmatter error: ${parsed.error}` });
+    return null;
+  }
+
+  return {
+    templateDir,
+    skillFile,
+    relative,
+    text,
+    data: parsed.data
+  };
+}
+
+function validateTemplateScaffold(targetDir, kind, findings, options = {}) {
+  const record = buildTemplateRecord(targetDir, kind, findings);
+  if (!record) {
     return false;
   }
 
-  const data = parsed.data;
+  const { templateDir, relative, text, data } = record;
   for (const key of REQUIRED_FRONTMATTER_KEYS) {
     if (!(key in data)) {
       findings.push({ severity: 'error', file: relative, message: `template missing frontmatter key '${key}'` });
@@ -118,9 +131,45 @@ function validateTemplateScaffold(targetDir, kind, findings) {
     findings.push({ severity: 'warning', file: relative, message: `template status should normally stay 'draft', got '${data.status}'` });
   }
 
+  const reviewEntry = buildReviewQueueEntry({
+    name: String(data.name || `${kind}-template`).trim(),
+    kind,
+    status: 'draft',
+    owner: normalizeReviewOwner(data.owner),
+    file: relative,
+    lastReviewed: data['last-reviewed'],
+    reviewCycleDays: data['review-cycle-days']
+  }, {
+    now: Number.isFinite(options.now) ? options.now : Date.now()
+  });
+
+  if (!reviewEntry['last-reviewed']) {
+    findings.push({
+      severity: 'warning',
+      file: relative,
+      message: `template '${kind}' should declare last-reviewed`
+    });
+  }
+
+  if (reviewEntry['review-cycle-days'] == null) {
+    findings.push({
+      severity: 'warning',
+      file: relative,
+      message: `template '${kind}' should declare review-cycle-days`
+    });
+  }
+
+  if (reviewEntry['review-status'] === 'overdue' && reviewEntry['next-review-due']) {
+    findings.push({
+      severity: 'warning',
+      file: relative,
+      message: `template '${kind}' review cadence expired on ${reviewEntry['next-review-due']}`
+    });
+  }
+
   const referenceDir = path.join(templateDir, 'references');
   const referenceFiles = listMarkdownFiles(referenceDir);
-  const minTemplateReferences = MIN_TEMPLATE_REFERENCES_BY_KIND[kind] || 2;
+  const minTemplateReferences = TEMPLATE_REFERENCE_FLOOR_BY_KIND[kind] || 2;
   if (referenceFiles.length < minTemplateReferences) {
     findings.push({
       severity: 'error',
@@ -201,10 +250,43 @@ function normalizeValue(value) {
   return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
 }
 
-function analyzeTemplateScaffolds(targetDir, findings) {
+function collectTemplateRecords(targetDir, findings = []) {
+  const records = [];
+  for (const kind of TEMPLATE_KINDS) {
+    const record = buildTemplateRecord(targetDir, kind, findings);
+    if (!record) {
+      continue;
+    }
+
+    const reviewEntry = buildReviewQueueEntry({
+      name: String(record.data.name || `${kind}-template`).trim(),
+      kind,
+      status: 'draft',
+      owner: normalizeReviewOwner(record.data.owner),
+      file: record.relative,
+      lastReviewed: record.data['last-reviewed'],
+      reviewCycleDays: record.data['review-cycle-days']
+    });
+
+    records.push({
+      name: String(record.data.name || `${kind}-template`).trim() || `${kind}-template`,
+      kind,
+      status: String(record.data.status || '').trim() || 'draft',
+      file: record.relative,
+      'template-version': normalizePositiveInteger(record.data[TEMPLATE_VERSION_FIELD]),
+      'last-reviewed': reviewEntry['last-reviewed'],
+      'review-cycle-days': reviewEntry['review-cycle-days'],
+      'review-status': reviewEntry['review-status'],
+      'next-review-due': reviewEntry['next-review-due'] || null
+    });
+  }
+  return records;
+}
+
+function analyzeTemplateScaffolds(targetDir, findings, options = {}) {
   let validCount = 0;
   for (const kind of TEMPLATE_KINDS) {
-    if (validateTemplateScaffold(targetDir, kind, findings)) {
+    if (validateTemplateScaffold(targetDir, kind, findings, options)) {
       validCount += 1;
     }
   }
@@ -217,5 +299,6 @@ module.exports = {
   SCAFFOLD_ORIGIN_FIELD,
   SCAFFOLD_VERSION_FIELD,
   readTemplateLineage,
+  collectTemplateRecords,
   analyzeTemplateScaffolds
 };

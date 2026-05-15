@@ -6,17 +6,60 @@ const {
   rel,
   parseJsonFile,
   collectGeneratedArtifactWriteability,
-  probeDirectoryCreateAccess
+  probeDirectoryCreateAccess,
+  probeArtifactWriteAccess
 } = require('./skill-system-common');
 const {
   getPendingScaffoldRegistryPath
 } = require('./skill-pending-scaffold-governance');
 const {
+  getSkillOpportunityQueuePath
+} = require('./skill-opportunity-governance');
+const {
+  getReviewQueuePath
+} = require('./skill-review-governance');
+const {
+  getAdmissionLedgerPath,
+  getEvolutionLedgerPath
+} = require('./skill-ledger-governance');
+const {
+  ACTIVE_OPPORTUNITY_STATUSES,
+  normalizeFuturePriority,
+  normalizeOpportunityStatus: normalizeSharedOpportunityStatus,
+  ACTIVE_ADMISSION_STATUSES,
+  normalizeAdmissionStatus: normalizeSharedAdmissionStatus,
+  ACTIVE_PENDING_SCAFFOLD_STATUSES,
+  normalizePendingScaffoldStatus: normalizeSharedPendingScaffoldStatus
+} = require('./skill-future-governance');
+const {
   getHostSmokeScorecardPath
 } = require('./skill-system-host-smoke');
 const {
-  normalizeHostSmokePolicy
-} = require('./skill-system-governance');
+  normalizeHostSmokePolicy,
+  getHostWriteabilitySeverity,
+  AUTHORITATIVE_SKILL_TREE_CONSTRAINT
+} = require('./skill-host-governance');
+const {
+  MIN_RUNTIME_PROOF_CONTRACTS,
+  normalizeEvidenceTests,
+  hasRequiredRuntimeProofEvidenceTests
+} = require('./skill-runtime-proof-governance');
+const {
+  summarizeExpertSourceIntegrations,
+  isActiveExpertSourceFamily,
+  buildExpertSourceTopTierBlockerMap
+} = require('./expert-source-integration');
+const {
+  collectTemplateRecords
+} = require('./skill-system-templates');
+const {
+  shouldAppearOnActiveRouteSurface,
+  shouldTrackScaffoldLineage,
+  getCapabilityModuleScaffoldKinds
+} = require('./skill-kind-governance');
+const {
+  collectSkillRecords
+} = require('./skill-system-skills');
 
 const SKILL_INVESTMENT_BACKLOG_SCHEMA_VERSION = 1;
 const INVESTMENT_PRIORITIES = ['critical', 'high', 'normal'];
@@ -35,6 +78,7 @@ const BACKLOG_SOURCES = new Set([
   'admission-ledger',
   'evolution-ledger',
   'review-queue',
+  'template-scaffolds',
   'scaffold-lineage',
   'pending-scaffolds',
   'top-tier-readiness',
@@ -42,12 +86,11 @@ const BACKLOG_SOURCES = new Set([
   'host-writeability'
 ]);
 
+const CAPABILITY_MODULE_SCAFFOLD_KINDS = Object.freeze(getCapabilityModuleScaffoldKinds());
+const SKILL_INVESTMENT_BACKLOG_DOC_PATH = 'skills/routers/sage/references/skill-investment-backlog.generated.md';
+
 function normalizeOpportunityStatus(value) {
-  const normalized = normalizeString(value).toLowerCase();
-  if (['open', 'planned', 'in-progress', 'blocked', 'deferred', 'implemented', 'cancelled'].includes(normalized)) {
-    return normalized;
-  }
-  return normalized || 'open';
+  return normalizeSharedOpportunityStatus(value);
 }
 
 function getSkillInvestmentBacklogPath(bundleRoot) {
@@ -56,14 +99,6 @@ function getSkillInvestmentBacklogPath(bundleRoot) {
 
 function normalizeString(value) {
   return String(value == null ? '' : value).trim();
-}
-
-function normalizeOpenItemStatus(value) {
-  const normalized = normalizeString(value).toLowerCase();
-  if (['open', 'planned', 'in-progress', 'blocked', 'deferred'].includes(normalized)) {
-    return normalized;
-  }
-  return 'open';
 }
 
 function uniqueSorted(values) {
@@ -125,8 +160,7 @@ function normalizeScaffoldVersion(value) {
 }
 
 function normalizePriority(value) {
-  const normalized = normalizeString(value).toLowerCase();
-  return INVESTMENT_PRIORITIES.includes(normalized) ? normalized : 'normal';
+  return normalizeFuturePriority(value);
 }
 
 function getReviewEntries(reviewQueueData) {
@@ -160,6 +194,7 @@ function buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, rati
   const topReady = new Set((((ratingsData || {})['rating-buckets'] || {})['top-ready']) || []);
   const strongButNotTop = new Set((((ratingsData || {})['rating-buckets'] || {})['strong-but-not-top']) || []);
   const templateVersions = readTemplateVersions(bundleRoot);
+  const expertSourceTopTierState = buildExpertSourceTopTierBlockerMap(bundleRoot, registryData || {});
   const items = [];
 
   for (const record of Array.isArray(skillRecords) ? skillRecords : []) {
@@ -177,7 +212,7 @@ function buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, rati
       reasons.push(`review:${reviewStatus}`);
     }
 
-    if (record.userInvocable && !normalizeRouteFixtureEvidence(fixtures, record.name)) {
+    if (shouldAppearOnActiveRouteSurface(record) && !normalizeRouteFixtureEvidence(fixtures, record.name)) {
       reasons.push('route-evidence-missing');
     }
 
@@ -195,6 +230,19 @@ function buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, rati
       reasons.push(`module-depth:${weakKinds.join(',')}`);
     }
 
+    const expertSourceBlockers = expertSourceTopTierState.blockersBySkill.get(record.name) || [];
+    if (expertSourceBlockers.length > 0) {
+      const expertReasons = uniqueSorted(expertSourceBlockers.map((blocker) => {
+        const family = normalizeString(blocker.family) || 'unknown-family';
+        const sourceSkill = normalizeString(blocker.sourceSkill);
+        if (sourceSkill) {
+          return `expert-source:${family}:${sourceSkill}`;
+        }
+        return `expert-source:${family}:${normalizeString(blocker.type) || 'blocked'}`;
+      }));
+      reasons.push(...expertReasons);
+    }
+
     const scaffoldVersion = normalizeScaffoldVersion(record.scaffoldVersion);
     const templateVersion = templateVersions.get(record.kind) || null;
     if (templateVersion != null && scaffoldVersion != null && scaffoldVersion < templateVersion) {
@@ -205,7 +253,11 @@ function buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, rati
       continue;
     }
 
-    const priority = reasons.some((reason) => reason.startsWith('review:') || reason.startsWith('module-depth:'))
+    const priority = reasons.some((reason) =>
+      reason.startsWith('review:')
+      || reason.startsWith('module-depth:')
+      || reason.startsWith('expert-source:')
+    )
       ? 'high'
       : 'normal';
     items.push({
@@ -265,11 +317,11 @@ function buildProofGovernanceItems(bundleRoot, skillRecords, runtimeProofData = 
 
     const reasons = [];
     const policy = normalizeHostSmokePolicy(proofEntry['host-smoke-policy']);
-    const evidenceTests = Array.isArray(proofEntry['evidence-tests']) ? proofEntry['evidence-tests'] : [];
-    if (evidenceTests.length < 1) {
+    const evidenceTests = normalizeEvidenceTests(proofEntry['evidence-tests']);
+    if (!hasRequiredRuntimeProofEvidenceTests(proofEntry.level, evidenceTests)) {
       reasons.push('evidence-tests:missing');
     }
-    if ((Array.isArray(proofEntry.contracts) ? proofEntry.contracts : []).length < 2) {
+    if ((Array.isArray(proofEntry.contracts) ? proofEntry.contracts : []).length < MIN_RUNTIME_PROOF_CONTRACTS) {
       reasons.push('contracts:below-floor');
     }
 
@@ -330,13 +382,9 @@ function buildHostWriteabilityItems(bundleRoot) {
       id: `host-writeability-${probe.id}`,
       category: 'host-writeability',
       status: 'open',
-      priority: probe.id === 'runtime-proof'
-        || probe.id === 'host-smoke-scorecard'
-        || probe.id === 'host-smoke-runtime-runs'
-        ? 'critical'
-        : probe.id === 'system-readiness'
-          ? 'high'
-          : 'normal',
+      priority: probe.id === 'expert-source-family-scorecard'
+        ? 'high'
+        : getHostWriteabilitySeverity(probe.id),
       source: 'host-writeability',
       skill: null,
       kind: null,
@@ -364,13 +412,13 @@ function buildHostWriteabilityItems(bundleRoot) {
       kind: null,
       summary: "Restore host ability to create authoritative skill directories.",
       reasons: [
-        'artifact:authoritative-skill-tree',
+        `artifact:${AUTHORITATIVE_SKILL_TREE_CONSTRAINT.id}`,
         'mode:create-child-directory',
         `code:${normalizeString(skillCreateProbe.code) || 'UNKNOWN'}`
       ],
       follow_up: [
         'node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --kind domain "<request>"',
-        'node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain <skill-name> --scaffold-modules'
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js create ${CAPABILITY_MODULE_SCAFFOLD_KINDS[0] || 'domain'} <skill-name> --scaffold-modules`
       ]
     });
   }
@@ -383,7 +431,7 @@ function buildScaffoldLineageItems(skillRecords, bundleRoot) {
   const items = [];
 
   for (const record of Array.isArray(skillRecords) ? skillRecords : []) {
-    if (['router', 'adapter'].includes(normalizeString(record.kind))) {
+    if (!shouldTrackScaffoldLineage(record.kind)) {
       continue;
     }
     const templateVersion = templateVersions.get(record.kind) || null;
@@ -413,14 +461,51 @@ function buildScaffoldLineageItems(skillRecords, bundleRoot) {
   return items;
 }
 
+function buildTemplateGovernanceItems(bundleRoot, now) {
+  const templateRecords = collectTemplateRecords(bundleRoot, []);
+  const items = [];
+
+  for (const record of templateRecords) {
+    const reviewStatus = normalizeString(record['review-status']);
+    if (!['overdue', 'missing-metadata'].includes(reviewStatus)) {
+      continue;
+    }
+
+    const reasons = uniqueSorted([
+      `review-status:${reviewStatus}`,
+      ...(normalizeString(record['next-review-due']) ? [`next-review-due:${normalizeString(record['next-review-due'])}`] : []),
+      ...(record['last-reviewed'] ? [`last-reviewed:${normalizeString(record['last-reviewed'])}`] : []),
+      ...(record['review-cycle-days'] != null ? [`review-cycle-days:${record['review-cycle-days']}`] : [])
+    ]);
+
+    items.push({
+      id: `template-governance-${normalizeString(record.kind)}`,
+      category: 'template-governance',
+      status: 'open',
+      priority: reviewStatus === 'overdue' ? 'high' : 'normal',
+      source: 'template-scaffolds',
+      skill: null,
+      kind: normalizeString(record.kind) || null,
+      summary: `Refresh canonical ${normalizeString(record.kind)} template governance metadata.`,
+      reasons,
+      follow_up: [
+        `review ${normalizeString(record.file)}`,
+        'npm run verify:skill-system'
+      ]
+    });
+  }
+
+  return items.sort(compareBacklogItems);
+}
+
 function buildPendingScaffoldItems(pendingScaffoldData) {
   const entries = Array.isArray(pendingScaffoldData && pendingScaffoldData.entries) ? pendingScaffoldData.entries : [];
   return entries
-    .filter((entry) => ['planned', 'in-progress', 'blocked', 'deferred'].includes(normalizeString(entry.status)))
+    .filter((entry) => ACTIVE_PENDING_SCAFFOLD_STATUSES.has(normalizeSharedPendingScaffoldStatus(entry.status)))
     .map((entry) => ({
       id: `pending-scaffold-${normalizeString(entry['pending-id'])}`,
       category: 'pending-scaffold-materialization',
-      status: normalizeOpenItemStatus(entry.status),
+      status: normalizeSharedPendingScaffoldStatus(entry.status),
       priority: normalizeString(entry.status) === 'blocked' ? 'critical' : 'high',
       source: 'pending-scaffolds',
       skill: normalizeString(entry.skill) || null,
@@ -443,14 +528,77 @@ function buildPendingScaffoldItems(pendingScaffoldData) {
     }));
 }
 
+function formatTemplate(template, sourceSkill) {
+  return normalizeString(template).replace(/%s/g, sourceSkill);
+}
+
+function buildExpertSourceIntegrationItems(bundleRoot, context = {}) {
+  const integrations = context.expertSourceIntegrations || summarizeExpertSourceIntegrations(bundleRoot, context.registryData || {});
+  const items = [];
+
+  for (const summary of Array.isArray(integrations.families) ? integrations.families : []) {
+    const family = summary.family || {};
+    if (!isActiveExpertSourceFamily(family)) {
+      continue;
+    }
+    const source = normalizeString(family.source);
+    if (!source) {
+      continue;
+    }
+
+    if (summary.parseError) {
+      items.push({
+        id: `${normalizeString(family.id) || source}-integration-registry-drift`,
+        category: 'expert-source-integration',
+        status: 'open',
+        priority: 'high',
+        source,
+        skill: null,
+        kind: null,
+        summary: normalizeString(family.parseErrorSummary) || `Repair ${normalizeString(family.label) || source} registry before the next expert-source extraction.`,
+        reasons: [`parse-error:${normalizeString(summary.parseError) || 'unknown'}`],
+        follow_up: [
+          'npm run verify:skill-system'
+        ]
+      });
+      continue;
+    }
+
+    for (const sourceSkill of summary.unmappedRawSources) {
+      items.push({
+        id: `${normalizeString(family.id) || source}-source-${sourceSkill}`,
+        category: 'expert-source-integration',
+        status: 'open',
+        priority: 'high',
+        source,
+        skill: null,
+        kind: null,
+        summary: formatTemplate(family.unmappedSummaryTemplate, sourceSkill),
+        reasons: uniqueSorted([
+          `raw-source:${sourceSkill}`,
+          'state:unmapped',
+          ...(summary.rawSourceCatalog.exists && summary.rawSourceCatalog.root
+            ? [`root:${path.basename(summary.rawSourceCatalog.root)}`]
+            : [])
+        ]),
+        follow_up: (Array.isArray(family.backlogFollowUp) ? family.backlogFollowUp : []).map((item) =>
+          formatTemplate(item, sourceSkill)
+        )
+      });
+    }
+  }
+
+  return items;
+}
+
 function buildAdmissionItems(admissionLedgerData) {
   const entries = Array.isArray(admissionLedgerData && admissionLedgerData.entries) ? admissionLedgerData.entries : [];
   return entries
-    .filter((entry) => ['open', 'planned', 'in-progress', 'blocked', 'deferred'].includes(normalizeString(entry.status)))
+    .filter((entry) => ACTIVE_ADMISSION_STATUSES.has(normalizeSharedAdmissionStatus(entry.status)))
     .map((entry) => ({
       id: `admission-${normalizeString(entry['request-id'])}`,
       category: 'new-skill-admission',
-      status: normalizeString(entry.status) || 'open',
+      status: normalizeSharedAdmissionStatus(entry.status),
       priority: normalizeString(entry.status) === 'blocked' ? 'critical' : 'high',
       source: 'admission-ledger',
       skill: normalizeString(entry && entry['created-skill']) || null,
@@ -472,7 +620,7 @@ function buildAdmissionItems(admissionLedgerData) {
 function buildOpportunityItems(opportunityQueueData) {
   const entries = Array.isArray(opportunityQueueData && opportunityQueueData.entries) ? opportunityQueueData.entries : [];
   return entries
-    .filter((entry) => ['open', 'planned', 'in-progress', 'blocked', 'deferred'].includes(normalizeOpportunityStatus(entry && entry.status)))
+    .filter((entry) => ACTIVE_OPPORTUNITY_STATUSES.has(normalizeOpportunityStatus(entry && entry.status)))
     .map((entry) => ({
       id: `opportunity-${normalizeString(entry['opportunity-id'])}`,
       category: 'future-skill-opportunity',
@@ -578,47 +726,182 @@ function summarizeBacklogItems(items) {
   return summary;
 }
 
+function asCode(value) {
+  return `\`${normalizeString(value)}\``;
+}
+
+function formatMaybeCode(value) {
+  const normalized = normalizeString(value);
+  return normalized ? asCode(normalized) : '-';
+}
+
+function formatList(values) {
+  const items = uniqueSorted(values);
+  return items.length > 0 ? items.map(asCode).join(', ') : '-';
+}
+
+function buildSkillInvestmentBacklogMarkdown(backlogData) {
+  const summary = backlogData && backlogData.summary && typeof backlogData.summary === 'object'
+    ? backlogData.summary
+    : {};
+  const items = Array.isArray(backlogData && backlogData.items) ? backlogData.items : [];
+  const sources = backlogData && backlogData.sources && typeof backlogData.sources === 'object'
+    ? backlogData.sources
+    : {};
+  const generatedAt = normalizeString(backlogData && backlogData['generated-at']);
+
+  const lines = [
+    '# Skill Investment Backlog',
+    '',
+    'Generated from `registry/skill-investment-backlog.generated.json`.',
+    'Use this as the human-readable portfolio board for current-skill hardening, future-skill intake, lifecycle debt, and host-governance blockers.',
+    ''
+  ];
+
+  if (generatedAt) {
+    lines.push(`Generated at: ${generatedAt}`);
+    lines.push('');
+  }
+
+  lines.push('## Summary');
+  lines.push('');
+  lines.push(`- total items: ${Number(summary.total || 0)}`);
+  lines.push(`- critical: ${Number(summary.critical || 0)}`);
+  lines.push(`- high: ${Number(summary.high || 0)}`);
+  lines.push(`- normal: ${Number(summary.normal || 0)}`);
+  lines.push('');
+
+  const categories = summary.categories && typeof summary.categories === 'object'
+    ? Object.entries(summary.categories)
+        .filter(([, count]) => Number(count || 0) > 0)
+        .sort((left, right) => Number(right[1] || 0) - Number(left[1] || 0) || String(left[0]).localeCompare(String(right[0])))
+    : [];
+  if (categories.length > 0) {
+    lines.push('### Categories');
+    lines.push('');
+    for (const [category, count] of categories) {
+      lines.push(`- ${asCode(category)}: ${Number(count || 0)}`);
+    }
+    lines.push('');
+  }
+
+  const sourceCounts = summary.sources && typeof summary.sources === 'object'
+    ? Object.entries(summary.sources)
+        .filter(([, count]) => Number(count || 0) > 0)
+        .sort((left, right) => Number(right[1] || 0) - Number(left[1] || 0) || String(left[0]).localeCompare(String(right[0])))
+    : [];
+  if (sourceCounts.length > 0) {
+    lines.push('### Sources');
+    lines.push('');
+    for (const [source, count] of sourceCounts) {
+      const description = normalizeString(sources[source]);
+      lines.push(`- ${asCode(source)}: ${Number(count || 0)}${description ? ` -> ${description}` : ''}`);
+    }
+    lines.push('');
+  }
+
+  lines.push('## Active Items');
+  lines.push('');
+  if (items.length < 1) {
+    lines.push('No backlog items.');
+    lines.push('');
+  } else {
+    for (const item of items) {
+      lines.push(`### ${normalizeString(item.summary) || normalizeString(item.id)}`);
+      lines.push('');
+      lines.push(`- id: ${asCode(item.id)}`);
+      lines.push(`- priority: ${asCode(item.priority)}`);
+      lines.push(`- status: ${asCode(item.status)}`);
+      lines.push(`- category: ${asCode(item.category)}`);
+      lines.push(`- source: ${asCode(item.source)}`);
+      lines.push(`- skill: ${formatMaybeCode(item.skill)}`);
+      lines.push(`- kind: ${formatMaybeCode(item.kind)}`);
+      lines.push(`- reasons: ${formatList(item.reasons)}`);
+      lines.push(`- follow-up: ${formatList(item.follow_up)}`);
+      lines.push('');
+    }
+  }
+
+  lines.push('## Operating Notes');
+  lines.push('');
+  lines.push('1. treat this file as derived evidence, not the primary write surface');
+  lines.push('2. use `manage-skill` to change lifecycle, opportunity, admission, evolution, or scaffold state');
+  lines.push('3. regenerate this file whenever the governed backlog JSON changes');
+
+  return lines.join('\n');
+}
+
+function getSkillInvestmentBacklogDocPath(bundleRoot) {
+  return path.join(bundleRoot, SKILL_INVESTMENT_BACKLOG_DOC_PATH);
+}
+
 function buildSkillInvestmentBacklog(bundleRoot, context = {}) {
-  const skillRecords = Array.isArray(context.skillRecords) ? context.skillRecords : [];
-  const registryData = context.registryData || {};
-  const ratingsData = context.ratingsData || {};
-  const reviewQueueData = context.reviewQueueData || {};
-  const admissionLedgerData = context.admissionLedgerData || {};
-  const evolutionLedgerData = context.evolutionLedgerData || {};
-  const opportunityQueueData = context.opportunityQueueData || {};
-  const routeFixturesData = context.routeFixturesData || {};
+  let skillRecords = Array.isArray(context.skillRecords) ? context.skillRecords : [];
+  if (skillRecords.length < 1) {
+    const findings = [];
+    const collected = collectSkillRecords(bundleRoot, findings);
+    skillRecords = Array.isArray(collected && collected.skillRecords) ? collected.skillRecords : [];
+  }
+  const registryData = context.registryData || readJsonOrFallback(path.join(bundleRoot, 'registry', 'registry.generated.json'), {});
+  const ratingsData = context.ratingsData || readJsonOrFallback(path.join(bundleRoot, 'registry', 'capability-ratings.generated.json'), {});
+  const reviewQueueData = context.reviewQueueData || readJsonOrFallback(getReviewQueuePath(bundleRoot), {});
+  const admissionLedgerData = context.admissionLedgerData || readJsonOrFallback(getAdmissionLedgerPath(bundleRoot), {});
+  const evolutionLedgerData = context.evolutionLedgerData || readJsonOrFallback(getEvolutionLedgerPath(bundleRoot), {});
+  const opportunityQueueData = context.opportunityQueueData || readJsonOrFallback(getSkillOpportunityQueuePath(bundleRoot), {});
+  const routeFixturesData = context.routeFixturesData || readJsonOrFallback(path.join(bundleRoot, 'registry', 'route-fixtures.generated.json'), {});
   const runtimeProofData = context.runtimeProofData || readRuntimeProofRegistry(bundleRoot);
   const hostSmokeScorecardData = context.hostSmokeScorecardData || readHostSmokeScorecard(bundleRoot);
   const pendingScaffoldData = context.pendingScaffoldData || readJsonOrFallback(getPendingScaffoldRegistryPath(bundleRoot), { entries: [] });
+  const expertSourceIntegrations = context.expertSourceIntegrations || summarizeExpertSourceIntegrations(bundleRoot, registryData);
   const now = Number.isFinite(context.now) ? context.now : Date.now();
+  const templateGovernanceItems = buildTemplateGovernanceItems(bundleRoot, now);
 
   const items = [
     ...buildOpportunityItems(opportunityQueueData),
     ...buildAdmissionItems(admissionLedgerData),
     ...buildEvolutionItems(evolutionLedgerData),
     ...buildReviewItems(reviewQueueData),
+    ...templateGovernanceItems,
     ...buildScaffoldLineageItems(skillRecords, bundleRoot),
     ...buildPendingScaffoldItems(pendingScaffoldData),
     ...buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, ratingsData, reviewQueueData, routeFixturesData),
     ...buildProofGovernanceItems(bundleRoot, skillRecords, runtimeProofData, hostSmokeScorecardData),
-    ...buildHostWriteabilityItems(bundleRoot)
+    ...buildHostWriteabilityItems(bundleRoot),
+    ...buildExpertSourceIntegrationItems(bundleRoot, {
+      registryData,
+      expertSourceIntegrations
+    })
   ].sort(compareBacklogItems);
+
+  const sourceDescriptions = {
+    'skill-opportunity-queue': 'registry/skill-opportunity-queue.generated.json',
+    'admission-ledger': 'registry/admission-ledger.generated.json',
+    'evolution-ledger': 'registry/evolution-ledger.generated.json',
+    'review-queue': 'registry/review-queue.generated.json',
+    'template-scaffolds': 'templates/skill/**/SKILL.md',
+    'scaffold-lineage': 'templates/skill/**/SKILL.md + skills/**/SKILL.md scaffold metadata',
+    'pending-scaffolds': 'registry/pending-scaffolds.generated.json',
+    'top-tier-readiness': 'registry/capability-ratings.generated.json + registry/review-queue.generated.json + registry/route-fixtures.generated.json',
+    'proof-governance': 'registry/runtime-proof.generated.json + benchmark/host-smoke/scorecard.generated.json',
+    'host-writeability': 'live write-access probes across generated governance artifacts and authoritative skill tree',
+    'capability-ratings': 'registry/capability-ratings.generated.json',
+    'route-fixtures': 'registry/route-fixtures.generated.json',
+    'runtime-proof': 'registry/runtime-proof.generated.json',
+    'host-smoke-scorecard': 'benchmark/host-smoke/scorecard.generated.json',
+    'authoritative-skills': 'skills/**/SKILL.md'
+  };
+  for (const family of Array.isArray(expertSourceIntegrations.familiesConfig) ? expertSourceIntegrations.familiesConfig : []) {
+    const source = normalizeString(family && family.source);
+    if (!source) {
+      continue;
+    }
+    sourceDescriptions[source] = normalizeString(family && family.sourceDescription);
+  }
 
   return {
     'schema-version': SKILL_INVESTMENT_BACKLOG_SCHEMA_VERSION,
     'generated-at': new Date(now).toISOString(),
-    sources: {
-      'skill-opportunity-queue': 'registry/skill-opportunity-queue.generated.json',
-      'admission-ledger': 'registry/admission-ledger.generated.json',
-      'evolution-ledger': 'registry/evolution-ledger.generated.json',
-      'review-queue': 'registry/review-queue.generated.json',
-      'pending-scaffolds': 'registry/pending-scaffolds.generated.json',
-      'capability-ratings': 'registry/capability-ratings.generated.json',
-      'route-fixtures': 'registry/route-fixtures.generated.json',
-      'runtime-proof': 'registry/runtime-proof.generated.json',
-      'host-smoke-scorecard': 'benchmark/host-smoke/scorecard.generated.json',
-      'authoritative-skills': 'skills/**/SKILL.md'
-    },
+    sources: sourceDescriptions,
     summary: summarizeBacklogItems(items),
     items
   };
@@ -628,8 +911,11 @@ function writeSkillInvestmentBacklog(bundleRoot, context = {}) {
   const payload = buildSkillInvestmentBacklog(bundleRoot, context);
   const file = getSkillInvestmentBacklogPath(bundleRoot);
   fs.writeFileSync(file, `${JSON.stringify(payload, null, 2)}\n`, 'utf8');
+  const docFile = getSkillInvestmentBacklogDocPath(bundleRoot);
+  fs.writeFileSync(docFile, `${buildSkillInvestmentBacklogMarkdown(payload)}\n`, 'utf8');
   return {
     file,
+    docFile,
     payload
   };
 }
@@ -701,11 +987,13 @@ function validateSkillInvestmentBacklog(bundleRoot, findings, context = {}) {
     }
     seen.add(id);
 
-    if (!BACKLOG_SOURCES.has(normalizeString(item && item.source))) {
+    const sourceValue = normalizeString(item && item.source);
+    const allowedSources = new Set(Object.keys(expected.sources || {}));
+    if (!allowedSources.has(sourceValue)) {
       findings.push({
         severity: 'error',
         file: rel(bundleRoot, file),
-        message: `skill investment backlog item '${id}' has unsupported source '${normalizeString(item && item.source)}'`
+        message: `skill investment backlog item '${id}' has unsupported source '${sourceValue}'`
       });
     }
 
@@ -727,11 +1015,36 @@ function validateSkillInvestmentBacklog(bundleRoot, findings, context = {}) {
   }
 
   if (JSON.stringify(comparableActual) !== JSON.stringify(expected)) {
+    const probe = probeArtifactWriteAccess(file, { mode: 'rewrite-file' });
+    findings.push({
+      severity: probe.ok ? 'error' : 'warning',
+      file: rel(bundleRoot, file),
+      message: probe.ok
+        ? 'skill investment backlog is out of sync with admission, evolution, review, scaffold, or top-tier governance state'
+        : `skill investment backlog is out of sync with admission, evolution, review, scaffold, or top-tier governance state, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
+    });
+  }
+
+  const docFile = getSkillInvestmentBacklogDocPath(bundleRoot);
+  if (!fs.existsSync(docFile)) {
     findings.push({
       severity: 'error',
-      file: rel(bundleRoot, file),
-      message: 'skill investment backlog is out of sync with admission, evolution, review, scaffold, or top-tier governance state'
+      file: rel(bundleRoot, docFile),
+      message: 'skill investment backlog generated markdown is missing'
     });
+  } else {
+    const expectedDoc = `${buildSkillInvestmentBacklogMarkdown(expected)}\n`;
+    const actualDoc = fs.readFileSync(docFile, 'utf8');
+    if (actualDoc !== expectedDoc) {
+      const probe = probeArtifactWriteAccess(docFile, { mode: 'rewrite-file' });
+      findings.push({
+        severity: probe.ok ? 'error' : 'warning',
+        file: rel(bundleRoot, docFile),
+        message: probe.ok
+          ? 'skill investment backlog generated markdown is out of sync with skill-investment-backlog.generated.json'
+          : `skill investment backlog generated markdown is out of sync with skill-investment-backlog.generated.json, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
+      });
+    }
   }
 
   return {
@@ -743,8 +1056,11 @@ function validateSkillInvestmentBacklog(bundleRoot, findings, context = {}) {
 module.exports = {
   SKILL_INVESTMENT_BACKLOG_SCHEMA_VERSION,
   INVESTMENT_PRIORITIES,
+  SKILL_INVESTMENT_BACKLOG_DOC_PATH,
   getSkillInvestmentBacklogPath,
+  getSkillInvestmentBacklogDocPath,
   buildSkillInvestmentBacklog,
+  buildSkillInvestmentBacklogMarkdown,
   writeSkillInvestmentBacklog,
   validateSkillInvestmentBacklog
 };

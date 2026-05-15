@@ -370,6 +370,223 @@
       "expect": "reliability-governance",
       "expect-no-fallback": true,
       "governed": true
+    },
+    {
+      "name": "placeholder-route-ai",
+      "query": "Run ai for this llm request.",
+      "expect": "ai",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-architecture",
+      "query": "Run architecture for this system design request.",
+      "expect": "architecture",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-data-engineering",
+      "query": "Run data-engineering for this etl request.",
+      "expect": "data-engineering",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-development",
+      "query": "Run development for this coding request.",
+      "expect": "development",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-devops",
+      "query": "Run devops for this ci request.",
+      "expect": "devops",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-frontend-design",
+      "query": "Run frontend-design for this ui request.",
+      "expect": "frontend-design",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-claymorphism",
+      "query": "Run claymorphism for this soft ui request.",
+      "expect": "claymorphism",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-glassmorphism",
+      "query": "Run glassmorphism for this frosted glass request.",
+      "expect": "glassmorphism",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-liquid-glass",
+      "query": "Run liquid-glass for this apple glass request.",
+      "expect": "liquid-glass",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-neubrutalism",
+      "query": "Run neubrutalism for this brutalist ui request.",
+      "expect": "neubrutalism",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-infrastructure",
+      "query": "Run infrastructure for this kubernetes request.",
+      "expect": "infrastructure",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-mobile",
+      "query": "Run mobile for this ios request.",
+      "expect": "mobile",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-orchestration",
+      "query": "Run orchestration for this coordination request.",
+      "expect": "orchestration",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-security",
+      "query": "Run security for this audit request.",
+      "expect": "security",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-pre-commit-gate",
+      "query": "Run pre-commit-gate for this pre commit request.",
+      "expect": "pre-commit-gate",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-pre-merge-gate",
+      "query": "Run pre-merge-gate for this pre merge request.",
+      "expect": "pre-merge-gate",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-gen-docs",
+      "query": "Run gen-docs for this generate docs request.",
+      "expect": "gen-docs",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-manage-skill",
+      "query": "Run manage-skill for this skill crud request.",
+      "expect": "manage-skill",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-verify-change",
+      "query": "Run verify-change for this diff analysis request.",
+      "expect": "verify-change",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-verify-module",
+      "query": "Run verify-module for this module audit request.",
+      "expect": "verify-module",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-verify-quality",
+      "query": "Run verify-quality for this quality scan request.",
+      "expect": "verify-quality",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-verify-security",
+      "query": "Run verify-security for this security scan request.",
+      "expect": "verify-security",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-verify-skill-system",
+      "query": "Run verify-skill-system for this skill system audit request.",
+      "expect": "verify-skill-system",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-architecture-decision",
+      "query": "Run architecture-decision for this tradeoff request.",
+      "expect": "architecture-decision",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-bugfix",
+      "query": "Run bugfix for this fix request.",
+      "expect": "bugfix",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-investigate",
+      "query": "Run investigate for this debug request.",
+      "expect": "investigate",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-multi-agent",
+      "query": "Run multi-agent for this parallel request.",
+      "expect": "multi-agent",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-review",
+      "query": "Run review for this code review request.",
+      "expect": "review",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-ship",
+      "query": "Run ship for this release request.",
+      "expect": "ship",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-skill-evolution",
+      "query": "Run skill-evolution for this skill system request.",
+      "expect": "skill-evolution",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-chart-visualization",
+      "query": "Run chart-visualization for this chart request.",
+      "expect": "chart-visualization",
+      "expect-no-fallback": true,
+      "governed": true
     }
   ]
 }

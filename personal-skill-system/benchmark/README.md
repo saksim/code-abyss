@@ -27,8 +27,11 @@ Deeper orchestration can be expanded in later cards.
 - `summary.generated.json`: machine-readable aggregate generated from `runs/`
 - `system-readiness.schema.json`: JSON schema for system governance readiness artifact
 - `system-readiness.generated.json`: machine-readable readiness rollup generated from benchmark, route, runtime-proof, and host-smoke surfaces
+- `host-evolution.schema.json`: JSON schema for host self-evolution recovery artifact
+- `host-evolution.generated.json`: machine-readable host constraint and recovery report for self-evolution
 - `scripts/generate-summary.js`: summary runner stub
 - `scripts/generate-system-readiness.js`: readiness runner
+- `scripts/generate-host-evolution.js`: host-evolution runner
 
 ## Domain Task Buckets (initial)
 
@@ -108,6 +111,10 @@ System readiness generator:
 
 - `node personal-skill-system/benchmark/scripts/generate-system-readiness.js`
 
+Host evolution generator:
+
+- `node personal-skill-system/benchmark/scripts/generate-host-evolution.js`
+
 Optional args:
 
 - `--root <benchmark_root>`
@@ -129,6 +136,13 @@ System readiness output:
 - rolls up route evidence coverage for stable user-invocable skills
 - rolls up runtime-proof coverage for governed scripted tools and guards
 - rolls up host-smoke governance policy readiness sourced from skill frontmatter via runtime-proof metadata
+
+Host evolution output:
+
+- rewrites `benchmark/host-evolution.generated.json`
+- rolls up live generated-artifact writeability on the current host
+- links blocked admissions to deferred pending scaffolds
+- gives recovery commands for resuming self-evolution on a writable host
 
 ## M1-001 Boundaries
 

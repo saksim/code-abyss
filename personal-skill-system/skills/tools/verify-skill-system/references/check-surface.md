@@ -43,10 +43,12 @@ Treat the result as a check on the bundle's single charter, not only as a parser
 - `host-smoked` should mean a matching smoke contract was actually executed successfully, not just declared in the registry
 - when a host-smoke contract declares freshness, `host-smoked` should also mean the latest matching passing artifact is still within that allowed age window
 - scripted templates expose `scripts/run.js` where required
+- generated skill-catalog reference stays aligned with `registry/registry.generated.json`
 - generated metadata does not reference missing skills
 - governed admission decisions stay uniquely identified and implemented requests point at real created skills
 - governed evolution decisions stay uniquely identified and implemented lifecycle requests point at real executed outcomes
 - generated governance artifacts remain aligned tightly enough that present-skill hardening and future-skill evolution share one coherent operating model
+- `skills/routers/sage/references/skill-investment-backlog.generated.md` stays aligned with `registry/skill-investment-backlog.generated.json` so portfolio review does not depend on raw JSON inspection
 
 ## What this tool does not prove
 

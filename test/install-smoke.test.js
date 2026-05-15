@@ -7,6 +7,10 @@ const { spawnSync } = require('child_process');
 const { rmSafe } = require('../bin/lib/utils');
 const gstackFixture = path.join(__dirname, 'fixtures', 'gstack-codex-source');
 
+function readBackupManifest(runtimeDir) {
+  return JSON.parse(fs.readFileSync(path.join(runtimeDir, '.sage-backup', 'manifest.json'), 'utf8'));
+}
+
 function cleanupHomeRoot(tmpHome) {
   if (!fs.existsSync(tmpHome)) return;
   for (const entry of fs.readdirSync(tmpHome)) {
@@ -62,6 +66,7 @@ describe('claude install smoke', () => {
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(claudeDir, 'CLAUDE.md'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'skills'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'commands'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'commands', 'gen-docs.md'))).toBe(true);
@@ -69,6 +74,14 @@ describe('claude install smoke', () => {
     expect(fs.existsSync(path.join(claudeDir, 'skills', 'gstack', 'review', 'SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, '.sage-uninstall.js'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'personal-skill-system', 'benchmark', 'host-evolution.generated.json'))).toBe(true);
+    expect(result.stdout).toContain('Self-evolution:');
+    expect(result.stdout).toContain('Self-evolution artifact:');
+    expect(readBackupManifest(claudeDir).host_evolution).toEqual(expect.objectContaining({
+      action: 'diagnose-host-evolution',
+      status: expect.any(String),
+      artifact: expect.any(String)
+    }));
   });
 
   test('安装 Claude 时支持 --style 切换 outputStyle', () => {
@@ -111,11 +124,20 @@ describe('codex install smoke', () => {
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpHome, '.agents', 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'bin', 'lib'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'config.toml'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'instruction.md'))).toBe(true);
     expect(codexConfig).toContain('model_instructions_file = "./instruction.md"');
+    expect(fs.existsSync(path.join(tmpHome, '.agents', 'personal-skill-system', 'benchmark', 'host-evolution.generated.json'))).toBe(true);
+    expect(result.stdout).toContain('Self-evolution:');
+    expect(result.stdout).toContain('Self-evolution artifact:');
+    expect(readBackupManifest(codexDir).host_evolution).toEqual(expect.objectContaining({
+      action: 'diagnose-host-evolution',
+      status: expect.any(String),
+      artifact: expect.any(String)
+    }));
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
     const agentsMd = fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8');
@@ -195,6 +217,7 @@ describe('gemini install smoke', () => {
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(geminiDir, 'GEMINI.md'))).toBe(true);
+    expect(fs.existsSync(path.join(geminiDir, 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
     expect(fs.existsSync(path.join(geminiDir, 'skills'))).toBe(true);
     expect(fs.existsSync(path.join(geminiDir, 'commands', 'gen-docs.toml'))).toBe(true);
     expect(fs.existsSync(path.join(geminiDir, 'commands', 'review.toml'))).toBe(true);
@@ -203,6 +226,14 @@ describe('gemini install smoke', () => {
     expect(reviewSkill).not.toContain('~/.claude/skills/gstack');
     expect(fs.existsSync(path.join(geminiDir, 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(geminiDir, '.sage-uninstall.js'))).toBe(true);
+    expect(fs.existsSync(path.join(geminiDir, 'personal-skill-system', 'benchmark', 'host-evolution.generated.json'))).toBe(true);
+    expect(result.stdout).toContain('Self-evolution:');
+    expect(result.stdout).toContain('Self-evolution artifact:');
+    expect(readBackupManifest(geminiDir).host_evolution).toEqual(expect.objectContaining({
+      action: 'diagnose-host-evolution',
+      status: expect.any(String),
+      artifact: expect.any(String)
+    }));
   });
 
   test('安装 Gemini 时支持 --style 切换 GEMINI.md', () => {

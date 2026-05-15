@@ -45,6 +45,14 @@ describe('docs drift guard', () => {
     expect(corpus).toContain('`personal-skill-system/skills/**/SKILL.md`');
   });
 
+  test('SKILL_AUTHORING points volatile governance enums at the generated reference', () => {
+    const skillAuthoring = fs.readFileSync(path.join(projectRoot, 'docs', 'SKILL_AUTHORING.md'), 'utf8');
+
+    expect(skillAuthoring).toContain('SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md');
+    expect(skillAuthoring).not.toContain('<domain|workflow|tool|guard|router|adapter>');
+    expect(skillAuthoring).not.toContain('<draft|experimental|stable|deprecated|archived>');
+  });
+
   test('root skills/ 目录不应再含文件', () => {
     const legacyRoot = path.join(projectRoot, 'skills');
     if (!fs.existsSync(legacyRoot)) {
@@ -70,13 +78,20 @@ describe('docs drift guard', () => {
     expect(files).toEqual([]);
   });
   test('capability ratings doc summary stays aligned with current generated counts', () => {
+    const ratings = JSON.parse(fs.readFileSync(path.join(projectRoot, 'personal-skill-system', 'registry', 'capability-ratings.generated.json'), 'utf8'));
     const ratingsDoc = fs.readFileSync(path.join(projectRoot, 'personal-skill-system', 'docs', 'CAPABILITY_MODULE_RATINGS.md'), 'utf8');
+    const moduleCounts = ratings.counts || {};
+    const skillCounts = (ratings['skill-level-summary'] || {}).counts || {};
+    const allTopLevel = Number(skillCounts['strong-uplift-but-not-top-yet'] || 0) === 0
+      && Number(skillCounts['useful-overlay-not-top-level-alone'] || 0) === 0
+      && Number(skillCounts['top-level-enough-now'] || 0) === Number(skillCounts['total-skills-rated'] || 0);
+    const expectedHostVerdict = allTopLevel
+      ? `- all ${Number(skillCounts['total-skills-rated'] || 0)} registered host skills are now rated top-level enough`
+      : `- ${Number(skillCounts['top-level-enough-now'] || 0)} of ${Number(skillCounts['total-skills-rated'] || 0)} registered host skills are top-level enough right now`;
 
-    expect(ratingsDoc).toContain('- TOP-ready modules: 100');
-    expect(ratingsDoc).toContain('- total rated capability modules: 100');
-    expect(ratingsDoc).toContain('- top-level enough now: 34');
-    expect(ratingsDoc).not.toContain('- TOP-ready modules: 99');
-    expect(ratingsDoc).not.toContain('- total rated capability modules: 99');
-    expect(ratingsDoc).not.toContain('- top-level enough now: 33');
+    expect(ratingsDoc).toContain(`- TOP-ready modules: ${Number(moduleCounts['top-ready'] || 0)}`);
+    expect(ratingsDoc).toContain(`- total rated capability modules: ${Number(moduleCounts.total || 0)}`);
+    expect(ratingsDoc).toContain(`- top-level enough now: ${Number(skillCounts['top-level-enough-now'] || 0)}`);
+    expect(ratingsDoc).toContain(expectedHostVerdict);
   });
 });

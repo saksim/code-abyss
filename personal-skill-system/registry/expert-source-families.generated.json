@@ -1,0 +1,26 @@
+{
+  "schema-version": 1,
+  "families": [
+    {
+      "id": "top-developer",
+      "title": "Top Developer",
+      "source": "top-developer-integration",
+      "label": "top-developer integration",
+      "rawSourceLabel": "raw expert source",
+      "integrationFile": "registry/top-developer-integration.generated.json",
+      "rawRoot": "../top_developer",
+      "schemaVersion": 2,
+      "integrationMode": "capability-modules",
+      "expectedPortable": true,
+      "parseErrorSummary": "Repair top-developer integration registry before the next expert-source extraction.",
+      "unmappedSummaryTemplate": "Integrate raw expert source '%s' into governed capability modules.",
+      "unmappedReason": "exists outside governed top-developer integration coverage",
+      "staleReason": "is still mapped by top-developer integration but the raw top_developer source is missing locally",
+      "sourceDescription": "registry/top-developer-integration.generated.json + ../top_developer/**/SKILL.md when present",
+      "backlogFollowUp": [
+        "review top_developer/%s/SKILL.md and decide extract-vs-admit",
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show skill-evolution"
+      ]
+    }
+  ]
+}

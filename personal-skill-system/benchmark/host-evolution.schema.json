@@ -1,0 +1,469 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/benchmark/host-evolution.schema.json",
+  "title": "Personal Skill System Host Evolution",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "sources",
+    "status",
+    "capabilities",
+    "summary",
+    "active-constraints",
+    "pending-scaffolds",
+    "blocked-admissions",
+    "host-writeability-debt",
+    "follow_up",
+    "notes"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated-at": {
+      "$ref": "#/$defs/isoDateTime"
+    },
+    "sources": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "system-readiness",
+        "skill-investment-backlog",
+        "pending-scaffolds",
+        "admission-ledger"
+      ],
+      "properties": {
+        "system-readiness": {
+          "type": "string",
+          "pattern": "^benchmark\\/system-readiness\\.generated\\.json$"
+        },
+        "skill-investment-backlog": {
+          "type": "string",
+          "pattern": "^registry\\/skill-investment-backlog\\.generated\\.json$"
+        },
+        "pending-scaffolds": {
+          "type": "string",
+          "pattern": "^registry\\/pending-scaffolds\\.generated\\.json$"
+        },
+        "admission-ledger": {
+          "type": "string",
+          "pattern": "^registry\\/admission-ledger\\.generated\\.json$"
+        }
+      }
+    },
+    "status": {
+      "$ref": "#/$defs/readinessStatus"
+    },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "create-authoritative-skill",
+        "materialize-pending-scaffold",
+        "rewrite-generated-governance"
+      ],
+      "properties": {
+        "create-authoritative-skill": {
+          "type": "string",
+          "enum": [
+            "available",
+            "blocked"
+          ]
+        },
+        "materialize-pending-scaffold": {
+          "type": "string",
+          "enum": [
+            "available",
+            "blocked",
+            "idle"
+          ]
+        },
+        "rewrite-generated-governance": {
+          "type": "string",
+          "enum": [
+            "available",
+            "degraded",
+            "blocked"
+          ]
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "active-constraints",
+        "blocked-governance-artifacts",
+        "pending-scaffolds",
+        "blocked-admissions",
+        "host-writeability-backlog-items"
+      ],
+      "properties": {
+        "active-constraints": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked-governance-artifacts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "pending-scaffolds": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked-admissions": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "host-writeability-backlog-items": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "active-constraints": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/hostEvolutionConstraint"
+      }
+    },
+    "pending-scaffolds": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/pendingScaffold"
+      }
+    },
+    "blocked-admissions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/blockedAdmission"
+      }
+    },
+    "host-writeability-debt": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "readiness": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "generated-at",
+        "host-writeability"
+      ],
+      "properties": {
+        "status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "generated-at": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "host-writeability": {
+          "type": [
+            "object",
+            "null"
+          ]
+        }
+      }
+    },
+    "follow_up": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/nonEmptyString"
+      }
+    }
+  },
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "readinessStatus": {
+      "type": "string",
+      "enum": [
+        "ready",
+        "attention",
+        "blocked"
+      ]
+    },
+    "hostWriteabilitySeverity": {
+      "type": "string",
+      "enum": [
+        "critical",
+        "high",
+        "normal"
+      ]
+    },
+    "hostWriteabilityArtifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "mode",
+        "code"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "mode": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "code": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "hostSmokePolicySummary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "tiers",
+        "statuses"
+      ],
+      "properties": {
+        "tiers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "critical",
+            "experimental",
+            "standard"
+          ],
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "experimental": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "standard": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "statuses": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "ready",
+            "attention",
+            "blocked"
+          ],
+          "properties": {
+            "ready": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "attention": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "blocked": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "hostSmokePolicyEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "skill",
+        "kind",
+        "tier",
+        "status",
+        "level",
+        "target-level",
+        "requires-freshness",
+        "evidence-status",
+        "governance-status"
+      ],
+      "properties": {
+        "skill": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "tool",
+            "guard"
+          ]
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "experimental",
+            "standard"
+          ]
+        },
+        "status": {
+          "$ref": "#/$defs/readinessStatus"
+        },
+        "level": {
+          "type": "string",
+          "enum": [
+            "declared-and-tested",
+            "declared-only",
+            "host-smoked"
+          ]
+        },
+        "target-level": {
+          "type": "string",
+          "enum": [
+            "declared-and-tested",
+            "declared-only",
+            "host-smoked"
+          ]
+        },
+        "requires-freshness": {
+          "type": "boolean"
+        },
+        "max-freshness-days": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "evidence-status": {
+          "type": "string",
+          "enum": [
+            "contract-drift",
+            "failing",
+            "invalid-contract",
+            "missing",
+            "passing",
+            "stale"
+          ]
+        },
+        "governance-status": {
+          "type": "string",
+          "enum": [
+            "contract-drift",
+            "failing",
+            "invalid-contract",
+            "missing",
+            "not-host-smoked",
+            "satisfied",
+            "stale"
+          ]
+        }
+      }
+    },
+    "hostEvolutionConstraint": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "id",
+        "label",
+        "mode",
+        "code",
+        "path",
+        "severity"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "label": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "mode": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "code": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "path": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "severity": {
+          "$ref": "#/$defs/hostWriteabilitySeverity"
+        }
+      }
+    },
+    "pendingScaffold": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "pending-id",
+        "skill",
+        "kind",
+        "status"
+      ],
+      "properties": {
+        "pending-id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "skill": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "kind": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "status": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    },
+    "blockedAdmission": {
+      "type": "object",
+      "additionalProperties": true,
+      "required": [
+        "request-id",
+        "request",
+        "status"
+      ],
+      "properties": {
+        "request-id": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "request": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "status": {
+          "$ref": "#/$defs/nonEmptyString"
+        }
+      }
+    }
+  }
+}

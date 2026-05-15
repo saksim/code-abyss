@@ -2,17 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
+const {
+  getLayerForKind
+} = require('./skill-kind-governance');
 
 const OPENAI_METADATA_KEYS = ['display_name', 'short_description', 'default_prompt'];
-
-const LAYER_BY_KIND = {
-  router: 'routers',
-  domain: 'domains',
-  workflow: 'workflows',
-  tool: 'tools',
-  guard: 'guards',
-  adapter: 'adapters'
-};
 
 function slugToTitle(slug) {
   return String(slug || '')
@@ -44,7 +38,7 @@ function normalizeSkillRelPath(skillRelPath) {
 }
 
 function buildDefaultPrompt(kind, skillName, options = {}) {
-  const layer = LAYER_BY_KIND[kind];
+  const layer = getLayerForKind(kind);
   if (!layer) {
     throw new Error(`cannot build host metadata for unsupported kind '${kind}'`);
   }

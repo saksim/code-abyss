@@ -1,0 +1,196 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://code-abyss.local/personal-skill-system/review-queue.schema.json",
+  "title": "Portable Personal Skill Review Queue Schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema-version",
+    "generated-at",
+    "source",
+    "thresholds",
+    "summary",
+    "skills"
+  ],
+  "properties": {
+    "schema-version": {
+      "type": "integer",
+      "const": 1
+    },
+    "generated-at": {
+      "$ref": "#/$defs/isoDateTime"
+    },
+    "source": {
+      "type": "string",
+      "const": "skills/**/SKILL.md"
+    },
+    "thresholds": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "due-soon-days"
+      ],
+      "properties": {
+        "due-soon-days": {
+          "type": "integer",
+          "const": 7
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "governed-skills",
+        "overdue",
+        "due-soon",
+        "scheduled",
+        "missing-metadata",
+        "stable-overdue",
+        "stable-missing-metadata"
+      ],
+      "properties": {
+        "governed-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "overdue": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "due-soon": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "scheduled": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "missing-metadata": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-overdue": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-missing-metadata": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "skill",
+          "kind",
+          "status",
+          "owner",
+          "file",
+          "last-reviewed",
+          "review-cycle-days",
+          "review-status",
+          "priority"
+        ],
+        "properties": {
+          "skill": {
+            "$ref": "#/$defs/skillName"
+          },
+          "kind": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "experimental",
+              "stable",
+              "deprecated"
+            ]
+          },
+          "owner": {
+            "$ref": "#/$defs/nonEmptyString"
+          },
+          "file": {
+            "$ref": "#/$defs/portablePath"
+          },
+          "last-reviewed": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string",
+                "format": "date"
+              }
+            ]
+          },
+          "review-cycle-days": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 3650
+              }
+            ]
+          },
+          "review-status": {
+            "type": "string",
+            "enum": [
+              "scheduled",
+              "due-soon",
+              "overdue",
+              "missing-metadata"
+            ]
+          },
+          "priority": {
+            "type": "string",
+            "enum": [
+              "critical",
+              "high",
+              "normal"
+            ]
+          },
+          "next-review-due": {
+            "type": "string",
+            "format": "date"
+          },
+          "days-until-due": {
+            "type": "integer"
+          },
+          "overdue-days": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "skillName": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+    "portablePath": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.\\.(?:/|$)).+$",
+      "minLength": 1
+    },
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "isoDateTime": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
