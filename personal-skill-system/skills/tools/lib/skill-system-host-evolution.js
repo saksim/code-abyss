@@ -27,12 +27,16 @@ const {
 const { getSkillInvestmentBacklogPath } = require('./skill-investment-governance');
 const {
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS,
-  DERIVED_GOVERNANCE_ARTIFACT_PATHS
+  DERIVED_GOVERNANCE_ARTIFACT_PATHS,
+  findDerivedGovernanceRefreshStepByArtifactId
 } = require('./skill-system-derived-governance-contract');
 const {
   getHostWriteabilitySeverity,
   AUTHORITATIVE_SKILL_TREE_CONSTRAINT
 } = require('./skill-host-governance');
+const {
+  buildStableTopTierExecutionFocusFromUpgradeBoard
+} = require('./skill-top-tier-governance');
 
 const HOST_EVOLUTION_SCHEMA_VERSION = 1;
 const HOST_EVOLUTION_CAPABILITY_VALUE_ORDER = Object.freeze(['available', 'degraded', 'blocked']);
@@ -52,6 +56,20 @@ function uniqueSorted(values) {
       .map((item) => normalizeString(item))
       .filter(Boolean)
   )].sort((left, right) => left.localeCompare(right));
+}
+
+function uniqueOrdered(values) {
+  const result = [];
+  const seen = new Set();
+  for (const value of Array.isArray(values) ? values : []) {
+    const normalized = normalizeString(value);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
 }
 
 function cloneJson(value) {
@@ -144,14 +162,24 @@ function readPendingScaffoldRegistry(bundleRoot) {
 function buildBlockedArtifactConstraints(bundleRoot) {
   return collectGeneratedArtifactWriteability(bundleRoot)
     .filter((probe) => probe.ok !== true)
-    .map((probe) => ({
-      id: probe.id,
-      label: probe.label,
-      mode: probe.mode,
-      code: probe.code || 'UNKNOWN',
-      path: toPortablePath(bundleRoot, probe.path),
-      severity: getHostWriteabilitySeverity(probe.id)
-    }));
+    .map((probe) => {
+      const refreshStep = findDerivedGovernanceRefreshStepByArtifactId(probe.id);
+      return {
+        id: probe.id,
+        label: probe.label,
+        mode: probe.mode,
+        code: probe.code || 'UNKNOWN',
+        path: toPortablePath(bundleRoot, probe.path),
+        severity: getHostWriteabilitySeverity(probe.id),
+        ...(refreshStep ? {
+          'refresh-step': {
+            id: refreshStep.id,
+            order: refreshStep.order,
+            label: refreshStep.label
+          }
+        } : {})
+      };
+    });
 }
 
 function buildPendingScaffoldEntries(bundleRoot, registry) {
@@ -200,7 +228,44 @@ function buildBlockedAdmissions(admissionLedger, pendingScaffolds) {
     });
 }
 
-function buildFollowUp(activeConstraints, pendingScaffolds, blockedAdmissions, hostWriteabilityDebt) {
+function normalizeTopTierExecutionFocus(value) {
+  if (!isPlainObject(value)) {
+    return {
+      blocked: 0,
+      'next-wave': [],
+      'next-wave-size': 0,
+      'current-priority-lane': null,
+      'current-blocker-family': null,
+      follow_up: []
+    };
+  }
+
+  return {
+    blocked: Number(value.blocked || 0),
+    'next-wave': uniqueOrdered(value['next-wave']),
+    'next-wave-size': Number(value['next-wave-size'] || 0),
+    'current-priority-lane': isPlainObject(value['current-priority-lane']) ? cloneJson(value['current-priority-lane']) : null,
+    'current-blocker-family': isPlainObject(value['current-blocker-family']) ? cloneJson(value['current-blocker-family']) : null,
+    follow_up: uniqueOrdered(value.follow_up)
+  };
+}
+
+function deriveTopTierExecutionFocus(readiness, backlog) {
+  const signal = readiness && readiness.signals && readiness.signals['top-tier-readiness'];
+  if (isPlainObject(signal && signal['execution-focus'])) {
+    return normalizeTopTierExecutionFocus(signal['execution-focus']);
+  }
+
+  const backlogBoard = backlog
+    && backlog['top-tier-portfolio']
+    && backlog['top-tier-portfolio']['upgrade-board'];
+
+  return normalizeTopTierExecutionFocus(
+    buildStableTopTierExecutionFocusFromUpgradeBoard(backlogBoard || {})
+  );
+}
+
+function buildFollowUp(activeConstraints, pendingScaffolds, blockedAdmissions, hostWriteabilityDebt, topTierExecutionFocus) {
   const followUp = [];
   const blockedDerivedArtifactIds = DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS.filter((artifactId) =>
     activeConstraints.some((item) => item.id === artifactId)
@@ -225,6 +290,17 @@ function buildFollowUp(activeConstraints, pendingScaffolds, blockedAdmissions, h
   if (activeConstraints.some((item) => item.id === 'system-readiness') || hostWriteabilityDebt.some((item) => normalizeString(item.id) === 'host-writeability-system-readiness')) {
     followUp.push('npm run verify:skill-system');
   }
+  if (
+    activeConstraints.length < 1
+    && hostWriteabilityDebt.length < 1
+    && pendingScaffolds.length < 1
+    && blockedAdmissions.length < 1
+    && Number(topTierExecutionFocus && topTierExecutionFocus.blocked || 0) > 0
+  ) {
+    for (const command of uniqueSorted(topTierExecutionFocus.follow_up)) {
+      followUp.push(command);
+    }
+  }
   if (followUp.length < 1) {
     followUp.push('node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier manage-skill');
   }
@@ -241,6 +317,9 @@ function buildHostEvolutionReport(bundleRoot, context = {}) {
   const readinessHostWriteability = readiness && readiness.signals
     ? readiness.signals['host-writeability']
     : null;
+  const topTierExecutionFocus = normalizeTopTierExecutionFocus(
+    context.topTierExecutionFocus || deriveTopTierExecutionFocus(readiness, backlog)
+  );
   const hostWriteabilityDebt = (Array.isArray(backlog && backlog.items) ? backlog.items : [])
     .filter((item) => normalizeString(item && item.source) === 'host-writeability');
 
@@ -278,7 +357,7 @@ function buildHostEvolutionReport(bundleRoot, context = {}) {
     : hasCriticalWriteabilityBlocker
       ? 'blocked'
       : 'degraded';
-  const followUp = buildFollowUp(activeConstraints, pendingScaffolds, blockedAdmissions, hostWriteabilityDebt);
+  const followUp = buildFollowUp(activeConstraints, pendingScaffolds, blockedAdmissions, hostWriteabilityDebt, topTierExecutionFocus);
 
   return {
     'schema-version': HOST_EVOLUTION_SCHEMA_VERSION,
@@ -302,16 +381,20 @@ function buildHostEvolutionReport(bundleRoot, context = {}) {
       'blocked-governance-artifacts': blockedArtifacts.length,
       'pending-scaffolds': pendingScaffolds.length,
       'blocked-admissions': blockedAdmissions.length,
-      'host-writeability-backlog-items': hostWriteabilityDebt.length
+      'host-writeability-backlog-items': hostWriteabilityDebt.length,
+      'top-tier-next-wave-size': Number(topTierExecutionFocus['next-wave-size'] || 0),
+      'top-tier-blocked-stable-skills': Number(topTierExecutionFocus.blocked || 0)
     },
     'active-constraints': activeConstraints,
     'pending-scaffolds': pendingScaffolds,
     'blocked-admissions': blockedAdmissions,
     'host-writeability-debt': hostWriteabilityDebt,
+    'top-tier-execution-focus': topTierExecutionFocus,
     readiness: readiness ? {
       status: normalizeString(readiness.status) || null,
       'generated-at': normalizeString(readiness['generated-at']) || null,
-      'host-writeability': readinessHostWriteability || null
+      'host-writeability': readinessHostWriteability || null,
+      'top-tier-execution-focus': topTierExecutionFocus
     } : null,
     follow_up: followUp,
     notes: [

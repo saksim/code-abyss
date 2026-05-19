@@ -47,15 +47,20 @@
         "`admission-check --opportunity-id` upgrades a governed future-skill opportunity into a traceable admission request, preserving the originating opportunity id and moving queue state forward without manual ledger patching",
         "linked opportunity escalation also resolves whether the original demand should stay active, move to planned, or close as reuse/upgrade advice, so the opportunity queue and admission ledger cannot silently diverge",
         "`evolution-check` evaluates existing-skill lifecycle moves against current routing, module depth, and top-tier blockers so promote/deprecate/archive/delete work is also routed through a repeatable governed decision path",
-        "`assess-top-tier` turns \"this skill is top-tier enough\" into a governed read-only check instead of a hand-waved label by inspecting capability-module ratings and stable-surface blockers together",
+        "`show-skill-retirement-blueprint` makes destructive lifecycle work symmetric with creation blueprints, so deletion and retirement are previewed as governed payloads instead of reconstructed from scattered ledgers",
+        "`show-skill-hardening-blueprint` makes current-skill promotion and deepening symmetric with creation and retirement blueprints, so maintainers can inspect ordered blocker families and repair commands from one governed payload instead of reconstructing top-tier state from separate review, route, runtime-proof, and host-smoke surfaces",
+        "`show-skill-scaffold-upgrade-blueprint` makes scaffold drift repair symmetric with creation, hardening, and retirement blueprints, so descendant template upgrades become governed audit work instead of a risky direct `sync-scaffold-lineage`",
+        "`assess-top-tier` turns \"this skill is top-tier enough\" into a governed read-only check instead of a hand-waved label by inspecting capability-module ratings and stable-surface blockers together, even when the current lifecycle state is still `experimental` or `deprecated`",
         "`create` updates the authoritative skill tree and generated metadata together instead of leaving registry or route drift behind",
         "`create` also records which canonical scaffold and template version seeded the new skill so future scaffold upgrades become governable drift instead of tribal knowledge",
         "`create` seeds review metadata from centralized kind policy, so newly created skills start with current review baselines instead of inheriting stale template dates",
         "`sync-scaffold-lineage` upgrades pre-lineage historical skills into the same canonical scaffold tracking model as newly created skills without hand-editing every frontmatter block",
         "`create --scaffold-modules` also seeds module-group registry entries, placeholder route `expert-modules`, and thin capability-module ratings for new capability-module scaffold kinds (currently `domain` and `workflow`)",
+        "`show-skill-blueprint` exposes the exact future-skill governance payload before creation, so maintainers can review whether the proposed boundary, scaffold lineage, capability modules, and top-tier hardening debt are correct before materializing files",
         "`set-module-rating` upgrades or downgrades registered capability modules through a governed path instead of hand-editing rating buckets, `next-batch`, or the mirrored ratings doc",
         "`set-status` updates lifecycle metadata through a governed path instead of allowing raw `status=` edits that can strand runtime-proof, ratings, or readiness artifacts",
-        "`set-status stable` now reuses the same top-tier readiness gate as `assess-top-tier`, so \"stable\" cannot drift away from the skill system's claimed top-tier standard",
+        "`update` is intentionally narrower than raw frontmatter editing: it can repair safe metadata quickly, but it refuses identity/layer/lineage mutations plus runtime/host-smoke contract mutations that would orphan registries, route ownership, or proof governance",
+        "`set-status stable` now reuses the same stable-candidate readiness gate as `assess-top-tier`, so \"stable\" cannot drift away from the skill system's claimed top-tier standard and live non-stable skills cannot skip route/runtime-proof/review evidence on the way up",
         "`assess-top-tier` also treats expired stable review cadence as a real blocker instead of allowing stale `stable` claims to persist forever",
         "`archive` and `delete` remove active-route surfaces for the target skill, including route fixtures and ratings summary membership",
         "`delete` also enforces centralized delete-governance blockers, refusing removal while active opportunity, admission, evolution, pending-scaffold, or expert-source dependencies still point at the skill",
@@ -75,8 +80,10 @@
         "failed host-smoke executions preserve their artifacts and demote any now-invalid `host-smoked` level instead of leaving stale governance claims behind",
         "host-smoke contract and evidence changes also refresh a bundle-wide scorecard so system-level freshness and governance drift stay inspectable",
         "`reconcile-host-smoke` invalidates drifted runtime host-smoke artifacts through a governed ledger instead of rewriting append-only run history and can chain directly into a rerun when fresh evidence is needed",
-        "`mark-reviewed` refreshes one skill's review metadata and the governed review queue together so long-lived top-tier skills can stay current without hand-editing queue artifacts",
+        "`mark-reviewed` refreshes review metadata together with the governed review queue, capability-ratings surfaces, investment backlog, and readiness rollups so review operations cannot leave stale top-tier summaries behind",
         "`show-investment-backlog` gives the bundle a first-class portfolio view for future skill additions, upgrades, deprecations, and template refreshes instead of relying on memory or stale roadmap docs",
+        "`show-lifecycle-governance` gives the bundle a first-class lifecycle decision board for active skills, so promotion-ready and hardening-blocked skills can be distinguished without reconstructing state from backlog plus top-tier checks",
+        "`show-future-skill-pipeline` compresses the future-skill control loop into one governed view, linking each thread's intake, admission decision, deferred scaffold, and host blockage instead of forcing maintainers to reconstruct state from separate registries",
         "`show-expert-source-families` gives the bundle a family-level health board for expert-source ingestion, so maintainers can see which raw corpora are registered, portable, unmapped, stale, or parse-broken before touching deeper integration ledgers",
         "`register-expert-source-family` turns future expert-source onboarding into a governed write path that seeds the family registry, integration ledger, experimental pack include, and derived portfolio surfaces together instead of relying on hand-edited registry sprawl",
         "`update-expert-source-family` keeps expert-source family metadata and ledger location changes inside the same governed write path instead of spreading rename/edit drift across registry, pack, and backlog surfaces",
@@ -243,6 +250,60 @@
       }
     },
     {
+      "skill": "verify-chart-spec",
+      "kind": "tool",
+      "level": "host-smoked",
+      "contracts": [
+        "`node scripts/run.js --target ./src --json` returns a structured chart-spec validation report with finding entries and rule ids",
+        "G2 misuse patterns such as deprecated API shape, interaction/config drift, and hallucinated marks are surfaced as explicit findings rather than silent pass states"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec allows legal chartIndex with shared tooltip",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec allows legal spaceLayer to view composition",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec allows lineX lineY and image marks with correct bindings",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec allows text mark inheriting data from parent view",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches chartIndex and tooltip placement misuse",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches chartIndex, text data, and tooltip placement issues",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches core G2 misuse patterns",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches guide, label transform, and component property drift",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches inline mark field mismatches and tooltip array misuse",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches interaction dependency and component shape issues",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches lineX lineY and image marks missing core bindings",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches missing encode on rangeY and invalid image payloads",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches range, image, and numeric label drift",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec catches text mark missing inherited or local data",
+        "test/personal_skill_system_tools.test.js::analyzeChartSpec validates render API payload requirements"
+      ],
+      "host-smoke-policy": {
+        "tier": "critical",
+        "target-level": "host-smoked",
+        "freshness-days": 7
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/verify-chart-spec/scripts/smoke.json",
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        },
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-chart-spec"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
       "skill": "verify-module",
       "kind": "tool",
       "level": "declared-and-tested",
@@ -280,7 +341,7 @@
     {
       "skill": "verify-quality",
       "kind": "tool",
-      "level": "declared-and-tested",
+      "level": "host-smoked",
       "contracts": [
         "`node scripts/run.js --target ./src --json` returns a structured quality report with issue entries and severity",
         "language-specific maintainability smells are surfaced as findings rather than only aggregate scores"
@@ -319,9 +380,54 @@
       }
     },
     {
+      "skill": "verify-s2-config",
+      "kind": "tool",
+      "level": "host-smoked",
+      "contracts": [
+        "`node scripts/run.js --target ./src --json` returns a structured S2 configuration validation report with finding entries and rule ids",
+        "SheetComponent prop misuse, field-shape drift, pagination wiring gaps, and imperative lifecycle mistakes are surfaced as explicit findings rather than silent pass states"
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::analyzeS2Config allows healthy SheetComponent and dataCfg usage",
+        "test/personal_skill_system_tools.test.js::analyzeS2Config allows showPagination when inline pagination config exists",
+        "test/personal_skill_system_tools.test.js::analyzeS2Config allows table sheet inline columns and imperative cleanup",
+        "test/personal_skill_system_tools.test.js::analyzeS2Config catches SheetComponent prop and field-shape issues",
+        "test/personal_skill_system_tools.test.js::analyzeS2Config catches showPagination without inline pagination config",
+        "test/personal_skill_system_tools.test.js::analyzeS2Config catches table sheet inline field mismatch and missing render"
+      ],
+      "host-smoke-policy": {
+        "tier": "critical",
+        "target-level": "host-smoked",
+        "freshness-days": 7
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/verify-s2-config/scripts/smoke.json",
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        },
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-s2-config"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
       "skill": "verify-security",
       "kind": "tool",
-      "level": "declared-only",
+      "level": "declared-and-tested",
       "contracts": [
         "`node scripts/run.js --target ./src --json` returns a structured security report with concrete findings and files",
         "trust-boundary and dangerous-sink heuristics emit explicit findings when risky patterns co-occur in one file"
@@ -380,12 +486,12 @@
         },
         "commands": [
           {
-            "cwd": "bundle-root",
+            "cwd": "project-root",
             "argv": [
               "node",
-              "skills/tools/verify-skill-system/scripts/run.js",
+              "personal-skill-system/skills/tools/verify-skill-system/scripts/run.js",
               "--target",
-              ".",
+              "personal-skill-system",
               "--self-smoke",
               "--json"
             ],

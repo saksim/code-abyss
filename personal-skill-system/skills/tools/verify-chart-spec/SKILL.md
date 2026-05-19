@@ -17,7 +17,10 @@ executor: node
 permissions: [Read, Grep, Bash]
 risk-level: low
 supported-hosts: [codex, claude, gemini]
-status: beta
+status: stable
+host-smoke-tier: critical
+host-smoke-target-level: host-smoked
+host-smoke-freshness-days: 7
 owner: self
 last-reviewed: 2026-04-19
 review-cycle-days: 30
@@ -82,6 +85,11 @@ aliases: [chart-spec-audit, g2-spec-check, 图表规范审计]
 - hallucinated mark types such as `ruleX`, `ruleY`, `regionX`, `regionY`, `venn`
 - `d3.*` usage inside user chart code
 - missing `render()` after chart construction
+
+## Runtime Proof
+
+- `node scripts/run.js --target ./src --json` returns a structured chart-spec validation report with finding entries and rule ids
+- G2 misuse patterns such as deprecated API shape, interaction/config drift, and hallucinated marks are surfaced as explicit findings rather than silent pass states
 
 ## Run
 

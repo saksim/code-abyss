@@ -33,9 +33,12 @@ const {
   FUTURE_SKILL_PRIORITY_ORDER,
   FUTURE_SKILL_HORIZON_ORDER,
   OPPORTUNITY_STATUS_ORDER,
+  ADMISSION_DECISION_ACTION_ORDER,
   ADMISSION_DECISION_ACTIONS,
   ADMISSION_STATUS_ORDER,
   PENDING_SCAFFOLD_STATUS_ORDER,
+  getRequiredAdmissionDecisionFields,
+  getAllowedAdmissionDecisionFields,
   isActiveOpportunityStatus,
   isActiveAdmissionStatus,
   isTerminalAdmissionStatus,
@@ -48,11 +51,14 @@ const {
   HOST_SMOKE_POLICY_TIERS,
   HOST_SMOKE_TARGET_LEVELS,
   HOST_SMOKE_RESULT_STATUSES,
-  HOST_SMOKE_COMMAND_CWD_MODES,
-  HOST_SMOKE_FRESHNESS_UNITS,
   HOST_SMOKE_INVALIDATION_REASONS,
   getHostWriteabilitySeverity
 } = require('./skill-host-governance');
+const {
+  SMOKE_MANIFEST_SCHEMA_VERSION,
+  SMOKE_MANIFEST_COMMAND_CWD_MODES,
+  SMOKE_MANIFEST_FRESHNESS_UNITS
+} = require('./skill-smoke-manifest-governance');
 const {
   READINESS_SCHEMA_ORDER
 } = require('./skill-readiness-schema-governance');
@@ -138,11 +144,19 @@ function buildOpportunityRows() {
 }
 
 function buildAdmissionDecisionRows() {
-  return [...ADMISSION_DECISION_ACTIONS].map((action) => [
+  return ADMISSION_DECISION_ACTION_ORDER.map((action) => [
     asCode(action),
     asCode(getDefaultAdmissionStatusForDecision(action)),
-    asCode(getDefaultOpportunityStatusForDecision(action) || 'none')
+    asCode(getDefaultOpportunityStatusForDecision(action) || 'none'),
+    formatFieldList(getRequiredAdmissionDecisionFields(action)),
+    formatFieldList(getAllowedAdmissionDecisionFields(action))
   ]);
+}
+
+function formatFieldList(values) {
+  return Array.isArray(values) && values.length > 0
+    ? values.map(asCode).join(', ')
+    : '-';
 }
 
 function buildAdmissionStatusRows() {
@@ -272,7 +286,7 @@ function buildAuthoringGovernanceReferenceMarkdown() {
     '### Admission Decision Actions',
     '',
     buildMarkdownTable(
-      ['Action', 'Default Admission Status', 'Default Opportunity Status'],
+      ['Action', 'Default Admission Status', 'Default Opportunity Status', 'Required Fields', 'Allowed Fields'],
       buildAdmissionDecisionRows()
     ),
     '',
@@ -294,10 +308,14 @@ function buildAuthoringGovernanceReferenceMarkdown() {
     '',
     `- policy tiers: ${[...HOST_SMOKE_POLICY_TIERS].sort().map(asCode).join(', ')}`,
     `- target levels: ${[...HOST_SMOKE_TARGET_LEVELS].sort().map(asCode).join(', ')}`,
-    `- command cwd modes: ${[...HOST_SMOKE_COMMAND_CWD_MODES].sort().map(asCode).join(', ')}`,
-    `- freshness units: ${[...HOST_SMOKE_FRESHNESS_UNITS].sort().map(asCode).join(', ')}`,
     `- result statuses: ${[...HOST_SMOKE_RESULT_STATUSES].sort().map(asCode).join(', ')}`,
     `- invalidation reasons: ${[...HOST_SMOKE_INVALIDATION_REASONS].sort().map(asCode).join(', ')}`,
+    '',
+    '## Smoke Manifest Governance',
+    '',
+    `- schema version: ${SMOKE_MANIFEST_SCHEMA_VERSION}`,
+    `- command cwd modes: ${[...SMOKE_MANIFEST_COMMAND_CWD_MODES].sort().map(asCode).join(', ')}`,
+    `- freshness units: ${[...SMOKE_MANIFEST_FRESHNESS_UNITS].sort().map(asCode).join(', ')}`,
     '',
     '### Writeability Severities',
     '',

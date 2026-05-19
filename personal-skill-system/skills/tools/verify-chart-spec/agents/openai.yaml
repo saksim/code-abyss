@@ -1,0 +1,3 @@
+display_name: "Verify Chart Spec Tool"
+short_description: "Heuristic validation for G2 chart code and chart spec misuse patterns such as v4 chained API, invalid transform shape, missing container, and hallucinated mark types."
+default_prompt: "Use ~/.agents/skills/tools/verify-chart-spec/SKILL.md as the primary instruction source before acting on verify-chart-spec."

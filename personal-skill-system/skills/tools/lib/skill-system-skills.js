@@ -12,11 +12,13 @@ const {
   parseJsonFile,
   listMarkdownFiles,
   getSmokeManifestFile,
-  validateSmokeManifest,
   readReferencePaths,
   readBulletSectionItems,
   expectedKindFromPath
 } = require('./skill-system-common');
+const {
+  validateSmokeManifest
+} = require('./skill-smoke-manifest-governance');
 const {
   isKnownSkillVisibility,
   isKnownSkillTriggerMode,
@@ -40,9 +42,11 @@ const {
 const {
   normalizeReviewDate,
   normalizeReviewCycleDays,
-  normalizeReviewOwner
+  normalizeReviewOwner,
+  deriveReviewSchedule
 } = require('./skill-review-governance');
 const {
+  isKnownSkillStatus,
   isReviewGovernedSkillStatus
 } = require('./skill-lifecycle-governance');
 const {
@@ -62,6 +66,31 @@ function normalizeStringList(value) {
   return (Array.isArray(value) ? value : [])
     .map((item) => String(item || '').trim())
     .filter(Boolean);
+}
+
+function getScaffoldDriftStatus(record = {}) {
+  const scaffoldOrigin = String(record.scaffoldOrigin || '').trim();
+  const scaffoldVersion = Number.isInteger(record.scaffoldVersion) && record.scaffoldVersion > 0
+    ? record.scaffoldVersion
+    : null;
+  const canonicalScaffoldOrigin = String(record.canonicalScaffoldOrigin || '').trim();
+  const canonicalScaffoldVersion = Number.isInteger(record.canonicalScaffoldVersion) && record.canonicalScaffoldVersion > 0
+    ? record.canonicalScaffoldVersion
+    : null;
+
+  if (!scaffoldOrigin || scaffoldVersion == null) {
+    return 'missing-lineage';
+  }
+  if (canonicalScaffoldOrigin && scaffoldOrigin !== canonicalScaffoldOrigin) {
+    return 'origin-mismatch';
+  }
+  if (canonicalScaffoldVersion != null && scaffoldVersion < canonicalScaffoldVersion) {
+    return 'behind-template';
+  }
+  if (canonicalScaffoldVersion != null && scaffoldVersion > canonicalScaffoldVersion) {
+    return 'ahead-of-template';
+  }
+  return 'current';
 }
 
 function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
@@ -85,6 +114,18 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
   const templateLineage = readTemplateLineage(targetDir, data.kind);
   const scaffoldOrigin = String(data[SCAFFOLD_ORIGIN_FIELD] || '').trim();
   const scaffoldVersion = Number(data[SCAFFOLD_VERSION_FIELD]);
+  const normalizedScaffoldOrigin = scaffoldOrigin || null;
+  const normalizedScaffoldVersion = Number.isInteger(scaffoldVersion) && scaffoldVersion > 0
+    ? scaffoldVersion
+    : null;
+  const scaffoldDriftStatus = shouldTrackScaffoldLineage(data.kind)
+    ? getScaffoldDriftStatus({
+        scaffoldOrigin: normalizedScaffoldOrigin,
+        scaffoldVersion: normalizedScaffoldVersion,
+        canonicalScaffoldOrigin: templateLineage ? templateLineage.origin : null,
+        canonicalScaffoldVersion: templateLineage ? templateLineage.version : null
+      })
+    : null;
   const stableLike = data.status === 'stable';
   const deprecatedLike = data.status === 'deprecated';
   const liveGoverned = isReviewGovernedSkillStatus(data.status);
@@ -108,6 +149,10 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
 
   if ('risk-level' in data && !isKnownSkillRiskLevel(data['risk-level'])) {
     findings.push({ severity: 'error', file: relative, message: `risk-level '${data['risk-level']}' is not supported` });
+  }
+
+  if ('status' in data && !isKnownSkillStatus(data.status)) {
+    findings.push({ severity: 'error', file: relative, message: `status '${data.status}' is not supported` });
   }
 
   const triggerModes = Array.isArray(data['trigger-mode']) ? data['trigger-mode'] : [];
@@ -300,17 +345,13 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
   }
 
   if (data['last-reviewed'] && data['review-cycle-days'] && data.status !== 'archived') {
-    const reviewedAt = new Date(`${data['last-reviewed']}T00:00:00Z`);
-    if (!Number.isNaN(reviewedAt.getTime())) {
-      const nextDue = new Date(reviewedAt.getTime());
-      nextDue.setUTCDate(nextDue.getUTCDate() + Number(data['review-cycle-days']));
-      if (Date.now() > nextDue.getTime()) {
-        findings.push({
-          severity: 'warning',
-          file: relative,
-          message: `review cadence expired on ${nextDue.toISOString().slice(0, 10)} for status '${data.status}'`
-        });
-      }
+    const reviewSchedule = deriveReviewSchedule(data['last-reviewed'], data['review-cycle-days']);
+    if (reviewSchedule['review-status'] === 'overdue' && reviewSchedule['next-review-due']) {
+      findings.push({
+        severity: 'warning',
+        file: relative,
+        message: `review cadence expired on ${reviewSchedule['next-review-due']} for status '${data.status}'`
+      });
     }
   }
 
@@ -354,34 +395,31 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
   }
 
   if (shouldTrackScaffoldLineage(data.kind)) {
-    if (!scaffoldOrigin || !Number.isInteger(scaffoldVersion) || scaffoldVersion < 1) {
+    if (scaffoldDriftStatus === 'missing-lineage') {
       const severity = data.status === 'draft' ? 'warning' : 'info';
       findings.push({
         severity,
         file: relative,
         message: `skill is missing scaffold lineage metadata ('${SCAFFOLD_ORIGIN_FIELD}' and '${SCAFFOLD_VERSION_FIELD}')`
       });
-    } else if (templateLineage) {
-      if (scaffoldOrigin !== templateLineage.origin) {
-        findings.push({
-          severity: 'warning',
-          file: relative,
-          message: `skill scaffold-origin '${scaffoldOrigin}' does not match canonical ${data.kind} template '${templateLineage.origin}'`
-        });
-      }
-      if (scaffoldVersion > templateLineage.version) {
-        findings.push({
-          severity: 'error',
-          file: relative,
-          message: `skill scaffold-version '${scaffoldVersion}' is ahead of canonical ${data.kind} template version '${templateLineage.version}'`
-        });
-      } else if (scaffoldVersion < templateLineage.version) {
-        findings.push({
-          severity: data.status === 'stable' ? 'warning' : 'info',
-          file: relative,
-          message: `skill scaffold-version '${scaffoldVersion}' is behind canonical ${data.kind} template version '${templateLineage.version}'`
-        });
-      }
+    } else if (templateLineage && scaffoldDriftStatus === 'origin-mismatch') {
+      findings.push({
+        severity: 'warning',
+        file: relative,
+        message: `skill scaffold-origin '${scaffoldOrigin}' does not match canonical ${data.kind} template '${templateLineage.origin}'`
+      });
+    } else if (templateLineage && scaffoldDriftStatus === 'ahead-of-template') {
+      findings.push({
+        severity: 'error',
+        file: relative,
+        message: `skill scaffold-version '${scaffoldVersion}' is ahead of canonical ${data.kind} template version '${templateLineage.version}'`
+      });
+    } else if (templateLineage && scaffoldDriftStatus === 'behind-template') {
+      findings.push({
+        severity: data.status === 'stable' ? 'warning' : 'info',
+        file: relative,
+        message: `skill scaffold-version '${scaffoldVersion}' is behind canonical ${data.kind} template version '${templateLineage.version}'`
+      });
     }
   }
 
@@ -442,6 +480,11 @@ function validateSkillFile(skillFile, targetDir, skillsRoot, findings) {
     hostSmokePolicy,
     lastReviewed: normalizeReviewDate(data['last-reviewed']),
     reviewCycleDays: normalizeReviewCycleDays(data['review-cycle-days']),
+    scaffoldOrigin: normalizedScaffoldOrigin,
+    scaffoldVersion: normalizedScaffoldVersion,
+    canonicalScaffoldOrigin: templateLineage ? templateLineage.origin : null,
+    canonicalScaffoldVersion: templateLineage ? templateLineage.version : null,
+    scaffoldDriftStatus,
     file: relative,
     runtimeProofItems: readBulletSectionItems(text, 'Runtime Proof'),
     hasHostMetadata,
@@ -478,5 +521,6 @@ function collectSkillRecords(targetDir, findings) {
 }
 
 module.exports = {
-  collectSkillRecords
+  collectSkillRecords,
+  getScaffoldDriftStatus
 };

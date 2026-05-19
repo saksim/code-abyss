@@ -1,5 +1,5 @@
 {
-  "schema-version": 2,
+  "schema-version": 3,
   "scope": "capability-modules",
   "rating-buckets": {
     "top-ready": [
@@ -126,54 +126,62 @@
       "architecture",
       "architecture-decision",
       "bugfix",
+      "chart-visualization",
       "claymorphism",
       "data-engineering",
       "development",
       "devops",
       "frontend-design",
-      "gen-docs",
       "glassmorphism",
       "host-governance",
       "infrastructure",
       "investigate",
       "liquid-glass",
-      "manage-skill",
       "mobile",
       "multi-agent",
       "neubrutalism",
       "orchestration",
-      "pre-commit-gate",
-      "pre-merge-gate",
       "reliability-governance",
       "review",
       "sage",
       "security",
       "ship",
-      "skill-evolution",
+      "skill-evolution"
+    ],
+    "strong-uplift-but-not-top-yet": [
+      "gen-docs",
+      "manage-skill",
+      "pre-commit-gate",
+      "pre-merge-gate",
       "verify-change",
+      "verify-chart-spec",
       "verify-module",
       "verify-quality",
+      "verify-s2-config",
+      "verify-security",
       "verify-skill-system"
     ],
-    "strong-uplift-but-not-top-yet": [],
-    "useful-overlay-not-top-level-alone": [
-      "verify-security"
-    ],
+    "useful-overlay-not-top-level-alone": [],
     "counts": {
-      "top-level-enough-now": 32,
-      "strong-uplift-but-not-top-yet": 0,
-      "useful-overlay-not-top-level-alone": 1,
-      "total-skills-rated": 33,
+      "top-level-enough-now": 25,
+      "strong-uplift-but-not-top-yet": 11,
+      "useful-overlay-not-top-level-alone": 0,
+      "total-skills-rated": 36,
       "stable-overdue": 0,
       "stable-missing-metadata": 0,
       "stable-expert-source-blocked": 0,
-      "stable-blocked-total": 0
+      "stable-route-evidence-blocked": 0,
+      "stable-runtime-proof-blocked": 11,
+      "stable-host-smoke-blocked": 0,
+      "stable-module-depth-blocked": 0,
+      "stable-blocked-total": 11
     }
   },
   "next-batch": [],
   "notes": [
     "This file rates capability modules, not whole skills.",
     "All 106 currently registered capability modules are TOP-ready in the current governed frame.",
-    "Current host skills are split across the top-level, strong-uplift, and overlay buckets under the weak-model-uplift standard."
+    "Current host skills are split across the top-level, strong-uplift, and overlay buckets under the weak-model-uplift standard.",
+    "11 stable skills are temporarily outside 'top-level-enough-now' because of 11 runtime-proof blocker."
   ]
 }

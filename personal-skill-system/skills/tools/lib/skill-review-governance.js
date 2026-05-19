@@ -123,6 +123,45 @@ function diffUtcDays(fromDateText, now) {
   return Math.floor((startOfUtcDay(parsed.getTime()) - startOfUtcDay(now)) / MS_PER_DAY);
 }
 
+function deriveReviewSchedule(lastReviewed, reviewCycleDays, options = {}) {
+  const normalizedLastReviewed = normalizeReviewDate(lastReviewed);
+  const normalizedReviewCycleDays = normalizeReviewCycleDays(reviewCycleDays);
+  if (!normalizedLastReviewed || normalizedReviewCycleDays == null) {
+    return {
+      'last-reviewed': normalizedLastReviewed,
+      'review-cycle-days': normalizedReviewCycleDays,
+      'review-status': 'missing-metadata'
+    };
+  }
+
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+  const nextReviewDue = addDays(normalizedLastReviewed, normalizedReviewCycleDays);
+  const daysUntilDue = nextReviewDue ? diffUtcDays(nextReviewDue, now) : null;
+  const overdueDays = typeof daysUntilDue === 'number' && daysUntilDue < 0
+    ? Math.abs(daysUntilDue)
+    : 0;
+  let reviewStatus = 'missing-metadata';
+
+  if (typeof daysUntilDue === 'number') {
+    if (daysUntilDue < 0) {
+      reviewStatus = 'overdue';
+    } else if (daysUntilDue <= REVIEW_DUE_SOON_DAYS) {
+      reviewStatus = 'due-soon';
+    } else {
+      reviewStatus = 'scheduled';
+    }
+  }
+
+  return {
+    'last-reviewed': normalizedLastReviewed,
+    'review-cycle-days': normalizedReviewCycleDays,
+    'next-review-due': nextReviewDue,
+    'days-until-due': daysUntilDue,
+    'overdue-days': overdueDays,
+    'review-status': reviewStatus
+  };
+}
+
 function deriveReviewPriority(entry) {
   if (entry['review-status'] === 'missing-metadata') {
     return entry.status === 'stable' ? 'critical' : 'high';
@@ -137,41 +176,23 @@ function deriveReviewPriority(entry) {
 }
 
 function buildReviewQueueEntry(record, options = {}) {
-  const now = Number.isFinite(options.now) ? options.now : Date.now();
-  const lastReviewed = normalizeReviewDate(record && record.lastReviewed);
-  const reviewCycleDays = normalizeReviewCycleDays(record && record.reviewCycleDays);
+  const reviewSchedule = deriveReviewSchedule(record && record.lastReviewed, record && record.reviewCycleDays, options);
   const entry = {
     skill: String(record && record.name || '').trim(),
     kind: String(record && record.kind || '').trim(),
     status: String(record && record.status || '').trim(),
     owner: normalizeReviewOwner(record && record.owner, 'unassigned'),
     file: String(record && record.file || '').trim(),
-    'last-reviewed': lastReviewed,
-    'review-cycle-days': reviewCycleDays,
-    'review-status': 'missing-metadata',
+    'last-reviewed': reviewSchedule['last-reviewed'],
+    'review-cycle-days': reviewSchedule['review-cycle-days'],
+    'review-status': reviewSchedule['review-status'],
     priority: 'normal'
   };
 
-  if (lastReviewed && reviewCycleDays != null) {
-    const nextReviewDue = addDays(lastReviewed, reviewCycleDays);
-    const daysUntilDue = nextReviewDue ? diffUtcDays(nextReviewDue, now) : null;
-    const overdueDays = typeof daysUntilDue === 'number' && daysUntilDue < 0
-      ? Math.abs(daysUntilDue)
-      : 0;
-
-    entry['next-review-due'] = nextReviewDue;
-    entry['days-until-due'] = daysUntilDue;
-    entry['overdue-days'] = overdueDays;
-
-    if (typeof daysUntilDue === 'number') {
-      if (daysUntilDue < 0) {
-        entry['review-status'] = 'overdue';
-      } else if (daysUntilDue <= REVIEW_DUE_SOON_DAYS) {
-        entry['review-status'] = 'due-soon';
-      } else {
-        entry['review-status'] = 'scheduled';
-      }
-    }
+  if (reviewSchedule['next-review-due']) {
+    entry['next-review-due'] = reviewSchedule['next-review-due'];
+    entry['days-until-due'] = reviewSchedule['days-until-due'];
+    entry['overdue-days'] = reviewSchedule['overdue-days'];
   }
 
   entry.priority = deriveReviewPriority(entry);
@@ -418,6 +439,7 @@ module.exports = {
   getDefaultReviewCycleDaysForKind,
   listReviewMetadataPolicies,
   buildSeedReviewMetadata,
+  deriveReviewSchedule,
   buildReviewQueueEntry,
   buildReviewQueueEntries,
   summarizeReviewQueue,

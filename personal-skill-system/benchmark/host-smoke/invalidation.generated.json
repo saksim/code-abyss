@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-15T09:50:59.455Z",
+  "generated-at": "2026-05-17T11:19:41.122Z",
   "entries": [
     {
       "skill": "manage-skill",
@@ -98,6 +98,50 @@
       "host": "codex",
       "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
       "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T182004246Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-skill-system",
+      "run-id": "host-smoke-20260510T090506589Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-17T11:19:41.113Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090506589Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-skill-system",
+      "run-id": "host-smoke-20260510T090606475Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-17T11:19:41.113Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090606475Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-skill-system",
+      "run-id": "host-smoke-20260517T101124546Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-17T11:19:41.113Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T101124546Z-codex.json",
+      "invalidated-by": "manage-skill sync-runtime-proof",
+      "note": "Current host-smoke contract no longer matches this artifact."
+    },
+    {
+      "skill": "verify-skill-system",
+      "run-id": "host-smoke-20260517T101209809Z-codex",
+      "reason": "contract-drift",
+      "invalidated-at": "2026-05-17T11:19:41.113Z",
+      "host": "codex",
+      "manifest": "skills/tools/verify-skill-system/scripts/smoke.json",
+      "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T101209809Z-codex.json",
       "invalidated-by": "manage-skill sync-runtime-proof",
       "note": "Current host-smoke contract no longer matches this artifact."
     }

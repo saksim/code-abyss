@@ -3,14 +3,16 @@
 const {
   RUNTIME_PROOF_GOVERNED_SKILL_STATUSES
 } = require('./skill-lifecycle-governance');
+const {
+  SMOKE_MANIFEST_COMMAND_CWD_MODES,
+  SMOKE_MANIFEST_FRESHNESS_UNITS
+} = require('./skill-smoke-manifest-governance');
 
 const GOVERNED_RUNTIME_PROOF_KIND_ORDER = Object.freeze(['tool', 'guard']);
 const GOVERNED_RUNTIME_PROOF_KINDS = new Set(GOVERNED_RUNTIME_PROOF_KIND_ORDER);
 const HOST_SMOKE_POLICY_TIERS = new Set(['critical', 'standard', 'experimental']);
 const HOST_SMOKE_TARGET_LEVELS = new Set(['declared-only', 'declared-and-tested', 'host-smoked']);
 const HOST_SMOKE_RESULT_STATUSES = new Set(['pass', 'fail']);
-const HOST_SMOKE_COMMAND_CWD_MODES = new Set(['skill-dir', 'bundle-root']);
-const HOST_SMOKE_FRESHNESS_UNITS = new Set(['hours', 'days']);
 const HOST_SMOKE_EVIDENCE_STATUSES = new Set(['passing', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract']);
 const HOST_SMOKE_GOVERNANCE_STATUSES = new Set(['satisfied', 'not-host-smoked', 'stale', 'failing', 'missing', 'contract-drift', 'invalid-contract']);
 const HOST_SMOKE_INVALIDATION_REASONS = new Set(['contract-drift', 'manual-reset', 'superseded']);
@@ -131,8 +133,8 @@ module.exports = {
   HOST_SMOKE_POLICY_TIERS,
   HOST_SMOKE_TARGET_LEVELS,
   HOST_SMOKE_RESULT_STATUSES,
-  HOST_SMOKE_COMMAND_CWD_MODES,
-  HOST_SMOKE_FRESHNESS_UNITS,
+  HOST_SMOKE_COMMAND_CWD_MODES: SMOKE_MANIFEST_COMMAND_CWD_MODES,
+  HOST_SMOKE_FRESHNESS_UNITS: SMOKE_MANIFEST_FRESHNESS_UNITS,
   HOST_SMOKE_EVIDENCE_STATUSES,
   HOST_SMOKE_GOVERNANCE_STATUSES,
   HOST_SMOKE_INVALIDATION_REASONS,

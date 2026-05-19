@@ -146,6 +146,29 @@ function listDerivedGovernanceRefreshSteps() {
   }));
 }
 
+function listDerivedGovernanceRefreshPlan() {
+  return listDerivedGovernanceRefreshSteps().map((step, index) => ({
+    ...step,
+    order: index + 1,
+    paths: step.artifacts.map((artifactId) => ({
+      artifact: artifactId,
+      path: DERIVED_GOVERNANCE_REFRESH_ARTIFACT_PATHS[artifactId]
+    }))
+  }));
+}
+
+function findDerivedGovernanceRefreshStepByArtifactId(artifactId) {
+  const normalizedArtifactId = String(artifactId || '').trim();
+  if (!normalizedArtifactId) {
+    return null;
+  }
+
+  const step = listDerivedGovernanceRefreshPlan().find((item) =>
+    Array.isArray(item.artifacts) && item.artifacts.includes(normalizedArtifactId)
+  );
+  return step || null;
+}
+
 module.exports = {
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT,
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS,
@@ -155,5 +178,7 @@ module.exports = {
   DERIVED_GOVERNANCE_REFRESH_ARTIFACT_IDS,
   DERIVED_GOVERNANCE_REFRESH_ARTIFACT_PATHS,
   getDerivedGovernanceRefreshStepDefinition,
-  listDerivedGovernanceRefreshSteps
+  listDerivedGovernanceRefreshSteps,
+  listDerivedGovernanceRefreshPlan,
+  findDerivedGovernanceRefreshStepByArtifactId
 };

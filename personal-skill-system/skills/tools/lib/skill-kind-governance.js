@@ -75,6 +75,7 @@ const SKILL_KIND_DEFINITIONS = {
     createPlaceholderRoute: true,
     trackScaffoldLineage: true,
     scriptedTemplate: true,
+    templateHostMetadata: true,
     capabilityModuleScaffold: false,
     placeholderRoute: {
       priority: 40,
@@ -95,6 +96,7 @@ const SKILL_KIND_DEFINITIONS = {
     createPlaceholderRoute: true,
     trackScaffoldLineage: true,
     scriptedTemplate: true,
+    templateHostMetadata: true,
     capabilityModuleScaffold: false,
     placeholderRoute: {
       priority: 40,
@@ -115,6 +117,7 @@ const SKILL_KIND_DEFINITIONS = {
     createPlaceholderRoute: false,
     trackScaffoldLineage: false,
     scriptedTemplate: false,
+    templateHostMetadata: true,
     capabilityModuleScaffold: false,
     placeholderRoute: {
       priority: 40,
@@ -275,6 +278,11 @@ function shouldAppearInSkillLevelSummary(record) {
     && participatesInSkillLevelSummary(record.kind);
 }
 
+function templateRequiresHostMetadata(kind) {
+  const definition = getSkillKindDefinition(kind);
+  return Boolean(definition) && definition.templateHostMetadata !== false;
+}
+
 module.exports = {
   SKILL_KIND_ORDER,
   TEMPLATE_KINDS,
@@ -306,5 +314,6 @@ module.exports = {
   shouldTrackScaffoldLineage,
   shouldSyncGovernedRouteArtifacts,
   participatesInSkillLevelSummary,
-  shouldAppearInSkillLevelSummary
+  shouldAppearInSkillLevelSummary,
+  templateRequiresHostMetadata
 };

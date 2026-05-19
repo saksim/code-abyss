@@ -5,20 +5,28 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { spawnSync } = require('child_process');
+const {
+  resolveSkillProjectRoot
+} = require('../../lib/runtime');
 const { collectSkillRecords } = require('../../lib/skill-system-skills');
 const {
   validateSmokeManifest,
   probeArtifactWriteAccess,
   probeDirectoryCreateAccess,
   readReferencePaths,
+  readBulletSectionItems,
   collectGeneratedArtifactWriteability
 } = require('../../lib/skill-system-common');
 const {
-  explainRouteSelection,
+  explainRouteSelection
+} = require('../../lib/skill-system-routing');
+const {
   buildGovernedRouteFixture,
   hasRouteFixtureEvidence,
-  routeFixtureReferencesSkill
-} = require('../../lib/skill-system-routing');
+  routeFixtureReferencesSkill,
+  isGovernedRouteFixture,
+  summarizeRouteFixtureEvidence
+} = require('../../lib/skill-route-fixture-governance');
 const {
   normalizeHostSmokeContract,
   hostSmokeContractsEqual,
@@ -66,12 +74,10 @@ const {
   resolveRuntimeProofHostSmoke,
   buildRuntimeProofEntry: buildGovernedRuntimeProofEntry,
   buildRuntimeProofRegistryDocument,
+  dedupeRuntimeProofEntries,
   describeHostSmokedEvidenceFailure: describeRuntimeProofHostSmokedEvidenceFailure
 } = require('../../lib/skill-runtime-proof-governance');
 const {
-  OPENAI_METADATA_KEYS,
-  buildOpenAiMetadata,
-  readOpenAiMetadataFile,
   writeOpenAiMetadataFile
 } = require('../../lib/skill-system-host-metadata');
 const {
@@ -115,7 +121,9 @@ const {
 const {
   SCAFFOLD_ORIGIN_FIELD,
   SCAFFOLD_VERSION_FIELD,
-  readTemplateLineage
+  readTemplateLineage,
+  collectTemplateRecords,
+  collectTemplateHardeningBlockers
 } = require('../../lib/skill-system-templates');
 const {
   getPendingScaffoldRegistryPath,
@@ -126,6 +134,8 @@ const {
   ACTIVE_OPPORTUNITY_STATUSES,
   isActiveOpportunityStatus,
   normalizeAdmissionDecisionAction,
+  buildAdmissionDecision,
+  buildAdmissionOpportunityNote,
   getDefaultAdmissionStatusForDecision,
   getDefaultOpportunityStatusForDecision,
   normalizeAdmissionStatus,
@@ -133,6 +143,10 @@ const {
   normalizeEvolutionLedgerStatus,
   ACTIVE_PENDING_SCAFFOLD_STATUSES
 } = require('../../lib/skill-future-governance');
+const {
+  normalizeFutureSkillPipelineStage,
+  buildFutureSkillPipelineView
+} = require('../../lib/skill-future-pipeline-governance');
 const {
   normalizeAdmissionText,
   buildAdmissionLedger,
@@ -150,6 +164,8 @@ const {
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS,
   DERIVED_GOVERNANCE_ARTIFACT_PATHS,
   DERIVED_GOVERNANCE_EXPORT_SCHEMA_VERSION,
+  listDerivedGovernanceRefreshPlan,
+  findDerivedGovernanceRefreshStepByArtifactId,
   buildDerivedGovernanceFingerprint,
   writeDerivedGovernanceExport,
   readDerivedGovernanceExport,
@@ -165,13 +181,19 @@ const {
   normalizeExpertSourceFamiliesDocument,
   buildEmptyExpertSourceIntegration,
   summarizeExpertSourceIntegrations,
-  collectExpertSourceTopTierBlockersForSkill,
   buildExpertSourceFamilyScorecard,
   writeExpertSourceFamilyScorecard
 } = require('../../lib/expert-source-integration');
 const {
   buildDeleteDependencySummary
 } = require('../../lib/skill-delete-governance');
+const {
+  buildStableTopTierAssessment,
+  buildStableTopTierPortfolio,
+  buildStableTopTierUpgradeBoard,
+  buildStableTopTierExecutionFocus,
+  buildStableTopTierHardeningPlan
+} = require('../../lib/skill-top-tier-governance');
 const {
   EXPERT_SOURCE_INTEGRATION_SCHEMA_VERSION,
   EXPERT_SOURCE_INTEGRATION_MODE,
@@ -186,7 +208,7 @@ const {
 const {
   ALL_SKILL_KINDS,
   KIND_TO_LAYER_MAP,
-  TOP_TIER_REFERENCE_FLOOR_BY_KIND: STABLE_REFERENCE_FLOOR_BY_KIND,
+  getTopTierReferenceFloorForKind,
   getPlaceholderRouteConfig,
   getRequiredIntentTagsForKind: getRequiredIntentTagsForKindFromGovernance,
   supportsCapabilityModuleScaffold,
@@ -221,42 +243,14 @@ function fail(message) {
 }
 
 function getProjectRoot() {
-  const cwdStandaloneBundle = path.join(process.cwd(), 'personal-skill-system', 'skills');
-  const cwdRoot = path.join(process.cwd(), 'personal-skill-system');
-  if (fs.existsSync(cwdRoot) && fs.statSync(cwdRoot).isDirectory()) {
-    return process.cwd();
-  }
-  if (fs.existsSync(cwdStandaloneBundle) && fs.statSync(cwdStandaloneBundle).isDirectory()) {
-    return process.cwd();
-  }
+  return resolveSkillProjectRoot({
+    startDir: process.cwd(),
+    scriptPath: __filename
+  });
+}
 
-  const scriptPath = path.resolve(__filename);
-  const installedBundleCandidates = [];
-  if (scriptPath.includes(`${path.sep}.agents${path.sep}`)) {
-    installedBundleCandidates.push(path.resolve(os.homedir(), '.agents'));
-  }
-  if (scriptPath.includes(`${path.sep}.claude${path.sep}`)) {
-    installedBundleCandidates.push(path.resolve(os.homedir(), '.claude'));
-  }
-  if (scriptPath.includes(`${path.sep}.gemini${path.sep}`)) {
-    installedBundleCandidates.push(path.resolve(os.homedir(), '.gemini'));
-  }
-  installedBundleCandidates.push(
-    path.resolve(os.homedir(), '.claude'),
-    path.resolve(os.homedir(), '.gemini'),
-    path.resolve(os.homedir(), '.agents')
-  );
-
-  for (const candidate of [...new Set(installedBundleCandidates)]) {
-    const bundleRoot = path.join(candidate, 'personal-skill-system');
-    const bundleSkillsRoot = path.join(bundleRoot, 'skills');
-    if (fs.existsSync(bundleRoot) && fs.statSync(bundleRoot).isDirectory()
-      && fs.existsSync(bundleSkillsRoot) && fs.statSync(bundleSkillsRoot).isDirectory()) {
-      return candidate;
-    }
-  }
-
-  return path.resolve(__dirname, '..', '..', '..', '..', '..');
+function isJsonOutputFlag(value) {
+  return value === '--json';
 }
 
 function getAuthoritativeSkillsRoot() {
@@ -405,6 +399,66 @@ function uniqueSorted(values) {
   return [...new Set(normalizeStringList(values))].sort((a, b) => a.localeCompare(b));
 }
 
+const DIRECT_UPDATE_FORBIDDEN_FIELDS = new Map([
+  ['name', 'update cannot modify name directly; create/merge/archive/delete through governed flows so identity-bearing registries and ledgers stay coherent'],
+  ['kind', 'update cannot modify kind directly; create a replacement skill through governed flows so layer, template, and route contracts stay coherent'],
+  ['status', 'update cannot modify status directly; use set-status, archive, or delete so generated governance surfaces stay synchronized'],
+  ['scaffold-origin', 'update cannot modify scaffold-origin directly; use sync-scaffold-lineage so canonical template lineage stays governable'],
+  ['scaffold-version', 'update cannot modify scaffold-version directly; use sync-scaffold-lineage so canonical template lineage stays governable'],
+  ['runtime', 'update cannot modify runtime directly; repair the implementation intentionally and then use sync-runtime-proof through the governed runtime contract path'],
+  ['executor', 'update cannot modify executor directly; repair the implementation intentionally and then use sync-runtime-proof through the governed runtime contract path'],
+  ['permissions', 'update cannot modify permissions directly; repair the implementation intentionally and then use sync-runtime-proof through the governed runtime contract path'],
+  ['host-smoke-tier', 'update cannot modify host-smoke-tier directly; repair the smoke contract intentionally and then use sync-runtime-proof / run-host-smoke through the governed proof path'],
+  ['host-smoke-target-level', 'update cannot modify host-smoke-target-level directly; repair the smoke contract intentionally and then use sync-runtime-proof / run-host-smoke through the governed proof path'],
+  ['host-smoke-freshness-days', 'update cannot modify host-smoke-freshness-days directly; repair the smoke contract intentionally and then use sync-runtime-proof through the governed proof path']
+]);
+const DIRECT_UPDATE_ROUTE_FIELDS = new Set([
+  'description',
+  'user-invocable',
+  'trigger-mode',
+  'trigger-keywords',
+  'negative-keywords',
+  'priority',
+  'supported-hosts',
+  'aliases',
+  'conflicts-with',
+  'auto-chain'
+]);
+const DIRECT_UPDATE_HOST_METADATA_FIELDS = new Set([
+  'name',
+  'title',
+  'description',
+  'kind'
+]);
+const DIRECT_UPDATE_REVIEW_FIELDS = new Set([
+  'owner',
+  'last-reviewed',
+  'review-cycle-days',
+  'status'
+]);
+const DIRECT_UPDATE_RUNTIME_PROOF_FIELDS = new Set([
+  'runtime',
+  'executor',
+  'permissions',
+  'host-smoke-tier',
+  'host-smoke-target-level',
+  'host-smoke-freshness-days',
+  'status'
+]);
+function dedupeStrings(values) {
+  const result = [];
+  const seen = new Set();
+  for (const value of Array.isArray(values) ? values : []) {
+    const normalized = normalizeString(value);
+    if (!normalized || seen.has(normalized)) {
+      continue;
+    }
+    seen.add(normalized);
+    result.push(normalized);
+  }
+  return result;
+}
+
 function slugToTitle(slug) {
   return slug.split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
 }
@@ -487,6 +541,68 @@ function readJson(file) {
 
 function writeJson(file, value) {
   fs.writeFileSync(file, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+}
+
+function readRuntimeProofRegistry(projectRoot) {
+  const runtimeProofPath = getRuntimeProofPath(projectRoot);
+  const registry = fs.existsSync(runtimeProofPath)
+    ? readJson(runtimeProofPath)
+    : { 'schema-version': 1, proofs: [] };
+  return {
+    ...registry,
+    proofs: dedupeRuntimeProofEntries(registry && registry.proofs, { prefer: 'first' })
+  };
+}
+
+function mergeRuntimeProofUpdates(projectRoot, nextProofs = [], options = {}) {
+  const currentRegistry = readRuntimeProofRegistry(projectRoot);
+  const currentProofs = dedupeRuntimeProofEntries(currentRegistry.proofs, { prefer: 'first' });
+  const removedSkills = new Set(
+    (Array.isArray(options.removedSkills) ? options.removedSkills : [])
+      .map((skill) => String(skill || '').trim())
+      .filter(Boolean)
+  );
+  const touchedSkills = new Set(
+    (
+      Array.isArray(options.touchedSkills) && options.touchedSkills.length > 0
+        ? options.touchedSkills
+        : (Array.isArray(nextProofs) ? nextProofs.map((proof) => proof && proof.skill) : [])
+    )
+      .map((skill) => String(skill || '').trim())
+      .filter(Boolean)
+  );
+  for (const skill of removedSkills) {
+    touchedSkills.add(skill);
+  }
+  const nextProofBySkill = new Map(
+    dedupeRuntimeProofEntries(nextProofs, { prefer: 'last' })
+      .map((proof) => [String(proof && proof.skill || '').trim(), proof])
+      .filter(([skill]) => !!skill)
+  );
+
+  const mergedProofs = [];
+  for (const proof of currentProofs) {
+    const skill = String(proof && proof.skill || '').trim();
+    if (!skill || touchedSkills.has(skill)) {
+      continue;
+    }
+    mergedProofs.push(proof);
+  }
+  for (const skill of touchedSkills) {
+    if (!skill || removedSkills.has(skill)) {
+      continue;
+    }
+    const proof = nextProofBySkill.get(skill);
+    if (!proof) {
+      continue;
+    }
+    mergedProofs.push(proof);
+  }
+
+  return dedupeRuntimeProofEntries(
+    mergedProofs.sort((a, b) => String(a && a.skill || '').localeCompare(String(b && b.skill || ''))),
+    { prefer: 'last' }
+  );
 }
 
 function readGovernedRegistry(projectRoot) {
@@ -606,6 +722,13 @@ function slugifyAdmissionText(value) {
     || 'admission-request';
 }
 
+function suggestSkillNameFromAdmissionRequest(value, kind = '') {
+  const normalized = slugifyAdmissionText(value).replace(/^-+|-+$/g, '');
+  const truncated = normalized.slice(0, 48).replace(/-+$/g, '');
+  const fallbackKind = normalizeString(kind) || 'skill';
+  return truncated || `new-${fallbackKind}`;
+}
+
 function readJsonSafe(file) {
   try {
     return JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -673,6 +796,10 @@ function getRuntimeProofPath(projectRoot) {
   return getRuntimeProofRegistryPath(getBundleRoot(projectRoot));
 }
 
+function getSystemReadinessPath(projectRoot) {
+  return path.join(getBundleRoot(projectRoot), 'benchmark', 'system-readiness.generated.json');
+}
+
 function getBundleRoot(projectRoot) {
   return path.join(projectRoot, 'personal-skill-system');
 }
@@ -726,12 +853,17 @@ function normalizeOptionalCliValue(value) {
 }
 
 function getHostSmokeProofsFromRegistry(projectRoot) {
-  const runtimeProofPath = getRuntimeProofPath(projectRoot);
-  const registry = fs.existsSync(runtimeProofPath)
-    ? readJson(runtimeProofPath)
-    : { 'schema-version': 1, proofs: [] };
+  const registry = readRuntimeProofRegistry(projectRoot);
   return (Array.isArray(registry.proofs) ? registry.proofs : [])
     .filter((proof) => proof && proof['host-smoke']);
+}
+
+function readCurrentSystemReadiness(projectRoot) {
+  const readinessPath = getSystemReadinessPath(projectRoot);
+  if (!fs.existsSync(readinessPath)) {
+    return null;
+  }
+  return readJsonSafe(readinessPath);
 }
 
 function readAdmissionLedger(projectRoot) {
@@ -907,17 +1039,10 @@ function syncOpportunityQueueOnAdmissionDecision(projectRoot, result, options = 
   let nextStatus = normalizeOpportunityStatus(
     getDefaultOpportunityStatusForDecision(recommendationAction) || existing.status || 'open'
   );
-  let note = normalizeString(existing.note);
-
-  if (recommendationAction === 'create-new-skill') {
-    note = `escalated to admission request '${admissionRequestId}' with create-new-skill recommendation`;
-  } else if (recommendationAction === 'clarify-or-merge-boundary') {
-    note = `escalated to admission request '${admissionRequestId}' and blocked on route-boundary clarification`;
-  } else if (recommendationAction === 'reuse-existing-skill') {
-    note = `resolved by reusing existing skill '${normalizeString(result.recommendation.target_skill) || 'unknown'}' via admission request '${admissionRequestId}'`;
-  } else if (recommendationAction === 'upgrade-existing-skill') {
-    note = `resolved by upgrading existing skill '${normalizeString(result.recommendation.target_skill) || 'unknown'}' via admission request '${admissionRequestId}'`;
-  }
+  const note = buildAdmissionOpportunityNote(recommendationAction, {
+    admissionRequestId,
+    decision: result && result.recommendation
+  }) || normalizeString(existing.note);
 
   queue.entries[index] = {
     ...existing,
@@ -1146,6 +1271,335 @@ function buildScaffoldPlan(projectRoot, kind, skillName, options = {}) {
   }
 }
 
+function buildSkillBlueprint(projectRoot, kind, skillName, options = {}) {
+  const plan = buildScaffoldPlan(projectRoot, kind, skillName, options);
+  const skillFile = (Array.isArray(plan.files) ? plan.files : []).find((file) => file.path === 'SKILL.md') || null;
+  if (!skillFile) {
+    fail(`unable to build scaffold blueprint for '${skillName}' because SKILL.md is missing from the scaffold plan`);
+  }
+
+  const parsed = parseFrontmatterMap(String(skillFile.content || ''));
+  const shared = plan.shared || parseRouteSharedMetadata(parsed);
+  const referencePaths = readReferencePaths(skillFile.content);
+  const runtimeProofItems = readBulletSectionItems(skillFile.content, 'Runtime Proof');
+  const filePaths = (Array.isArray(plan.files) ? plan.files : [])
+    .map((file) => String(file.path || '').trim())
+    .filter(Boolean)
+    .sort((left, right) => left.localeCompare(right));
+  const routePreview = plan.createPlaceholderRoute
+    ? buildRouteEntry(kind, skillName, {
+        shared,
+        expertModules: Array.isArray(plan.capabilityModules)
+          ? plan.capabilityModules.map((module) => module.id)
+          : []
+      })
+    : null;
+  const reviewMetadata = {
+    owner: normalizeString(parsed.map.get('owner')),
+    'last-reviewed': normalizeString(parsed.map.get('last-reviewed')),
+    'review-cycle-days': parseInteger(parsed.map.get('review-cycle-days'))
+  };
+  const runtimeProofExpectation = {
+    level: getDefaultRuntimeProofLevelForStatus(normalizeString(parsed.map.get('status')) || 'draft'),
+    'minimum-contracts': 2,
+    'current-contract-count': runtimeProofItems.length,
+    'needs-more-contracts': runtimeProofItems.length < 2,
+    'host-smoke-policy': isGovernedRuntimeProofRecord({
+      status: normalizeString(parsed.map.get('status')),
+      runtime: normalizeString(parsed.map.get('runtime')),
+      kind,
+      executor: normalizeString(parsed.map.get('executor')),
+      permissions: normalizeStringList(parseFrontmatterStoredValue(parsed.map.get('permissions')))
+    })
+      ? {
+          tier: normalizeHostSmokeTier(parsed.map.get('host-smoke-tier')) || null,
+          'target-level': normalizeHostSmokeTargetLevel(parsed.map.get('host-smoke-target-level')) || null,
+          'freshness-days': normalizeHostSmokeFreshnessDays(parsed.map.get('host-smoke-freshness-days')) ?? null
+        }
+      : null
+  };
+  const topTierReadiness = {
+    references: {
+      current: referencePaths.length,
+      required: getTopTierReferenceFloorForKind(kind)
+    },
+    capability_modules: {
+      required: supportsCapabilityModuleScaffold(kind),
+      count: Array.isArray(plan.capabilityModules) ? plan.capabilityModules.length : 0,
+      ids: Array.isArray(plan.capabilityModules) ? plan.capabilityModules.map((module) => module.id) : []
+    },
+    route_surface: {
+      user_invocable: parseBoolean(parsed.map.get('user-invocable'), true),
+      placeholder_route_planned: Boolean(routePreview),
+      explicit_invocation: Boolean(shared.requiresExplicitInvocation),
+      trigger_keywords: Array.isArray(shared.triggerKeywords) ? shared.triggerKeywords : []
+    },
+    runtime_proof: runtimeProofExpectation,
+    review: reviewMetadata,
+    blockers: buildSkillBlueprintTopTierBlockers(kind, {
+      referencePaths,
+      runtimeProofItems,
+      capabilityModules: plan.capabilityModules,
+      routePreview,
+      reviewMetadata,
+      parsed,
+      shared
+    })
+  };
+
+  return {
+    action: 'show-skill-blueprint',
+    kind,
+    skill: skillName,
+    path: path.relative(projectRoot, plan.targetDir).split(path.sep).join('/'),
+    template: {
+      source: path.relative(projectRoot, plan.templateDir).split(path.sep).join('/'),
+      ...(plan.templateLineage
+        ? {
+            lineage: {
+              origin: plan.templateLineage.origin,
+              version: plan.templateLineage.version
+            }
+          }
+        : {})
+    },
+    frontmatter: Object.fromEntries(parsed.map.entries()),
+    files: filePaths,
+    references: referencePaths,
+    'runtime-proof-items': runtimeProofItems,
+    'capability-modules': Array.isArray(plan.capabilityModules) ? plan.capabilityModules : [],
+    'route-preview': routePreview,
+    'review-metadata': reviewMetadata,
+    'top-tier-readiness': topTierReadiness,
+    follow_up: [
+      `create the governed scaffold with: ${formatCreateCommand(kind, skillName, {
+        scaffoldModules: supportsCapabilityModuleScaffold(kind)
+      })}`,
+      `rerun this blueprint after adjusting the intended boundary: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-blueprint ${kind} ${skillName}${supportsCapabilityModuleScaffold(kind) ? ' --scaffold-modules' : ''}`
+    ]
+  };
+}
+
+function buildSkillBlueprintTopTierBlockers(kind, context = {}) {
+  const blockers = [];
+  const referencePaths = Array.isArray(context.referencePaths) ? context.referencePaths : [];
+  const runtimeProofItems = Array.isArray(context.runtimeProofItems) ? context.runtimeProofItems : [];
+  const capabilityModules = Array.isArray(context.capabilityModules) ? context.capabilityModules : [];
+  const routePreview = context.routePreview || null;
+  const reviewMetadata = context.reviewMetadata || {};
+  const parsed = context.parsed || { map: new Map() };
+
+  const topTierReferenceFloor = getTopTierReferenceFloorForKind(kind);
+  if (referencePaths.length < topTierReferenceFloor) {
+    blockers.push(`top-tier depth still needs ${topTierReferenceFloor - referencePaths.length} more reference file(s)`);
+  }
+  if (supportsCapabilityModuleScaffold(kind) && capabilityModules.length < 1) {
+    blockers.push('capability-module governance scaffold is missing');
+  }
+  if (parseBoolean(parsed.map.get('user-invocable'), true)) {
+    const triggerKeywords = routePreview && routePreview.activation && Array.isArray(routePreview.activation['trigger-keywords'])
+      ? routePreview.activation['trigger-keywords']
+      : [];
+    if (triggerKeywords.length < 2) {
+      blockers.push('route surface still needs at least two concrete trigger keywords');
+    }
+    blockers.push('route fixture evidence must be added after the skill is real');
+  }
+  if (runtimeProofItems.length < 2) {
+    blockers.push('Runtime Proof section still needs at least two concrete proof bullets');
+  }
+  if (!normalizeString(reviewMetadata['last-reviewed']) || !Number.isInteger(Number(reviewMetadata['review-cycle-days']))) {
+    blockers.push('stable review metadata is incomplete');
+  }
+  if (/^TODO:/i.test(normalizeString(parsed.map.get('description')))) {
+    blockers.push('description still contains scaffold placeholder text');
+  }
+  if (normalizeString(parsed.map.get('status')) !== 'stable') {
+    blockers.push("skill still starts as 'draft' and must be hardened before stable promotion");
+  }
+
+  return blockers;
+}
+
+function buildSkillRetirementRecommendations(skillName, context = {}) {
+  const recommendations = [];
+  const deleteGovernance = context.deleteGovernance || {
+    allowed: false,
+    blockers: [],
+    history: [],
+    'has-delete-evidence': false
+  };
+  const frontmatter = context.frontmatter || {};
+  const status = normalizeString(frontmatter.status);
+  const activeRoute = parseBoolean(context.activeRoute, false);
+  const nearestPeer = context.nearestPeer || null;
+  const capabilityModules = Array.isArray(context.capabilityModules) ? context.capabilityModules : [];
+
+  if (deleteGovernance.allowed) {
+    recommendations.push({
+      action: 'delete-skill',
+      reason: 'all governed delete blockers are clear'
+    });
+  } else if (status !== 'archived') {
+    recommendations.push({
+      action: 'archive-skill',
+      reason: 'active governance dependencies still exist, so preserve history before any harder retirement move'
+    });
+  }
+
+  if (nearestPeer && activeRoute) {
+    recommendations.push({
+      action: 'merge-into-skill',
+      target_skill: nearestPeer.skill,
+      reason: `active route ownership still overlaps with '${nearestPeer.skill}'`
+    });
+  }
+
+  if (capabilityModules.length > 0) {
+    recommendations.push({
+      action: 'remove-capability-module-obligations',
+      reason: 'registered capability modules should be intentionally handed off or retired before hard deletion'
+    });
+  }
+
+  if (!deleteGovernance.allowed && status === 'archived') {
+    recommendations.push({
+      action: 'clear-delete-blockers',
+      reason: 'the skill is already archived but governance references still prevent final deletion'
+    });
+  }
+
+  return recommendations;
+}
+
+function buildSkillRetirementBlockers(skillName, context = {}) {
+  const blockers = [];
+  const deleteGovernance = context.deleteGovernance || {
+    allowed: false,
+    blockers: [],
+    history: [],
+    'has-delete-evidence': false
+  };
+  const frontmatter = context.frontmatter || {};
+  const status = normalizeString(frontmatter.status);
+  const activeRoute = parseBoolean(context.activeRoute, false);
+  const capabilityModules = Array.isArray(context.capabilityModules) ? context.capabilityModules : [];
+  const runtimeProof = context.runtimeProof || null;
+
+  if (activeRoute) {
+    blockers.push('skill still owns an active route surface');
+  }
+  if (status === 'stable') {
+    blockers.push("skill is still 'stable'; demote or archive before treating retirement as honest");
+  }
+  if (capabilityModules.length > 0) {
+    blockers.push(`skill still owns ${capabilityModules.length} governed capability module(s)`);
+  }
+  if (runtimeProof && normalizeString(runtimeProof.level) === 'host-smoked') {
+    blockers.push('runtime-proof still claims host-smoked evidence that should be intentionally retired');
+  }
+  for (const blocker of Array.isArray(deleteGovernance.blockers) ? deleteGovernance.blockers : []) {
+    blockers.push(normalizeString(blocker && blocker.message));
+  }
+
+  return blockers.filter(Boolean);
+}
+
+function buildSkillRetirementBlueprint(projectRoot, options = {}) {
+  const skillsRoot = getAuthoritativeSkillsRoot();
+  const byName = options && options.name ? resolveSkillDirByName(skillsRoot, options.name) : null;
+  const byPath = options && options.path ? resolveSkillDirByRelPath(skillsRoot, options.path) : null;
+  const resolved = byName || byPath;
+  const identifier = options && (options.name || options.path);
+
+  if (!resolved) fail(`unknown skill '${identifier}'`);
+  ensureInsideAuthoritativeRoot(resolved.dir, skillsRoot);
+
+  const skillName = normalizeString(resolved.parsed.map.get('name')) || normalizeString(identifier);
+  const frontmatter = Object.fromEntries(resolved.parsed.map.entries());
+  const recordIndex = buildSkillRecordIndex(projectRoot);
+  const record = recordIndex.get(skillName) || null;
+  const activeRoute = hasActiveRouteEntry(projectRoot, skillName);
+  const capabilityModules = getCapabilityModuleRatingsForSkill(projectRoot, skillName);
+  const topTier = assessTopTierReadiness(projectRoot, skillName);
+  const deleteGovernance = summarizeDeleteGovernance(projectRoot, skillName);
+  const runtimeProofRegistry = fs.existsSync(getRuntimeProofPath(projectRoot))
+    ? readJson(getRuntimeProofPath(projectRoot))
+    : { proofs: [] };
+  const runtimeProof = (Array.isArray(runtimeProofRegistry.proofs) ? runtimeProofRegistry.proofs : [])
+    .find((entry) => normalizeString(entry && entry.skill) === skillName) || null;
+  const reviewQueue = readReviewQueue(getBundleRoot(projectRoot));
+  const reviewEntry = reviewQueue && Array.isArray(reviewQueue.entries)
+    ? reviewQueue.entries.find((entry) => normalizeString(entry && entry.skill) === skillName) || null
+    : null;
+  const routeQuery = `skill retirement boundary for ${skillName}: retire archive merge delete ${skillName}`;
+  const { explain, candidates } = collectAdmissionCandidates(projectRoot, routeQuery);
+  const nearestPeer = (candidates || [])
+    .filter((candidate) => candidate && candidate.skill !== skillName)
+    .map((candidate) => buildCandidateSummary(candidate, recordIndex))[0] || null;
+
+  const blockers = buildSkillRetirementBlockers(skillName, {
+    deleteGovernance,
+    frontmatter,
+    activeRoute,
+    capabilityModules,
+    runtimeProof
+  });
+  const recommendations = buildSkillRetirementRecommendations(skillName, {
+    deleteGovernance,
+    frontmatter,
+    activeRoute,
+    nearestPeer,
+    capabilityModules
+  });
+  const deletionReadiness = {
+    allowed_now: deleteGovernance.allowed,
+    'has-delete-evidence': Boolean(deleteGovernance['has-delete-evidence']),
+    blocker_count: Array.isArray(deleteGovernance.blockers) ? deleteGovernance.blockers.length : 0,
+    blockers: cloneJsonValue(deleteGovernance.blockers || []),
+    history: cloneJsonValue(deleteGovernance.history || [])
+  };
+
+  return {
+    action: 'show-skill-retirement-blueprint',
+    skill: skillName,
+    kind: normalizeString(frontmatter.kind) || (record ? record.kind : null),
+    path: path.relative(projectRoot, resolved.dir).split(path.sep).join('/'),
+    frontmatter,
+    lifecycle: {
+      status: normalizeString(frontmatter.status),
+      'active-route': activeRoute,
+      'top-tier-ready': Boolean(topTier.ready),
+      ...(nearestPeer ? { 'nearest-peer': nearestPeer } : {})
+    },
+    'capability-modules': capabilityModules,
+    'runtime-proof': runtimeProof
+      ? {
+          level: normalizeString(runtimeProof.level),
+          contracts: Array.isArray(runtimeProof.contracts) ? runtimeProof.contracts.length : 0,
+          'evidence-tests': Array.isArray(runtimeProof['evidence-tests']) ? runtimeProof['evidence-tests'] : [],
+          'host-smoke': runtimeProof['host-smoke'] || null
+        }
+      : null,
+    review: reviewEntry || {
+      skill: skillName,
+      status: null,
+      priority: null,
+      overdue: false
+    },
+    route_selection_reason: explain.selectionReason,
+    'delete-governance': deletionReadiness,
+    recommendations,
+    blockers,
+    follow_up: [
+      `inspect lifecycle advice with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check ${skillName} "retire ${skillName}"`,
+      deleteGovernance.allowed
+        ? `execute the governed delete with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js delete --name ${skillName}`
+        : `rerun this retirement blueprint after clearing blockers: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-retirement-blueprint --name ${skillName}`
+    ]
+  };
+}
+
 function materializeScaffoldPlan(targetDir, plan) {
   fs.mkdirSync(targetDir, { recursive: true });
   for (const file of Array.isArray(plan.files) ? plan.files : []) {
@@ -1197,7 +1651,11 @@ function syncRouteFixturesOnCreate(projectRoot, skillName) {
     aliases: record.aliases,
     requiresExplicitInvocation: !Array.isArray(record.triggerMode) || !record.triggerMode.includes('auto')
   });
-  const existingIndex = fixtures.cases.findIndex((item) => routeFixtureReferencesSkill(item, skillName) && String(item.name || '').trim() === governedFixture.name);
+  const existingIndex = fixtures.cases.findIndex((item) => (
+    routeFixtureReferencesSkill(item, skillName)
+    && isGovernedRouteFixture(item)
+    && String(item.name || '').trim() === governedFixture.name
+  ));
   if (existingIndex === -1) {
     fixtures.cases.push(governedFixture);
   } else {
@@ -1665,366 +2123,70 @@ function getCapabilityModuleRatingsForSkill(projectRoot, skillName) {
   return getCapabilityModuleRatingsForSkillGoverned(ratings, moduleIds);
 }
 
-function normalizeTextValue(value) {
-  return String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
-}
-
-function buildExpectedStableOpenAiMetadata(projectRoot, record, parsed) {
-  const skillsRoot = getAuthoritativeSkillsRoot();
-  const absoluteSkillDir = path.join(getBundleRoot(projectRoot), record.file, '..');
-  return buildOpenAiMetadata({
-    name: record.name,
-    title: parsed.map.get('title'),
-    description: parsed.map.get('description'),
-    kind: record.kind,
-    skillRelPath: path.relative(skillsRoot, path.normalize(absoluteSkillDir)).split(path.sep).join('/')
-  });
-}
-
-function collectTopTierBlockersForSkill(projectRoot, record, options = {}) {
-  const blockers = [];
+function buildTopTierAssessmentContext(projectRoot, options = {}) {
   const bundleRoot = getBundleRoot(projectRoot);
-  const resolved = resolveSkillDirByName(getAuthoritativeSkillsRoot(), record.name);
-  if (!resolved) {
-    fail(`unknown skill '${record.name}'`);
-  }
-  const parsed = resolved.parsed;
-  const skillDir = path.join(bundleRoot, path.dirname(record.file));
-  const skillFile = path.join(bundleRoot, record.file);
-  const registryData = readJson(getRegistryPath(projectRoot));
-  const routeMap = readJson(getRouteMapPath(projectRoot));
-  const routeFixtures = readJson(getRouteFixturesPath(projectRoot));
-  const runtimeProofPath = getRuntimeProofPath(projectRoot);
-  const runtimeProof = fs.existsSync(runtimeProofPath)
-    ? readJson(runtimeProofPath)
-    : { proofs: [] };
-  const hostSmokeScorecardPath = getHostSmokeScorecardPath(bundleRoot);
-  const hostSmokeScorecard = fs.existsSync(hostSmokeScorecardPath)
-    ? readJson(hostSmokeScorecardPath)
-    : { skills: [] };
-  const route = (Array.isArray(routeMap.routes) ? routeMap.routes : []).find((item) => item && item.skill === record.name) || null;
-  const fixtures = Array.isArray(routeFixtures.cases) ? routeFixtures.cases : [];
-  const stableReferenceFloor = STABLE_REFERENCE_FLOOR_BY_KIND[record.kind] || 0;
-  const proofEntry = (Array.isArray(runtimeProof.proofs) ? runtimeProof.proofs : []).find((item) => item && item.skill === record.name) || null;
-  const hostSmokeScorecardEntry = (Array.isArray(hostSmokeScorecard.skills) ? hostSmokeScorecard.skills : [])
-    .find((item) => item && item.skill === record.name) || null;
-  const expectedExplicitInvocation = !Array.isArray(record.triggerMode) || !record.triggerMode.includes('auto');
-  const referenceDir = path.join(skillDir, 'references');
-  const referenceFiles = fs.existsSync(referenceDir)
-    ? fs.readdirSync(referenceDir, { withFileTypes: true })
-      .filter((entry) => entry.isFile() && entry.name.toLowerCase().endsWith('.md'))
-      .map((entry) => entry.name)
-    : [];
-  const expertSourceBlockers = collectExpertSourceTopTierBlockersForSkill(
+  const registryData = options.registryData || readJson(getRegistryPath(projectRoot));
+  const ratingsData = options.ratingsData || readRatings(projectRoot);
+  const skillRecords = Array.isArray(options.skillRecords) ? options.skillRecords : collectAllSkillRecords(projectRoot);
+  const reviewQueueData = options.reviewQueueData || buildReviewQueue(bundleRoot, skillRecords);
+
+  return {
     bundleRoot,
+    skillRecords,
     registryData,
-    record.name,
-    options.expertSourceTopTierState
-      ? { blockerMapState: options.expertSourceTopTierState }
-      : {}
-  );
-
-  if (record.userInvocable) {
-    const concreteKeywords = (Array.isArray(record.triggerKeywords) ? record.triggerKeywords : [])
-      .filter((keyword) => !/-signal$|-trigger$/i.test(String(keyword || '')));
-    if (concreteKeywords.length < 2) {
-      blockers.push({
-        type: 'trigger-keywords',
-        file: record.file,
-        message: 'stable skill should expose at least two concrete trigger keywords'
-      });
-    }
-  }
-
-  if (stableReferenceFloor > 0 && referenceFiles.length < stableReferenceFloor) {
-    blockers.push({
-      type: 'reference-floor',
-      file: record.file,
-      message: `stable skill only has ${referenceFiles.length} reference files; expected at least ${stableReferenceFloor} for top-tier depth`
-    });
-  }
-
-  const description = String(parsed.map.get('description') || '');
-  if (/template scaffold/i.test(description)) {
-    blockers.push({
-      type: 'template-description',
-      file: record.file,
-      message: 'stable skill still looks like a template scaffold'
-    });
-  }
-  if (/TODO:/i.test(description)) {
-    blockers.push({
-      type: 'todo-description',
-      file: record.file,
-      message: 'stable skill description still contains TODO placeholder text'
-    });
-  }
-  if (/-template$/.test(String(record.name || ''))) {
-    blockers.push({
-      type: 'template-name',
-      file: record.file,
-      message: 'stable skill name still looks like a template artifact'
-    });
-  }
-
-  for (const blocker of expertSourceBlockers) {
-    blockers.push({
-      type: blocker.type || 'expert-source-top-tier',
-      file: blocker.integrationFile || 'registry/expert-source-family-scorecard.generated.json',
-      message: blocker.message || `expert-source blocker detected for '${record.name}'`
-    });
-  }
-
-  if (shouldAppearOnActiveRouteSurface(record)) {
-    if (!route) {
-      blockers.push({
-        type: 'route-missing',
-        file: record.file,
-        message: `user-invocable skill '${record.name}' is missing from route-map.generated.json`
-      });
-    } else {
-      const activation = route.activation || {};
-      const supportedHosts = uniqueSorted(route['supported-hosts']);
-      const triggerKeywords = uniqueSorted(activation['trigger-keywords']);
-      const negativeKeywords = uniqueSorted(activation['negative-keywords']);
-      const aliases = uniqueSorted(route.aliases);
-      const autoChain = uniqueSorted(route['auto-chain']);
-      const conflictsWith = uniqueSorted(route['conflicts-with']);
-
-      const requireListSync = (label, actual, expected) => {
-        const missing = expected.filter((item) => !actual.includes(item));
-        if (missing.length > 0) {
-          blockers.push({
-            type: `route-${label}`,
-            file: 'registry/route-map.generated.json',
-            message: `route '${record.name}' is missing ${label} declared in SKILL metadata: ${missing.join(', ')}`
-          });
-        }
-      };
-
-      requireListSync('supported-hosts', supportedHosts, uniqueSorted(record.supportedHosts));
-      requireListSync('trigger-keywords', triggerKeywords, uniqueSorted(record.triggerKeywords));
-      requireListSync('negative-keywords', negativeKeywords, uniqueSorted(record.negativeKeywords));
-      requireListSync('aliases', aliases, uniqueSorted(record.aliases));
-      requireListSync('auto-chain entries', autoChain, uniqueSorted(record.autoChain));
-      requireListSync('conflicts-with entries', conflictsWith, uniqueSorted(record.conflictsWith));
-
-      if (Boolean(activation['requires-explicit-invocation']) !== expectedExplicitInvocation) {
-        blockers.push({
-          type: 'route-explicit-mode',
-          file: 'registry/route-map.generated.json',
-          message: `route '${record.name}' requires-explicit-invocation '${Boolean(activation['requires-explicit-invocation'])}' is out of sync with SKILL trigger-mode`
-        });
-      }
-    }
-  }
-
-  if (record.userInvocable && !hasRouteFixtureEvidence(record.name, fixtures, { includeGoverned: false })) {
-    blockers.push({
-      type: 'route-fixture-evidence',
-      file: record.file,
-      message: `stable skill '${record.name}' has no route fixture evidence`
-    });
-  }
-
-  const openAiMetadataPath = path.join(skillDir, 'agents', 'openai.yaml');
-  if (!fs.existsSync(openAiMetadataPath)) {
-    blockers.push({
-      type: 'host-metadata-missing',
-      file: record.file,
-      message: 'stable skill is missing agents/openai.yaml host metadata'
-    });
-  } else {
-    const parsedMetadata = readOpenAiMetadataFile(openAiMetadataPath);
-    if (parsedMetadata.error) {
-      blockers.push({
-        type: 'host-metadata-parse',
-        file: path.relative(bundleRoot, openAiMetadataPath).split(path.sep).join('/'),
-        message: `agents/openai.yaml parse failed: ${parsedMetadata.error}`
-      });
-    } else {
-      const expectedMetadata = buildExpectedStableOpenAiMetadata(projectRoot, record, parsed);
-      for (const key of OPENAI_METADATA_KEYS) {
-        if (normalizeTextValue(parsedMetadata.data[key]) !== normalizeTextValue(expectedMetadata[key])) {
-          blockers.push({
-            type: `host-metadata-${key}`,
-            file: path.relative(bundleRoot, openAiMetadataPath).split(path.sep).join('/'),
-            message: `agents/openai.yaml '${key}' is out of sync with SKILL.md`
-          });
-        }
-      }
-    }
-  }
-
-  if (record.runtime === 'scripted') {
-    const scriptPath = path.join(skillDir, 'scripts', 'run.js');
-    if (!fs.existsSync(scriptPath)) {
-      blockers.push({
-        type: 'script-missing',
-        file: record.file,
-        message: 'scripted runtime declared but scripts/run.js is missing'
-      });
-    }
-    if ((record.runtimeProofItems || []).length < 2) {
-      blockers.push({
-        type: 'runtime-proof-bullets',
-        file: record.file,
-        message: 'stable scripted skill should declare at least two runtime proof bullets in a Runtime Proof section'
-      });
-    }
-    if (!record.smokeManifest) {
-      blockers.push({
-        type: 'smoke-manifest-missing',
-        file: record.file,
-        message: 'stable scripted skill should declare scripts/smoke.json so host-smoked promotion has an executable contract surface'
-      });
-    } else {
-      for (const error of validateSmokeManifest(record.smokeManifest)) {
-        blockers.push({
-          type: 'smoke-manifest-invalid',
-          file: record.smokeManifestPath,
-          message: error
-        });
-      }
-      const smokeText = JSON.stringify(record.smokeManifest);
-      if (/tool-template|guard-template|Replace this stub/i.test(smokeText)) {
-        blockers.push({
-          type: 'smoke-manifest-template',
-          file: record.smokeManifestPath,
-          message: 'stable scripted skill smoke manifest still contains template placeholder content'
-        });
-      }
-    }
-
-    if (!proofEntry) {
-      blockers.push({
-        type: 'runtime-proof-missing',
-        file: record.file,
-        message: `stable scripted skill '${record.name}' is missing from runtime-proof.generated.json`
-      });
-    } else {
-      if ((Array.isArray(proofEntry.contracts) ? proofEntry.contracts : []).length < 2) {
-        blockers.push({
-          type: 'runtime-proof-contracts',
-          file: 'registry/runtime-proof.generated.json',
-          message: `runtime proof entry for '${record.name}' should declare at least two contracts`
-        });
-      }
-      if (!Array.isArray(proofEntry['evidence-tests']) || proofEntry['evidence-tests'].length < 1) {
-        blockers.push({
-          type: 'runtime-proof-evidence',
-          file: 'registry/runtime-proof.generated.json',
-          message: `runtime-proof level 'declared-and-tested' for '${record.name}' requires at least one evidence test before status can move to 'stable'`
-        });
-      }
-      try {
-        buildRuntimeProofEntry(
-          { ...record, status: 'stable' },
-          {
-            level: proofEntry.level,
-            evidenceTests: proofEntry['evidence-tests']
-          },
-          proofEntry
-        );
-      } catch (error) {
-        blockers.push({
-          type: 'runtime-proof-contract-drift',
-          file: 'registry/runtime-proof.generated.json',
-          message: String(error && error.message ? error.message : error)
-        });
-      }
-
-      const hostSmokePolicy = normalizeHostSmokePolicy(proofEntry['host-smoke-policy']);
-      if (hostSmokePolicy && hostSmokePolicy['target-level'] === 'host-smoked') {
-        if (!hostSmokeScorecardEntry) {
-          blockers.push({
-            type: 'host-smoke-scorecard-missing',
-            file: 'benchmark/host-smoke/scorecard.generated.json',
-            message: `host-smoke scorecard is missing an entry for '${record.name}'`
-          });
-        } else {
-          if (hostSmokeScorecardEntry.level !== 'host-smoked') {
-            blockers.push({
-              type: 'host-smoke-level',
-              file: 'benchmark/host-smoke/scorecard.generated.json',
-              message: `critical host-smoke policy for '${record.name}' requires level 'host-smoked'`
-            });
-          }
-          if (hostSmokeScorecardEntry['governance-status'] !== 'satisfied') {
-            blockers.push({
-              type: 'host-smoke-governance',
-              file: 'benchmark/host-smoke/scorecard.generated.json',
-              message: `critical host-smoke policy for '${record.name}' is not yet satisfied (${hostSmokeScorecardEntry['governance-status'] || 'unknown'})`
-            });
-          }
-        }
-      }
-    }
-  }
-
-  if (!parsed.map.get('last-reviewed')) {
-    blockers.push({
-      type: 'last-reviewed',
-      file: record.file,
-      message: "status 'stable' should declare last-reviewed"
-    });
-  }
-  if (!parsed.map.get('review-cycle-days')) {
-    blockers.push({
-      type: 'review-cycle-days',
-      file: record.file,
-      message: "status 'stable' should declare review-cycle-days"
-    });
-  }
-  if (record.lastReviewed && record.reviewCycleDays != null) {
-    const reviewedAt = new Date(`${record.lastReviewed}T00:00:00Z`);
-    if (!Number.isNaN(reviewedAt.getTime())) {
-      const nextDue = new Date(reviewedAt.getTime());
-      nextDue.setUTCDate(nextDue.getUTCDate() + record.reviewCycleDays);
-      if (Date.now() > nextDue.getTime()) {
-        blockers.push({
-          type: 'review-cadence-expired',
-          file: record.file,
-          message: `stable skill review cadence expired on ${nextDue.toISOString().slice(0, 10)}`
-        });
-      }
-    }
-  }
-
-  return blockers;
+    routeMapData: options.routeMapData || readJson(getRouteMapPath(projectRoot)),
+    routeFixturesData: options.routeFixturesData || readJson(getRouteFixturesPath(projectRoot)),
+    runtimeProofData: options.runtimeProofData || (
+      fs.existsSync(getRuntimeProofPath(projectRoot))
+        ? readJson(getRuntimeProofPath(projectRoot))
+        : { proofs: [] }
+    ),
+    hostSmokeScorecardData: options.hostSmokeScorecardData || (
+      fs.existsSync(getHostSmokeScorecardPath(bundleRoot))
+        ? readJson(getHostSmokeScorecardPath(bundleRoot))
+        : { skills: [] }
+    ),
+    reviewQueueData,
+    ratingsData
+  };
 }
 
-function assessTopTierReadiness(projectRoot, skillName) {
-  const recordIndex = buildSkillRecordIndex(projectRoot);
-  const record = recordIndex.get(skillName) || null;
+function assessSingleTopTierReadiness(projectRoot, skillName, options = {}) {
+  const context = buildTopTierAssessmentContext(projectRoot, options);
+  const record = (Array.isArray(context.skillRecords) ? context.skillRecords : []).find((item) => item && item.name === skillName) || null;
   if (!record) {
     fail(`unknown skill '${skillName}'`);
   }
 
-  const moduleRatings = getCapabilityModuleRatingsForSkill(projectRoot, skillName);
-  const blockingFindings = collectTopTierBlockersForSkill(projectRoot, record, { targetStatus: 'stable' });
-  const nonTopModules = buildCapabilityModuleTopReadyBlockers(
-    readRatings(projectRoot),
-    moduleRatings.map((item) => item.module)
-  );
-  const ready = blockingFindings.length < 1 && nonTopModules.length < 1;
+  const targetStatus = normalizeString(options.targetStatus) || 'stable';
+  const assessment = buildStableTopTierAssessment(record, {
+    ...context,
+    targetStatus
+  });
+  if (!assessment) {
+    fail(`unable to assess top-tier readiness for '${skillName}'`);
+  }
 
   return {
     action: 'assess-top-tier',
     skill: skillName,
-    status: record.status,
-    kind: record.kind,
-    ready,
-    'capability-modules': moduleRatings,
-    blockers: [
-      ...nonTopModules,
-      ...blockingFindings.map((item) => ({
-        type: 'verification-error',
-        file: item.file,
-        message: item.message
-      }))
-    ],
-    follow_up: ready
+    status: assessment.status,
+    'target-status': assessment['target-status'],
+    kind: assessment.kind,
+    ready: assessment.ready,
+    priority: assessment.priority,
+    'blocker-count': assessment['blocker-count'],
+    'blocker-categories': assessment['blocker-categories'],
+    'capability-modules': assessment['capability-modules'],
+    blockers: assessment.blockers.map((item) => ({
+      type: item.type === 'capability-module-rating' ? item.type : 'verification-error',
+      ...(item.module ? { module: item.module } : {}),
+      ...(item.rating ? { rating: item.rating } : {}),
+      ...(item.file ? { file: item.file } : {}),
+      ...(Array.isArray(item.categories) ? { categories: item.categories } : {}),
+      message: item.message
+    })),
+    follow_up: assessment.ready
       ? ["set-status stable is allowed once you are ready to promote"]
       : [
           'fix verification blockers first',
@@ -2034,8 +2196,638 @@ function assessTopTierReadiness(projectRoot, skillName) {
   };
 }
 
+function assessAllTopTierReadiness(projectRoot, options = {}) {
+  const context = buildTopTierAssessmentContext(projectRoot, options);
+  const portfolio = buildStableTopTierPortfolio(context.skillRecords, context);
+  const upgradeBoard = portfolio['upgrade-board'] || buildStableTopTierUpgradeBoard(portfolio);
+  const executionFocus = portfolio['execution-focus'] || buildStableTopTierExecutionFocus(upgradeBoard);
+
+  return {
+    action: 'assess-top-tier',
+    scope: 'all-stable-skills',
+    summary: portfolio.summary,
+    'upgrade-board': upgradeBoard,
+    'execution-focus': executionFocus,
+    total: portfolio.assessments.length,
+    returned: portfolio.assessments.length,
+    assessments: portfolio.assessments,
+    follow_up: portfolio.summary.blocked > 0
+      ? [
+          'fix critical and high priority blockers first',
+          'run the current top-tier wave before broad portfolio rechecks',
+          'rerun assess-top-tier --all after the fixes land'
+        ]
+      : [
+          'stable skill portfolio is currently clear under governed top-tier checks'
+        ]
+  };
+}
+
+function assessTopTierReadiness(projectRoot, skillName, options = {}) {
+  if (options.all === true || skillName === '--all' || skillName === 'all') {
+    return assessAllTopTierReadiness(projectRoot, options);
+  }
+  return assessSingleTopTierReadiness(projectRoot, skillName, options);
+}
+
+function buildSkillHardeningBlueprint(projectRoot, options = {}) {
+  const skillsRoot = getAuthoritativeSkillsRoot();
+  const byName = options && options.name ? resolveSkillDirByName(skillsRoot, options.name) : null;
+  const byPath = options && options.path ? resolveSkillDirByRelPath(skillsRoot, options.path) : null;
+  const resolved = byName || byPath;
+  const identifier = options && (options.name || options.path);
+
+  if (!resolved) fail(`unknown skill '${identifier}'`);
+  ensureInsideAuthoritativeRoot(resolved.dir, skillsRoot);
+
+  const skillName = normalizeString(resolved.parsed.map.get('name')) || normalizeString(identifier);
+  const context = buildTopTierAssessmentContext(projectRoot);
+  const record = (Array.isArray(context.skillRecords) ? context.skillRecords : [])
+    .find((item) => item && item.name === skillName) || null;
+  if (!record) {
+    fail(`unknown skill '${skillName}'`);
+  }
+
+  const assessment = buildStableTopTierAssessment(record, {
+    ...context,
+    targetStatus: 'stable'
+  });
+  if (!assessment) {
+    fail(`unable to build top-tier hardening blueprint for '${skillName}'`);
+  }
+
+  const routeEntry = (Array.isArray(context.routeMapData && context.routeMapData.routes) ? context.routeMapData.routes : [])
+    .find((route) => normalizeString(route && route.skill) === skillName) || null;
+  const routeFixtureEvidence = summarizeRouteFixtureEvidence(skillName, context.routeFixturesData);
+  const reviewEntries = Array.isArray(context.reviewQueueData && context.reviewQueueData.skills)
+    ? context.reviewQueueData.skills
+    : (Array.isArray(context.reviewQueueData && context.reviewQueueData.entries) ? context.reviewQueueData.entries : []);
+  const reviewEntry = reviewEntries.find((entry) => normalizeString(entry && entry.skill) === skillName) || null;
+  const runtimeProof = (Array.isArray(context.runtimeProofData && context.runtimeProofData.proofs) ? context.runtimeProofData.proofs : [])
+    .find((entry) => normalizeString(entry && entry.skill) === skillName) || null;
+  const hostSmoke = (Array.isArray(context.hostSmokeScorecardData && context.hostSmokeScorecardData.skills) ? context.hostSmokeScorecardData.skills : [])
+    .find((entry) => normalizeString(entry && entry.skill) === skillName) || null;
+  const hardeningPlan = buildStableTopTierHardeningPlan(assessment);
+  const currentStatus = normalizeString(record.status);
+  const lifecycle = {
+    status: currentStatus,
+    'target-status': assessment['target-status'],
+    'active-route': Boolean(routeEntry),
+    'stable-ready': assessment.ready,
+    priority: assessment.priority
+  };
+  const recommendations = assessment.ready
+    ? [
+        currentStatus === 'stable'
+          ? {
+              action: 'keep-stable',
+              reason: 'the skill already satisfies the governed top-tier gate'
+            }
+          : {
+              action: 'promote-to-stable',
+              reason: 'governed top-tier blockers are clear for stable promotion'
+            }
+      ]
+    : [
+        {
+          action: 'harden-current-skill',
+          reason: currentStatus === 'stable'
+            ? 'the skill is already stable but still carries governed top-tier debt that should be cleared before further expansion'
+            : 'promotion is not honest yet because governed top-tier blockers remain'
+        }
+      ];
+
+  return {
+    action: 'show-skill-hardening-blueprint',
+    skill: skillName,
+    kind: record.kind,
+    path: path.relative(projectRoot, resolved.dir).split(path.sep).join('/'),
+    lifecycle,
+    review: reviewEntry || {
+      skill: skillName,
+      status: currentStatus,
+      owner: normalizeString(record.owner),
+      'review-status': null,
+      'next-review-due': null
+    },
+    'route-surface': routeEntry
+      ? {
+          active: true,
+          namespace: normalizeString(routeEntry.namespace),
+          'supported-hosts': normalizeStringList(routeEntry['supported-hosts']),
+          activation: cloneJsonValue(routeEntry.activation || {}),
+          aliases: normalizeStringList(routeEntry.aliases),
+          fallback: cloneJsonValue(routeEntry.fallback || {}),
+          'fixture-evidence': routeFixtureEvidence
+        }
+      : {
+          active: false,
+          'fixture-evidence': routeFixtureEvidence
+        },
+    'runtime-proof': runtimeProof
+      ? {
+          level: normalizeString(runtimeProof.level),
+          contracts: Array.isArray(runtimeProof.contracts) ? runtimeProof.contracts.length : 0,
+          'evidence-tests': Array.isArray(runtimeProof['evidence-tests']) ? runtimeProof['evidence-tests'] : [],
+          'host-smoke-policy': runtimeProof['host-smoke-policy'] || null,
+          'host-smoke-status': hostSmoke
+            ? {
+                level: normalizeString(hostSmoke.level),
+                'evidence-status': normalizeString(hostSmoke['evidence-status']),
+                'governance-status': normalizeString(hostSmoke['governance-status'])
+              }
+            : null
+        }
+      : null,
+    'capability-modules': assessment['capability-modules'],
+    'promotion-readiness': {
+      ready: assessment.ready,
+      priority: assessment.priority,
+      'blocker-count': assessment['blocker-count'],
+      'blocker-categories': assessment['blocker-categories'],
+      blockers: cloneJsonValue(assessment.blockers),
+      'blocking-family-count': hardeningPlan['blocking-family-count'],
+      'blocking-families': hardeningPlan['blocking-families']
+    },
+    recommendations,
+    follow_up: dedupeStrings([
+      ...hardeningPlan.follow_up,
+      !assessment.ready
+        ? `inspect lifecycle advice with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check ${skillName} "promote this skill into the governed stable surface when it is honestly ready"`
+        : '',
+      assessment.ready && currentStatus !== 'stable'
+        ? `execute the governed promotion with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status ${skillName} stable`
+        : '',
+      assessment.ready && currentStatus === 'stable'
+        ? `keep auditing with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${skillName}`
+        : '',
+      !assessment.ready
+        ? `rerun this hardening blueprint after clearing blockers: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-hardening-blueprint --name ${skillName}`
+        : ''
+    ])
+  };
+}
+
+function buildTemplateHardeningBlueprint(projectRoot, options = {}) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  const kind = normalizeString(options.kind);
+  if (!kind) {
+    fail('show-template-hardening-blueprint requires --kind <template-kind>');
+  }
+  if (!VALID_KINDS.has(kind)) {
+    fail(`unsupported template kind '${kind}'`);
+  }
+
+  const templateRecord = collectTemplateRecords(bundleRoot, [])
+    .find((record) => normalizeString(record.kind) === kind);
+  if (!templateRecord) {
+    fail(`unknown canonical template '${kind}'`);
+  }
+
+  const blockers = collectTemplateHardeningBlockers(bundleRoot, kind);
+  const priority = blockers.some((blocker) => ['review', 'runtime', 'host-metadata', 'structure'].includes(
+    Array.isArray(blocker.categories) ? blocker.categories[0] : ''
+  )) || blockers.some((blocker) => (Array.isArray(blocker.categories) ? blocker.categories : []).includes('review'))
+    ? 'high'
+    : (blockers.length > 0 ? 'normal' : 'clear');
+  const reviewStatus = normalizeString(templateRecord['review-status']);
+  const ready = blockers.length < 1;
+
+  const categoryOrder = ['review', 'metadata', 'references', 'host-metadata', 'runtime', 'lifecycle', 'structure'];
+  const titleByCategory = {
+    review: 'Template review cadence debt',
+    metadata: 'Template frontmatter metadata debt',
+    references: 'Template reference floor debt',
+    'host-metadata': 'Template host metadata drift',
+    runtime: 'Template scripted surface drift',
+    lifecycle: 'Template lifecycle drift',
+    structure: 'Template structure drift'
+  };
+  const summaryByCategory = {
+    review: 'Refresh canonical review metadata before new descendants inherit stale governance posture.',
+    metadata: 'Repair canonical template frontmatter so new scaffolds inherit honest metadata.',
+    references: 'Restore the canonical reference floor so future skills start with sufficient depth.',
+    'host-metadata': 'Resync template host metadata so host-facing prompts stay aligned with SKILL.md.',
+    runtime: 'Repair scripted template runtime contracts before future tool or guard descendants inherit broken stubs.',
+    lifecycle: 'Return the template to the expected draft lifecycle surface.',
+    structure: 'Repair structural template breakage before any further scaffold usage.'
+  };
+
+  const blockingFamilies = categoryOrder
+    .map((category) => {
+      const familyBlockers = blockers.filter((blocker) => (Array.isArray(blocker.categories) ? blocker.categories : []).includes(category));
+      if (familyBlockers.length < 1) {
+        return null;
+      }
+
+      const followUp = [];
+      if (category === 'review') {
+        followUp.push(`node personal-skill-system/skills/tools/manage-skill/scripts/run.js review-template --kind ${kind}`);
+      }
+      if (category === 'host-metadata') {
+        followUp.push(`node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-template-host-metadata --kind ${kind}`);
+      }
+      if (category === 'references' || category === 'metadata' || category === 'runtime' || category === 'lifecycle' || category === 'structure') {
+        followUp.push(`review personal-skill-system/templates/skill/${kind}/SKILL.md`);
+      }
+      if (category === 'runtime') {
+        followUp.push(`review personal-skill-system/templates/skill/${kind}/scripts/`);
+      }
+      followUp.push('npm run verify:skill-system');
+
+      return {
+        category,
+        priority: category === 'review' || category === 'runtime' || category === 'host-metadata' || category === 'structure' ? 'high' : 'normal',
+        title: titleByCategory[category] || 'Template governance debt',
+        summary: summaryByCategory[category] || 'Repair this canonical template blocker family before further scaffold evolution.',
+        'blocker-count': familyBlockers.length,
+        blockers: dedupeStrings(
+          familyBlockers
+            .map((blocker) => normalizeString(blocker.message))
+            .filter(Boolean)
+        ),
+        follow_up: dedupeStrings(followUp)
+      };
+    })
+    .filter(Boolean);
+
+  return {
+    action: 'show-template-hardening-blueprint',
+    kind,
+    template: templateRecord.name,
+    path: `personal-skill-system/templates/skill/${kind}`,
+    lifecycle: {
+      status: normalizeString(templateRecord.status) || 'draft',
+      'target-status': 'draft',
+      healthy: ready,
+      priority
+    },
+    review: {
+      template: templateRecord.name,
+      kind,
+      'review-status': reviewStatus || null,
+      'last-reviewed': templateRecord['last-reviewed'] || null,
+      'review-cycle-days': templateRecord['review-cycle-days'] || null,
+      'next-review-due': templateRecord['next-review-due'] || null
+    },
+    'template-governance': {
+      ready,
+      priority,
+      'blocker-count': blockers.length,
+      'blocking-family-count': blockingFamilies.length,
+      'blocking-families': blockingFamilies,
+      blockers: cloneJsonValue(blockers)
+    },
+    recommendations: ready
+      ? [
+          {
+            action: 'keep-template-current',
+            reason: 'the canonical template currently satisfies governed scaffold expectations'
+          }
+        ]
+      : [
+          {
+            action: 'harden-template',
+            reason: 'future skill evolution will inherit drift until the canonical template is repaired'
+          }
+        ],
+    follow_up: ready
+      ? [
+          `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-template-hardening-blueprint --kind ${kind}`
+        ]
+      : dedupeStrings([
+          ...blockingFamilies.flatMap((family) => Array.isArray(family.follow_up) ? family.follow_up : []),
+          `rerun this template blueprint after clearing blockers: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-template-hardening-blueprint --kind ${kind}`
+        ])
+  };
+}
+
+function buildScaffoldUpgradeRecommendations(record, driftStatus, templateBlockers, skillFilePath) {
+  const recommendations = [];
+
+  if (driftStatus === 'current') {
+    recommendations.push({
+      action: 'keep-current-lineage',
+      reason: 'the skill already points at the current canonical scaffold lineage'
+    });
+    return recommendations;
+  }
+
+  if (templateBlockers.length > 0) {
+    recommendations.push({
+      action: 'harden-canonical-template-first',
+      reason: 'the canonical template is not currently healthy, so upgrading descendants before repairing it would spread uncertain lineage'
+    });
+  }
+
+  if (driftStatus === 'missing-lineage') {
+    recommendations.push({
+      action: 'backfill-lineage',
+      reason: 'the skill is missing scaffold lineage metadata, so the first repair is to stamp the current canonical lineage once the descendant still matches the template family'
+    });
+    recommendations.push({
+      action: 'manually-verify-descendant-shape',
+      reason: 'because lineage is missing, confirm the skill still belongs to this canonical template family before syncing the metadata forward'
+    });
+    return recommendations;
+  }
+
+  if (driftStatus === 'origin-mismatch') {
+    recommendations.push({
+      action: 'resolve-template-family-mismatch',
+      reason: 'the recorded scaffold origin points at a different canonical family, so repair requires human review before any lineage sync'
+    });
+    recommendations.push({
+      action: 'audit-descendant-surface',
+      reason: 'compare SKILL, references, scripts, and host metadata against the current canonical template to decide whether the skill should be migrated, merged, or intentionally left divergent'
+    });
+    return recommendations;
+  }
+
+  if (driftStatus === 'behind-template') {
+    recommendations.push({
+      action: 'audit-template-delta',
+      reason: 'the skill is behind the canonical scaffold version, so inspect template changes before updating descendant lineage'
+    });
+    recommendations.push({
+      action: 'promote-lineage-after-audit',
+      reason: 'only sync scaffold lineage after the descendant has been manually reconciled with any relevant canonical SKILL, reference, script, or host-metadata changes'
+    });
+    return recommendations;
+  }
+
+  if (driftStatus === 'ahead-of-template') {
+    recommendations.push({
+      action: 'investigate-ahead-of-template-state',
+      reason: 'the descendant claims a scaffold version newer than the canonical template, which indicates governance drift or an out-of-band template edit'
+    });
+    recommendations.push({
+      action: 'repair-canonical-versioning',
+      reason: 'decide whether the canonical template should be advanced or the descendant lineage should be corrected downward after review'
+    });
+    return recommendations;
+  }
+
+  recommendations.push({
+    action: 'inspect-scaffold-drift',
+    reason: 'review the scaffold upgrade blueprint to decide the next governed repair step'
+  });
+  recommendations.push({
+    action: 'rerun-scaffold-blueprint',
+    reason: 'use the governed scaffold upgrade blueprint as the canonical read surface while clearing drift'
+  });
+  return recommendations;
+}
+
+function buildScaffoldUpgradeFollowUp(record, driftStatus, templateBlockers, skillFilePath) {
+  const commands = [];
+  if (templateBlockers.length > 0) {
+    commands.push(`node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-template-hardening-blueprint --kind ${record.kind}`);
+  }
+
+  if (driftStatus === 'missing-lineage') {
+    commands.push(`review ${skillFilePath}`);
+    commands.push(`node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-scaffold-lineage ${record.name}`);
+  } else if (driftStatus === 'origin-mismatch') {
+    commands.push(`review ${skillFilePath}`);
+    commands.push(`review ${path.posix.join(path.posix.dirname(skillFilePath), 'references/')}`);
+    if (normalizeString(record.runtime) === 'scripted') {
+      commands.push(`review ${path.posix.join(path.posix.dirname(skillFilePath), 'scripts/')}`);
+    }
+    if (record.hasHostMetadata) {
+      commands.push(`review ${path.posix.join(path.posix.dirname(skillFilePath), 'agents/openai.yaml')}`);
+    }
+  } else if (driftStatus === 'behind-template') {
+    commands.push(`review personal-skill-system/templates/skill/${record.kind}/SKILL.md`);
+    commands.push(`review ${skillFilePath}`);
+    commands.push(`review ${path.posix.join(path.posix.dirname(skillFilePath), 'references/')}`);
+    if (normalizeString(record.runtime) === 'scripted') {
+      commands.push(`review personal-skill-system/templates/skill/${record.kind}/scripts/`);
+      commands.push(`review ${path.posix.join(path.posix.dirname(skillFilePath), 'scripts/')}`);
+    }
+    if (record.hasHostMetadata) {
+      commands.push(`review ${path.posix.join(path.posix.dirname(skillFilePath), 'agents/openai.yaml')}`);
+    }
+    commands.push(`node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-scaffold-lineage ${record.name}`);
+  } else if (driftStatus === 'ahead-of-template') {
+    commands.push(`review personal-skill-system/templates/skill/${record.kind}/SKILL.md`);
+    commands.push(`review ${skillFilePath}`);
+  }
+
+  commands.push(`rerun this scaffold upgrade blueprint after the repair: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-scaffold-upgrade-blueprint --name ${record.name}`);
+  return dedupeStrings(commands);
+}
+
+function buildSkillScaffoldUpgradeBlueprint(projectRoot, options = {}) {
+  const skillsRoot = getAuthoritativeSkillsRoot();
+  const byName = options && options.name ? resolveSkillDirByName(skillsRoot, options.name) : null;
+  const byPath = options && options.path ? resolveSkillDirByRelPath(skillsRoot, options.path) : null;
+  const resolved = byName || byPath;
+  const identifier = options && (options.name || options.path);
+
+  if (!resolved) fail(`unknown skill '${identifier}'`);
+  ensureInsideAuthoritativeRoot(resolved.dir, skillsRoot);
+
+  const skillName = normalizeString(resolved.parsed.map.get('name')) || normalizeString(identifier);
+  const record = collectAllSkillRecords(projectRoot).find((item) => item && item.name === skillName) || null;
+  if (!record) {
+    fail(`unknown skill '${skillName}'`);
+  }
+  if (!shouldTrackScaffoldLineage(record.kind)) {
+    fail(`skill '${skillName}' does not participate in governed scaffold lineage`);
+  }
+
+  const bundleRoot = getBundleRoot(projectRoot);
+  const templateRecord = collectTemplateRecords(bundleRoot, [])
+    .find((item) => normalizeString(item.kind) === normalizeString(record.kind)) || null;
+  const templateBlockers = collectTemplateHardeningBlockers(bundleRoot, record.kind);
+  const driftStatus = normalizeString(record.scaffoldDriftStatus) || 'current';
+  const templateHealthy = templateBlockers.length < 1;
+  const skillFilePath = path.relative(projectRoot, resolved.skillFile).split(path.sep).join('/');
+  const canonicalTemplatePath = `personal-skill-system/templates/skill/${record.kind}/SKILL.md`;
+  const referencePaths = readReferencePaths(fs.readFileSync(resolved.skillFile, 'utf8'));
+  const recommendations = buildScaffoldUpgradeRecommendations(record, driftStatus, templateBlockers, skillFilePath);
+  const followUp = buildScaffoldUpgradeFollowUp(record, driftStatus, templateBlockers, skillFilePath);
+  const blockers = [];
+
+  if (driftStatus === 'missing-lineage') {
+    blockers.push({
+      category: 'lineage-metadata',
+      severity: record.status === 'stable' ? 'high' : 'normal',
+      message: 'skill is missing scaffold lineage metadata and must be verified before lineage can be safely stamped'
+    });
+  } else if (driftStatus === 'origin-mismatch') {
+    blockers.push({
+      category: 'template-family',
+      severity: 'high',
+      message: `skill lineage points at '${normalizeString(record.scaffoldOrigin) || 'unknown'}' instead of canonical '${normalizeString(record.canonicalScaffoldOrigin) || `${record.kind}-template`}'`
+    });
+  } else if (driftStatus === 'behind-template') {
+    blockers.push({
+      category: 'template-version',
+      severity: normalizeString(record.status) === 'stable' ? 'high' : 'normal',
+      message: `skill lineage version '${record.scaffoldVersion}' is behind canonical version '${record.canonicalScaffoldVersion}'`
+    });
+  } else if (driftStatus === 'ahead-of-template') {
+    blockers.push({
+      category: 'template-version',
+      severity: 'high',
+      message: `skill lineage version '${record.scaffoldVersion}' is ahead of canonical version '${record.canonicalScaffoldVersion}'`
+    });
+  }
+  for (const blocker of templateBlockers) {
+    blockers.push({
+      category: 'canonical-template',
+      severity: (Array.isArray(blocker.categories) ? blocker.categories : []).includes('review')
+        || (Array.isArray(blocker.categories) ? blocker.categories : []).includes('runtime')
+        || (Array.isArray(blocker.categories) ? blocker.categories : []).includes('host-metadata')
+        || (Array.isArray(blocker.categories) ? blocker.categories : []).includes('structure')
+        ? 'high'
+        : 'normal',
+      message: normalizeString(blocker.message),
+      file: normalizeString(blocker.file)
+    });
+  }
+
+  return {
+    action: 'show-skill-scaffold-upgrade-blueprint',
+    skill: skillName,
+    kind: record.kind,
+    path: path.relative(projectRoot, resolved.dir).split(path.sep).join('/'),
+    lifecycle: {
+      status: normalizeString(record.status),
+      runtime: normalizeString(record.runtime),
+      'user-invocable': Boolean(record.userInvocable)
+    },
+    scaffold: {
+      'drift-status': driftStatus,
+      current: {
+        origin: record.scaffoldOrigin || null,
+        version: record.scaffoldVersion ?? null
+      },
+      canonical: {
+        origin: record.canonicalScaffoldOrigin || null,
+        version: record.canonicalScaffoldVersion ?? null,
+        path: canonicalTemplatePath,
+        template: templateRecord ? templateRecord.name : `${record.kind}-template`,
+        'template-review-status': templateRecord ? normalizeString(templateRecord['review-status']) || null : null,
+        'template-healthy': templateHealthy
+      }
+    },
+    descendant: {
+      skill: skillName,
+      file: skillFilePath,
+      references: referencePaths,
+      'has-host-metadata': Boolean(record.hasHostMetadata),
+      'runtime-proof-items': Array.isArray(record.runtimeProofItems) ? record.runtimeProofItems.length : 0
+    },
+    blockers,
+    recommendations,
+    follow_up: followUp
+  };
+}
+
+function getTemplateDir(projectRoot, kind) {
+  return path.join(getBundleRoot(projectRoot), 'templates', 'skill', kind);
+}
+
+function resolveTemplateSkillFile(projectRoot, kind) {
+  const normalizedKind = normalizeString(kind);
+  if (!normalizedKind) {
+    fail('template kind is required');
+  }
+  if (!VALID_KINDS.has(normalizedKind)) {
+    fail(`unsupported template kind '${normalizedKind}'`);
+  }
+
+  const templateDir = getTemplateDir(projectRoot, normalizedKind);
+  const skillFile = path.join(templateDir, 'SKILL.md');
+  if (!fs.existsSync(skillFile)) {
+    fail(`unknown canonical template '${normalizedKind}'`);
+  }
+
+  const text = fs.readFileSync(skillFile, 'utf8');
+  const parsed = parseFrontmatterMap(text);
+  return { kind: normalizedKind, templateDir, skillFile, parsed };
+}
+
+function writeTemplateHostMetadata(projectRoot, resolved) {
+  const hostMetadataFile = path.join(resolved.templateDir, 'agents', 'openai.yaml');
+  writeOpenAiMetadataFile(hostMetadataFile, {
+    name: resolved.parsed.map.get('name'),
+    title: resolved.parsed.map.get('title'),
+    description: resolved.parsed.map.get('description'),
+    kind: resolved.parsed.map.get('kind')
+  }, {
+    preserveExisting: true
+  });
+}
+
+function syncTemplateHostMetadata(projectRoot, kind) {
+  const resolved = resolveTemplateSkillFile(projectRoot, kind);
+  writeTemplateHostMetadata(projectRoot, resolved);
+  refreshSkillInvestmentBacklog(projectRoot);
+  refreshSystemReadiness(projectRoot, { bestEffort: true });
+
+  return {
+    action: 'sync-template-host-metadata',
+    kind: resolved.kind,
+    template: normalizeString(resolved.parsed.map.get('name')) || `${resolved.kind}-template`,
+    path: path.relative(projectRoot, path.join(resolved.templateDir, 'agents', 'openai.yaml')).split(path.sep).join('/'),
+    follow_up: [
+      `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-template-hardening-blueprint --kind ${resolved.kind}`,
+      'npm run verify:skill-system'
+    ]
+  };
+}
+
+function reviewTemplate(projectRoot, kind, options = {}) {
+  const resolved = resolveTemplateSkillFile(projectRoot, kind);
+  const reviewedAt = normalizeReviewDate(options.date || new Date().toISOString().slice(0, 10));
+  if (!reviewedAt) {
+    fail(`invalid review date '${options.date}'`);
+  }
+
+  const reviewCycleDays = options.reviewCycleDays == null
+    ? null
+    : normalizeReviewCycleDays(options.reviewCycleDays);
+  if (options.reviewCycleDays != null && reviewCycleDays == null) {
+    fail(`invalid review-cycle-days '${options.reviewCycleDays}'`);
+  }
+
+  const previousText = fs.readFileSync(resolved.skillFile, 'utf8');
+  try {
+    resolved.parsed.map.set('last-reviewed', reviewedAt);
+    if (reviewCycleDays != null) {
+      resolved.parsed.map.set('review-cycle-days', String(reviewCycleDays));
+    }
+    fs.writeFileSync(resolved.skillFile, renderSkillFile(resolved.parsed), 'utf8');
+    refreshSkillInvestmentBacklog(projectRoot);
+    refreshSystemReadiness(projectRoot, { bestEffort: true });
+
+    return {
+      action: 'review-template',
+      kind: resolved.kind,
+      template: normalizeString(resolved.parsed.map.get('name')) || `${resolved.kind}-template`,
+      reviewed_at: reviewedAt,
+      'review-cycle-days': reviewCycleDays != null
+        ? reviewCycleDays
+        : parseInteger(resolved.parsed.map.get('review-cycle-days'), null),
+      follow_up: [
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-template-hardening-blueprint --kind ${resolved.kind}`,
+        'npm run verify:skill-system'
+      ]
+    };
+  } catch (error) {
+    fs.writeFileSync(resolved.skillFile, previousText, 'utf8');
+    throw error;
+  }
+}
+
 function enforceTopTierReadinessForStable(projectRoot, skillName) {
-  const assessment = assessTopTierReadiness(projectRoot, skillName);
+  const assessment = assessTopTierReadiness(projectRoot, skillName, {
+    targetStatus: 'stable'
+  });
   if (assessment.ready) {
     return assessment;
   }
@@ -2055,8 +2847,11 @@ function syncRuntimeProofOnRemove(projectRoot, skillName) {
   }
   const registry = readJson(runtimeProofPath);
   registry.proofs = (Array.isArray(registry.proofs) ? registry.proofs : []).filter((proof) => proof && proof.skill !== skillName);
-  writeJson(runtimeProofPath, registry);
-  refreshHostSmokeScorecard(projectRoot, registry.proofs);
+  writeRuntimeProofRegistry(projectRoot, registry.proofs, {
+    removedSkills: [skillName],
+    touchedSkills: [],
+    bestEffortReadiness: true
+  });
 }
 
 function collectAllSkillRecords(projectRoot) {
@@ -2080,12 +2875,53 @@ function refreshReviewQueue(projectRoot, options = {}) {
   };
 }
 
+function refreshReviewGovernanceSurfaces(projectRoot, options = {}) {
+  const skillRecords = Array.isArray(options.skillRecords) ? options.skillRecords : collectAllSkillRecords(projectRoot);
+  const registryData = options.registryData || readGovernedRegistry(projectRoot);
+  const ratings = options.ratingsData ? cloneJsonValue(options.ratingsData) : readRatings(projectRoot);
+  const bundleRoot = getBundleRoot(projectRoot);
+
+  applyCapabilityRatingsGovernance(ratings, {
+    skillRecords,
+    registryData,
+    bundleRoot,
+    moduleMetadata: buildCapabilityModuleMetadataMapFromRegistry(registryData)
+  });
+  writeJson(getRatingsPath(projectRoot), ratings);
+  syncCapabilityRatingsDocFile(bundleRoot, ratings);
+
+  const reviewQueue = refreshReviewQueue(projectRoot, {
+    skillRecords
+  });
+  const backlog = refreshSkillInvestmentBacklog(projectRoot, {
+    skillRecords,
+    registryData,
+    ratingsData: ratings,
+    reviewQueueData: reviewQueue.payload
+  });
+  const expertSourceFamilyScorecard = refreshExpertSourceFamilyScorecard(projectRoot, {
+    registryData
+  });
+  const readiness = refreshSystemReadiness(projectRoot, {
+    bestEffort: true,
+    returnDetails: options.returnDetails === true
+  });
+
+  return {
+    ratings,
+    reviewQueue,
+    backlog,
+    expertSourceFamilyScorecard,
+    readiness
+  };
+}
+
 function refreshSkillInvestmentBacklog(projectRoot, options = {}) {
   const bundleRoot = getBundleRoot(projectRoot);
   const skillRecords = Array.isArray(options.skillRecords) ? options.skillRecords : collectAllSkillRecords(projectRoot);
   const registryData = options.registryData || readGovernedRegistry(projectRoot);
   const ratingsData = options.ratingsData || readJson(getRatingsPath(projectRoot));
-  const reviewQueueData = options.reviewQueueData || readJson(getReviewQueueRegistryPath(projectRoot));
+  const reviewQueueData = options.reviewQueueData || buildReviewQueue(bundleRoot, skillRecords);
   const opportunityQueueData = options.opportunityQueueData || readOpportunityQueue(projectRoot);
   const admissionLedgerData = options.admissionLedgerData || readAdmissionLedger(projectRoot);
   const evolutionLedgerData = options.evolutionLedgerData || readEvolutionLedger(projectRoot);
@@ -2112,7 +2948,7 @@ function buildCurrentSkillInvestmentBacklog(projectRoot, options = {}) {
   const skillRecords = Array.isArray(options.skillRecords) ? options.skillRecords : collectAllSkillRecords(projectRoot);
   const registryData = options.registryData || readGovernedRegistry(projectRoot);
   const ratingsData = options.ratingsData || readJson(getRatingsPath(projectRoot));
-  const reviewQueueData = options.reviewQueueData || readJson(getReviewQueueRegistryPath(projectRoot));
+  const reviewQueueData = options.reviewQueueData || buildReviewQueue(bundleRoot, skillRecords);
   const opportunityQueueData = options.opportunityQueueData || readOpportunityQueue(projectRoot);
   const admissionLedgerData = options.admissionLedgerData || readAdmissionLedger(projectRoot);
   const evolutionLedgerData = options.evolutionLedgerData || readEvolutionLedger(projectRoot);
@@ -2202,6 +3038,9 @@ function getValueAtPath(data, dottedPath) {
 
 function resolveSmokeCwd(bundleRoot, record, command) {
   const mode = String(command.cwd || 'skill-dir').trim();
+  if (mode === 'project-root') {
+    return path.dirname(bundleRoot);
+  }
   if (mode === 'bundle-root') {
     return bundleRoot;
   }
@@ -2672,8 +3511,18 @@ function buildRuntimeProofEntry(record, overrides = {}, existing = null) {
 
 function writeRuntimeProofRegistry(projectRoot, proofs, options = {}) {
   const runtimeProofPath = getRuntimeProofPath(projectRoot);
-  writeJson(runtimeProofPath, buildRuntimeProofRegistryDocument(proofs));
-  const scorecard = refreshHostSmokeScorecard(projectRoot, proofs, {
+  const useMergeWrite = Array.isArray(options.touchedSkills) || Array.isArray(options.removedSkills);
+  const mergedProofs = useMergeWrite
+    ? mergeRuntimeProofUpdates(projectRoot, proofs, {
+        removedSkills: options.removedSkills,
+        touchedSkills: options.touchedSkills
+      })
+    : dedupeRuntimeProofEntries(
+        [...(Array.isArray(proofs) ? proofs : [])].sort((a, b) => String(a && a.skill || '').localeCompare(String(b && b.skill || ''))),
+        { prefer: 'last' }
+      );
+  writeJson(runtimeProofPath, buildRuntimeProofRegistryDocument(mergedProofs));
+  const scorecard = refreshHostSmokeScorecard(projectRoot, mergedProofs, {
     bestEffortReadiness: options.bestEffortReadiness === true,
     returnDetails: options.returnDetails === true
   });
@@ -2926,7 +3775,9 @@ function reconcileHostSmoke(projectRoot, selection = {}) {
       : { appended: 0, file: getHostSmokeInvalidationPath(bundleRoot) };
 
     if (demotedSkills.length > 0) {
-      writeRuntimeProofRegistry(projectRoot, activeProofs);
+      writeRuntimeProofRegistry(projectRoot, activeProofs, {
+        touchedSkills: reports.map((item) => item.skill).filter(Boolean)
+      });
     } else {
       refreshHostSmokeScorecard(projectRoot, activeProofs);
     }
@@ -2983,6 +3834,7 @@ function writeRuntimeProofEntryLevel(projectRoot, skillName, nextLevel) {
   }
   proof.level = nextLevel;
   writeRuntimeProofRegistry(projectRoot, proofs, {
+    touchedSkills: [skillName],
     bestEffortReadiness: true
   });
 }
@@ -3107,6 +3959,7 @@ function runHostSmoke(projectRoot, selection = {}) {
   let scorecardFile;
   if (runtimeProofChanged) {
     writeRuntimeProofRegistry(projectRoot, activeProofs, {
+      touchedSkills: normalizedSkills,
       bestEffortReadiness: true
     });
     scorecardFile = getHostSmokeScorecardPath(bundleRoot);
@@ -3165,7 +4018,10 @@ function syncRuntimeProofEntry(projectRoot, skillName, options = {}) {
     if (existing) {
       const nextProofs = proofs.filter((proof) => proof && proof.skill !== skillName)
         .sort((a, b) => String(a.skill).localeCompare(String(b.skill)));
-      writeRuntimeProofRegistry(projectRoot, nextProofs);
+      writeRuntimeProofRegistry(projectRoot, nextProofs, {
+        removedSkills: [skillName],
+        touchedSkills: []
+      });
       return {
         action: 'sync-runtime-proof',
         skill: skillName,
@@ -3220,6 +4076,7 @@ function syncRuntimeProofEntry(projectRoot, skillName, options = {}) {
       ? appendHostSmokeInvalidations(projectRoot, driftInvalidations)
       : { appended: 0, file: getHostSmokeInvalidationPath(bundleRoot) };
     const writeResult = writeRuntimeProofRegistry(projectRoot, nextProofs, {
+      touchedSkills: [skillName],
       bestEffortReadiness: true,
       returnDetails: true
     });
@@ -3719,13 +4576,90 @@ function showPendingScaffolds(projectRoot, options = {}) {
   };
 }
 
+function showFutureSkillPipeline(projectRoot, options = {}) {
+  const opportunityQueue = readOpportunityQueue(projectRoot);
+  const admissionLedger = readAdmissionLedger(projectRoot);
+  const pendingRegistry = readPendingScaffoldRegistry(projectRoot);
+  const hostEvolution = buildHostEvolutionReport(getBundleRoot(projectRoot), {
+    readiness: readCurrentSystemReadiness(projectRoot),
+    backlog: buildCurrentSkillInvestmentBacklog(projectRoot),
+    pendingScaffoldRegistry: pendingRegistry,
+    admissionLedger
+  });
+  const includeResolved = options.includeResolved === true;
+  const stageFilter = normalizeFutureSkillPipelineStage(options.stage);
+  const priorityFilter = normalizeString(options.priority);
+  const kindFilter = normalizeString(options.kind);
+  const skillFilter = normalizeString(options.skill);
+  const blockedOnly = options.blockedOnly === true;
+
+  const pipeline = buildFutureSkillPipelineView({
+    opportunities: opportunityQueue.entries,
+    admissions: admissionLedger.entries,
+    pendingScaffolds: pendingRegistry.entries,
+    hostEvolution
+  }, {
+    includeResolved
+  });
+
+  let entries = pipeline.entries;
+  if (stageFilter) {
+    entries = entries.filter((entry) => entry.stage === stageFilter);
+  }
+  if (priorityFilter) {
+    entries = entries.filter((entry) => normalizeString(entry.priority) === priorityFilter);
+  }
+  if (kindFilter) {
+    entries = entries.filter((entry) => normalizeString(entry.kind) === kindFilter);
+  }
+  if (skillFilter) {
+    entries = entries.filter((entry) =>
+      normalizeString(entry.skill) === skillFilter
+      || normalizeString(entry['target-skill']) === skillFilter
+      || normalizeString(entry['thread-id']) === skillFilter
+    );
+  }
+  if (blockedOnly) {
+    entries = entries.filter((entry) => entry.blocked === true);
+  }
+
+  return {
+    action: 'show-future-skill-pipeline',
+    summary: pipeline.summary,
+    total: pipeline.total,
+    returned: entries.length,
+    filters: {
+      ...(stageFilter ? { stage: stageFilter } : {}),
+      ...(priorityFilter ? { priority: priorityFilter } : {}),
+      ...(kindFilter ? { kind: kindFilter } : {}),
+      ...(skillFilter ? { skill: skillFilter } : {}),
+      ...(blockedOnly ? { blocked: true } : {}),
+      ...(includeResolved ? { 'include-resolved': true } : {})
+    },
+    'host-evolution': {
+      status: hostEvolution.status,
+      capabilities: hostEvolution.capabilities,
+      summary: hostEvolution.summary
+    },
+    entries
+  };
+}
+
 function diagnoseHostEvolution(projectRoot) {
   const bundleRoot = getBundleRoot(projectRoot);
+  const refreshPlan = listDerivedGovernanceRefreshPlan();
   const readinessContext = collectSystemReadinessContext(bundleRoot);
   const readiness = buildSystemReadiness(bundleRoot, readinessContext);
+  const backlog = buildCurrentSkillInvestmentBacklog(projectRoot, {
+    skillRecords: readinessContext.skillRecords,
+    routeFixturesData: {
+      cases: readinessContext.routeFixtures
+    }
+  });
   const payload = buildHostEvolutionReport(bundleRoot, {
     ...readinessContext,
-    readiness
+    readiness,
+    backlog
   });
   const latestDerivedExport = findLatestDerivedGovernanceExport(
     getDerivedGovernanceSearchRoots(projectRoot),
@@ -3752,6 +4686,7 @@ function diagnoseHostEvolution(projectRoot) {
     'pending-scaffolds': payload['pending-scaffolds'],
     'blocked-admissions': payload['blocked-admissions'],
     'host-writeability-debt': payload['host-writeability-debt'],
+    'refresh-plan': refreshPlan,
     ...(payload.readiness ? { readiness: payload.readiness } : {}),
     ...(latestDerivedExportSummary ? { 'latest-derived-governance-export': latestDerivedExportSummary } : {}),
     follow_up: latestDerivedExportSummary
@@ -3780,6 +4715,9 @@ function exportDerivedGovernance(projectRoot, options = {}) {
     export: described,
     fingerprint: result.payload.fingerprint,
     summary: result.payload.diagnosis ? result.payload.diagnosis.summary : {},
+    'refresh-plan': result.payload && result.payload.recovery
+      ? result.payload.recovery['refresh-plan']
+      : listDerivedGovernanceRefreshPlan(),
     follow_up: [
       `copy ${described.directory} to a writable distribution or install path that targets the same blocked bundle snapshot`,
       `node personal-skill-system/skills/tools/manage-skill/scripts/run.js apply-derived-governance-export ${described.directory}`,
@@ -3791,26 +4729,48 @@ function exportDerivedGovernance(projectRoot, options = {}) {
 
 function refreshDerivedGovernance(projectRoot) {
   const bundleRoot = getBundleRoot(projectRoot);
+  const refreshPlan = listDerivedGovernanceRefreshPlan();
   try {
     const result = refreshDerivedGovernanceArtifacts(bundleRoot, {
       bestEffort: true
     });
     if (Array.isArray(result.errors) && result.errors.length > 0) {
       const degraded = diagnoseHostEvolution(projectRoot);
-      const degradedFiles = result.errors.map((item) => ({
-        artifact: item.id,
-        file: toPortablePath(projectRoot, item.path),
-        code: item.code || 'UNKNOWN'
-      }));
+      const degradedFiles = result.errors.map((item) => {
+        const refreshStep = findDerivedGovernanceRefreshStepByArtifactId(item.id);
+        return {
+          artifact: item.id,
+          file: toPortablePath(projectRoot, item.path),
+          code: item.code || 'UNKNOWN',
+          ...(refreshStep ? {
+            'refresh-step': {
+              id: refreshStep.id,
+              order: refreshStep.order,
+              label: refreshStep.label
+            }
+          } : {})
+        };
+      });
       return {
         action: 'refresh-derived-governance',
         status: 'degraded-host-blocked',
         'runtime-root': projectRoot,
         'bundle-root': bundleRoot,
-        refreshed: result.files.map((item) => ({
-          artifact: item.id,
-          file: toPortablePath(projectRoot, item.path)
-        })),
+        'refresh-plan': refreshPlan,
+        refreshed: result.files.map((item) => {
+          const refreshStep = findDerivedGovernanceRefreshStepByArtifactId(item.id);
+          return {
+            artifact: item.id,
+            file: toPortablePath(projectRoot, item.path),
+            ...(refreshStep ? {
+              'refresh-step': {
+                id: refreshStep.id,
+                order: refreshStep.order,
+                label: refreshStep.label
+              }
+            } : {})
+          };
+        }),
         error: {
           code: degradedFiles[0] && degradedFiles[0].code ? degradedFiles[0].code : 'UNKNOWN',
           message: `derived governance refresh completed with ${result.errors.length} blocked artifact(s)`
@@ -3834,10 +4794,21 @@ function refreshDerivedGovernance(projectRoot) {
       status: 'refreshed',
       'runtime-root': projectRoot,
       'bundle-root': bundleRoot,
-      refreshed: result.files.map((item) => ({
-        artifact: item.id,
-        file: toPortablePath(projectRoot, item.path)
-      })),
+      'refresh-plan': refreshPlan,
+      refreshed: result.files.map((item) => {
+        const refreshStep = findDerivedGovernanceRefreshStepByArtifactId(item.id);
+        return {
+          artifact: item.id,
+          file: toPortablePath(projectRoot, item.path),
+          ...(refreshStep ? {
+            'refresh-step': {
+              id: refreshStep.id,
+              order: refreshStep.order,
+              label: refreshStep.label
+            }
+          } : {})
+        };
+      }),
       summary: {
         refreshed: result.files.length
       },
@@ -3882,6 +4853,7 @@ function refreshDerivedGovernance(projectRoot) {
       status: 'degraded-host-blocked',
       'runtime-root': projectRoot,
       'bundle-root': bundleRoot,
+      'refresh-plan': refreshPlan,
       error: {
         code: error && error.code ? error.code : 'UNKNOWN',
         message: error && error.message ? error.message : String(error)
@@ -4788,6 +5760,294 @@ function showSkillInvestmentBacklog(projectRoot, options = {}) {
   };
 }
 
+function showLifecycleGovernance(projectRoot, options = {}) {
+  const skillRecords = collectAllSkillRecords(projectRoot);
+  const statusFilter = normalizeString(options.status);
+  const kindFilter = normalizeString(options.kind);
+  const skillFilter = normalizeString(options.skill);
+  const includeStable = options.includeStable === true;
+
+  const entries = skillRecords
+    .filter((record) => record && (includeStable ? true : record.status !== 'stable'))
+    .map((record) => {
+      const assessment = assessSingleTopTierReadiness(projectRoot, record.name);
+      const activeRoute = hasActiveRouteEntry(projectRoot, record.name);
+      const moduleRatings = getCapabilityModuleRatingsForSkill(projectRoot, record.name);
+      const lifecycleClass = record.status === 'stable'
+        ? 'stable'
+        : (assessment.ready ? 'promotion-ready' : 'needs-hardening');
+      const nextAction = record.status === 'stable'
+        ? 'keep-stable'
+        : (assessment.ready ? 'promote-to-stable' : 'harden-current-skill');
+
+      return {
+        skill: record.name,
+        kind: record.kind,
+        status: record.status,
+        'lifecycle-class': lifecycleClass,
+        'target-status': assessment['target-status'],
+        'active-route': activeRoute,
+        'top-tier-ready': assessment.ready,
+        priority: assessment.priority,
+        'blocker-count': assessment['blocker-count'],
+        'blocker-categories': assessment['blocker-categories'],
+        'capability-modules': moduleRatings,
+        'next-action': nextAction,
+        follow_up: dedupeStrings([
+          `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${record.name}`,
+          `node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${record.name}`,
+          record.status !== 'stable'
+            ? `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-hardening-blueprint ${record.name}`
+            : '',
+          assessment.ready && record.status !== 'stable'
+            ? `node personal-skill-system/skills/tools/manage-skill/scripts/run.js set-status ${record.name} stable`
+            : '',
+          !assessment.ready && record.status !== 'stable'
+            ? `node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check ${record.name} "promote this active skill into the governed stable surface when it is honestly ready"`
+            : ''
+        ])
+      };
+    });
+
+  let filtered = entries;
+  if (statusFilter) {
+    filtered = filtered.filter((entry) => normalizeString(entry.status) === statusFilter);
+  }
+  if (kindFilter) {
+    filtered = filtered.filter((entry) => normalizeString(entry.kind) === kindFilter);
+  }
+  if (skillFilter) {
+    filtered = filtered.filter((entry) => normalizeString(entry.skill) === skillFilter);
+  }
+
+  filtered.sort((left, right) => {
+    const leftPriority = String(left.priority || '');
+    const rightPriority = String(right.priority || '');
+    const leftScore = leftPriority === 'critical' ? 3 : leftPriority === 'high' ? 2 : leftPriority === 'normal' ? 1 : 0;
+    const rightScore = rightPriority === 'critical' ? 3 : rightPriority === 'high' ? 2 : rightPriority === 'normal' ? 1 : 0;
+    if (rightScore !== leftScore) {
+      return rightScore - leftScore;
+    }
+    const leftReady = left['top-tier-ready'] === true ? 1 : 0;
+    const rightReady = right['top-tier-ready'] === true ? 1 : 0;
+    if (leftReady !== rightReady) {
+      return leftReady - rightReady;
+    }
+    return normalizeString(left.skill).localeCompare(normalizeString(right.skill));
+  });
+
+  const scopedEntries = skillRecords.filter((record) => record && (includeStable ? true : record.status !== 'stable'));
+  const summary = {
+    total: scopedEntries.length,
+    returned: filtered.length,
+    stable: scopedEntries.filter((record) => record.status === 'stable').length,
+    experimental: scopedEntries.filter((record) => record.status === 'experimental').length,
+    deprecated: scopedEntries.filter((record) => record.status === 'deprecated').length,
+    draft: scopedEntries.filter((record) => record.status === 'draft').length,
+    archived: scopedEntries.filter((record) => record.status === 'archived').length,
+    'promotion-ready': filtered.filter((entry) => entry['lifecycle-class'] === 'promotion-ready').length,
+    'needs-hardening': filtered.filter((entry) => entry['lifecycle-class'] === 'needs-hardening').length
+  };
+
+  return {
+    action: 'show-lifecycle-governance',
+    summary,
+    returned: filtered.length,
+    entries: filtered,
+    follow_up: [
+      'node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source authoritative-skills',
+      'node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier --all',
+      'npm run verify:skill-system'
+    ]
+  };
+}
+
+function showScaffoldGovernance(projectRoot, options = {}) {
+  const bundleRoot = getBundleRoot(projectRoot);
+  const skillRecords = collectAllSkillRecords(projectRoot);
+  const templateRecords = collectTemplateRecords(bundleRoot, []);
+  const kindFilter = normalizeString(options.kind);
+  const skillFilter = normalizeString(options.skill);
+  const statusFilter = normalizeString(options.status);
+  const includeHealthy = options.includeHealthy === true;
+
+  let templates = templateRecords.map((record) => ({
+    kind: record.kind,
+    name: record.name,
+    status: record.status,
+    file: record.file,
+    'template-version': record['template-version'],
+    'review-status': record['review-status'],
+    'next-review-due': record['next-review-due'],
+    healthy: ['current', 'due-soon'].includes(normalizeString(record['review-status']))
+  }));
+
+  if (kindFilter) {
+    templates = templates.filter((record) => normalizeString(record.kind) === kindFilter);
+  }
+  if (statusFilter) {
+    templates = templates.filter((record) => normalizeString(record['review-status']) === statusFilter);
+  }
+  if (!includeHealthy) {
+    templates = templates.filter((record) => record.healthy !== true);
+  }
+
+  let skills = skillRecords
+    .filter((record) => shouldTrackScaffoldLineage(record.kind))
+    .map((record) => {
+      const currentVersion = Number.isInteger(record.scaffoldVersion) ? record.scaffoldVersion : null;
+      const canonicalVersion = Number.isInteger(record.canonicalScaffoldVersion) ? record.canonicalScaffoldVersion : null;
+      let driftStatus = 'current';
+      if (!record.scaffoldOrigin || currentVersion == null) {
+        driftStatus = 'missing-lineage';
+      } else if (record.canonicalScaffoldOrigin && record.scaffoldOrigin !== record.canonicalScaffoldOrigin) {
+        driftStatus = 'origin-mismatch';
+      } else if (canonicalVersion != null && currentVersion < canonicalVersion) {
+        driftStatus = 'behind-template';
+      } else if (canonicalVersion != null && currentVersion > canonicalVersion) {
+        driftStatus = 'ahead-of-template';
+      }
+
+      return {
+        skill: record.name,
+        kind: record.kind,
+        status: record.status,
+        file: record.file,
+        'scaffold-origin': record.scaffoldOrigin,
+        'scaffold-version': currentVersion,
+        'canonical-origin': record.canonicalScaffoldOrigin,
+        'canonical-version': canonicalVersion,
+        'drift-status': driftStatus,
+        follow_up: driftStatus === 'current'
+          ? [
+              `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${record.name}`
+            ]
+          : [
+              `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-scaffold-upgrade-blueprint --name ${record.name}`,
+              `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${record.name}`
+            ]
+      };
+    });
+
+  if (kindFilter) {
+    skills = skills.filter((record) => normalizeString(record.kind) === kindFilter);
+  }
+  if (skillFilter) {
+    skills = skills.filter((record) => normalizeString(record.skill) === skillFilter);
+  }
+  if (statusFilter) {
+    skills = skills.filter((record) => normalizeString(record['drift-status']) === statusFilter);
+  }
+  if (!includeHealthy) {
+    skills = skills.filter((record) => normalizeString(record['drift-status']) !== 'current');
+  }
+
+  const summary = {
+    templates: {
+      total: templateRecords.filter((record) => !kindFilter || normalizeString(record.kind) === kindFilter).length,
+      returned: templates.length,
+      overdue: templateRecords.filter((record) => (!kindFilter || normalizeString(record.kind) === kindFilter) && normalizeString(record['review-status']) === 'overdue').length,
+      'missing-metadata': templateRecords.filter((record) => (!kindFilter || normalizeString(record.kind) === kindFilter) && normalizeString(record['review-status']) === 'missing-metadata').length
+    },
+    skills: {
+      total: skillRecords.filter((record) => shouldTrackScaffoldLineage(record.kind) && (!kindFilter || normalizeString(record.kind) === kindFilter)).length,
+      returned: skills.length,
+      'behind-template': skills.filter((record) => normalizeString(record['drift-status']) === 'behind-template').length,
+      'missing-lineage': skills.filter((record) => normalizeString(record['drift-status']) === 'missing-lineage').length,
+      'origin-mismatch': skills.filter((record) => normalizeString(record['drift-status']) === 'origin-mismatch').length,
+      'ahead-of-template': skills.filter((record) => normalizeString(record['drift-status']) === 'ahead-of-template').length
+    }
+  };
+
+  return {
+    action: 'show-scaffold-governance',
+    summary,
+    returned: {
+      templates: templates.length,
+      skills: skills.length
+    },
+    templates,
+    skills,
+    follow_up: [
+      'node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source scaffold-lineage',
+      'node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-scaffold-upgrade-blueprint --name <skill-name>',
+      'node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-scaffold-lineage --all',
+      'npm run verify:skill-system'
+    ]
+  };
+}
+
+function showTopTierWave(projectRoot, options = {}) {
+  const payload = buildCurrentSkillInvestmentBacklog(projectRoot);
+  const topTierPortfolio = payload && payload['top-tier-portfolio'] && typeof payload['top-tier-portfolio'] === 'object'
+    ? payload['top-tier-portfolio']
+    : {};
+  const executionFocus = topTierPortfolio['execution-focus'] && typeof topTierPortfolio['execution-focus'] === 'object'
+    ? topTierPortfolio['execution-focus']
+    : null;
+  const assessments = Array.isArray(topTierPortfolio.assessments) ? topTierPortfolio.assessments : [];
+  const blockedAssessments = assessments.filter((item) => item && item.ready === false);
+
+  if (!executionFocus) {
+    return {
+      action: 'show-top-tier-wave',
+      summary: {
+        blocked: blockedAssessments.length,
+        ready: blockedAssessments.length < 1
+      },
+      returned: 0,
+      skills: [],
+      follow_up: ['node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier --all']
+    };
+  }
+
+  const priorityFilter = normalizeString(options.priority);
+  const categoryFilter = normalizeString(options.category);
+  const waveSkills = new Set(
+    (Array.isArray(executionFocus['next-wave']) ? executionFocus['next-wave'] : [])
+      .map((item) => normalizeString(item))
+      .filter(Boolean)
+  );
+
+  let skills = blockedAssessments.filter((item) => waveSkills.has(normalizeString(item.skill)));
+  if (priorityFilter) {
+    skills = skills.filter((item) => normalizeString(item.priority) === priorityFilter);
+  }
+  if (categoryFilter) {
+    skills = skills.filter((item) => Array.isArray(item['blocker-categories']) && item['blocker-categories'].includes(categoryFilter));
+  }
+
+  return {
+    action: 'show-top-tier-wave',
+    summary: {
+      blocked: Number(executionFocus.blocked || 0),
+      'next-wave-size': Number(executionFocus['next-wave-size'] || 0),
+      'current-priority-lane': executionFocus['current-priority-lane'] || null,
+      'current-blocker-family': executionFocus['current-blocker-family'] || null
+    },
+    'execution-focus': executionFocus,
+    returned: skills.length,
+    skills,
+    follow_up: Array.isArray(executionFocus.follow_up) ? executionFocus.follow_up : []
+  };
+}
+
+function getDirectUpdateForbiddenMessage(key) {
+  return DIRECT_UPDATE_FORBIDDEN_FIELDS.get(normalizeString(key)) || '';
+}
+
+function shouldDirectUpdateAffectRouteMetadata(keys) {
+  return keys.some((key) => DIRECT_UPDATE_ROUTE_FIELDS.has(normalizeString(key)));
+}
+
+function shouldDirectUpdateAffectHostMetadata(keys) {
+  return keys.some((key) => DIRECT_UPDATE_HOST_METADATA_FIELDS.has(normalizeString(key)));
+}
+
+function shouldDirectUpdateAffectReviewGovernance(keys) {
+  return keys.some((key) => DIRECT_UPDATE_REVIEW_FIELDS.has(normalizeString(key)));
+}
+
 function updateSkill(skillName, assignments) {
   const projectRoot = getProjectRoot();
   const resolved = resolveSkillDirByName(getAuthoritativeSkillsRoot(), skillName);
@@ -4801,21 +6061,46 @@ function updateSkill(skillName, assignments) {
     const key = assignment.slice(0, idx).trim();
     const value = assignment.slice(idx + 1).trim();
     if (!key) fail(`invalid assignment '${assignment}'`);
-    if (key === 'status') {
-      fail('update cannot modify status directly; use set-status, archive, or delete so generated governance surfaces stay synchronized');
+    const forbiddenMessage = getDirectUpdateForbiddenMessage(key);
+    if (forbiddenMessage) {
+      fail(forbiddenMessage);
     }
     parsedAssignments.push({ key, value });
   }
 
-  assertGeneratedArtifactsWritable(projectRoot, `update skill '${skillName}'`, {
-    paths: [
+  const updatedKeys = parsedAssignments.map((item) => item.key);
+  const shouldSyncRoute = shouldDirectUpdateAffectRouteMetadata(updatedKeys);
+  const shouldSyncHostMetadata = shouldDirectUpdateAffectHostMetadata(updatedKeys);
+  const shouldRefreshReviewGovernance = shouldDirectUpdateAffectReviewGovernance(updatedKeys);
+  const generatedPaths = [];
+  const optionalGeneratedPaths = [];
+
+  if (shouldSyncRoute) {
+    generatedPaths.push(
+      getRouteMapPath(projectRoot),
+      getRouteFixturesPath(projectRoot)
+    );
+  }
+  if (shouldRefreshReviewGovernance || shouldSyncRoute) {
+    generatedPaths.push(
+      getRatingsPath(projectRoot),
+      getRatingsDocPath(projectRoot),
       getReviewQueueRegistryPath(projectRoot),
       getSkillInvestmentBacklogRegistryPath(projectRoot),
       getSkillInvestmentBacklogDocFilePath(projectRoot),
-      getRouteMapPath(projectRoot),
-      getRouteFixturesPath(projectRoot)
-    ]
-  });
+      getExpertSourceFamilyScorecardRegistryPath(projectRoot)
+    );
+  }
+  if (shouldRefreshReviewGovernance || shouldSyncRoute) {
+    optionalGeneratedPaths.push(getSystemReadinessPath(projectRoot));
+  }
+
+  if (generatedPaths.length > 0) {
+    assertGeneratedArtifactsWritable(projectRoot, `update skill '${skillName}'`, {
+      paths: dedupeStrings(generatedPaths),
+      optionalPaths: dedupeStrings(optionalGeneratedPaths)
+    });
+  }
 
   const previousSkillText = fs.readFileSync(resolved.skillFile, 'utf8');
   const generatedSnapshot = snapshotGeneratedState(projectRoot);
@@ -4827,21 +6112,37 @@ function updateSkill(skillName, assignments) {
 
     const next = renderSkillFile(resolved.parsed);
     fs.writeFileSync(resolved.skillFile, next, 'utf8');
-    writeSkillHostMetadata(resolved.dir, resolved.parsed);
-    if (shouldAppearOnActiveRouteSurface({
-      userInvocable: parseBoolean(resolved.parsed.map.get('user-invocable'), false),
-      kind: String(resolved.parsed.map.get('kind') || '').trim(),
-      status: String(resolved.parsed.map.get('status') || '').trim()
-    })) {
-      syncRouteMapForSkill(projectRoot, skillName, { resolved });
-      syncRouteFixturesForSkill(projectRoot, skillName);
+    const skillRecords = collectAllSkillRecords(projectRoot);
+    const record = skillRecords.find((item) => item && item.name === skillName) || null;
+    if (!record) {
+      fail(`unknown skill '${skillName}' after update`);
     }
-    const reviewQueue = refreshReviewQueue(projectRoot);
-    refreshSkillInvestmentBacklog(projectRoot, {
-      reviewQueueData: reviewQueue.payload
-    });
-    refreshExpertSourceFamilyScorecard(projectRoot);
-    refreshSystemReadiness(projectRoot, { bestEffort: true });
+
+    if (shouldSyncHostMetadata) {
+      writeSkillHostMetadata(resolved.dir, resolved.parsed);
+    }
+
+    if (shouldSyncRoute) {
+      if (shouldSyncGovernedRouteArtifacts(record)) {
+        syncRouteMapForSkill(projectRoot, skillName, {
+          resolved,
+          record
+        });
+        syncRouteFixturesForSkill(projectRoot, skillName);
+      } else {
+        syncRouteMapOnRemove(projectRoot, skillName);
+        syncRouteFixturesOnRemove(projectRoot, skillName);
+      }
+    }
+
+    if (shouldRefreshReviewGovernance || shouldSyncRoute) {
+      refreshReviewGovernanceSurfaces(projectRoot, {
+        skillRecords: collectAllSkillRecords(projectRoot),
+        returnDetails: false
+      });
+    } else {
+      refreshSystemReadiness(projectRoot, { bestEffort: true });
+    }
 
     return {
       action: 'update',
@@ -4858,23 +6159,48 @@ function updateSkill(skillName, assignments) {
 
 function markSkillReviewed(skillName, options = {}) {
   const projectRoot = getProjectRoot();
-  const resolved = resolveSkillDirByName(getAuthoritativeSkillsRoot(), skillName);
-  if (!resolved) fail(`unknown skill '${skillName}'`);
+  const allOverdue = options.overdueOnly === true;
+  const markAll = options.all === true;
+  const targetNames = [];
+  const selectionNow = Date.now();
+
+  if (allOverdue || markAll) {
+    const skillRecords = collectAllSkillRecords(projectRoot);
+    const entries = buildReviewQueue(getBundleRoot(projectRoot), skillRecords, {
+      now: selectionNow
+    }).skills || [];
+    const selectedEntries = allOverdue
+      ? entries.filter((entry) => entry['review-status'] === 'overdue')
+      : entries;
+    for (const entry of selectedEntries) {
+      const name = normalizeString(entry && entry.skill);
+      if (name) {
+        targetNames.push(name);
+      }
+    }
+    if (targetNames.length < 1) {
+      return {
+        action: 'mark-reviewed',
+        scope: allOverdue ? 'overdue' : 'all-governed-skills',
+        reviewed: [],
+        total_reviewed: 0,
+        follow_up: ['npm run verify:skill-system']
+      };
+    }
+  } else {
+    const normalizedSkillName = normalizeString(skillName);
+    if (!normalizedSkillName) fail(`unknown skill '${skillName}'`);
+    targetNames.push(normalizedSkillName);
+  }
 
   const reviewedAt = normalizeReviewDate(options.date || new Date().toISOString().slice(0, 10));
   if (!reviewedAt) {
     fail(`invalid review date '${options.date}'`);
   }
 
-  const existingCycle = normalizeReviewCycleDays(resolved.parsed.map.get('review-cycle-days'));
-  const reviewCycleDays = options.reviewCycleDays != null
-    ? normalizeReviewCycleDays(options.reviewCycleDays)
-    : existingCycle;
-  if (reviewCycleDays == null) {
-    fail(`skill '${skillName}' needs a valid review-cycle-days before it can be marked reviewed`);
-  }
-
   const requiredPaths = [
+    getRatingsPath(projectRoot),
+    getRatingsDocPath(projectRoot),
     getReviewQueueRegistryPath(projectRoot),
     getSkillInvestmentBacklogRegistryPath(projectRoot),
     getSkillInvestmentBacklogDocFilePath(projectRoot),
@@ -4884,34 +6210,80 @@ function markSkillReviewed(skillName, options = {}) {
     paths: requiredPaths
   });
 
-  const previousSkillText = fs.readFileSync(resolved.skillFile, 'utf8');
+  const resolvedTargets = targetNames.map((name) => {
+    const resolved = resolveSkillDirByName(getAuthoritativeSkillsRoot(), name);
+    if (!resolved) {
+      fail(`unknown skill '${name}'`);
+    }
+    return resolved;
+  });
+
+  const previousSkillTexts = new Map(
+    resolvedTargets.map((resolved) => [resolved.skillFile, fs.readFileSync(resolved.skillFile, 'utf8')])
+  );
   const generatedSnapshot = snapshotGeneratedState(projectRoot);
 
   try {
-    resolved.parsed.map.set('last-reviewed', reviewedAt);
-    resolved.parsed.map.set('review-cycle-days', String(reviewCycleDays));
-    const next = renderSkillFile(resolved.parsed);
-    fs.writeFileSync(resolved.skillFile, next, 'utf8');
+    const reviewedSkills = [];
+    for (const resolved of resolvedTargets) {
+      const existingCycle = normalizeReviewCycleDays(resolved.parsed.map.get('review-cycle-days'));
+      const reviewCycleDays = options.reviewCycleDays != null
+        ? normalizeReviewCycleDays(options.reviewCycleDays)
+        : existingCycle;
+      if (reviewCycleDays == null) {
+        fail(`skill '${resolved.parsed.map.get('name')}' needs a valid review-cycle-days before it can be marked reviewed`);
+      }
 
-    const queue = refreshReviewQueue(projectRoot);
-    const backlog = refreshSkillInvestmentBacklog(projectRoot, {
-      reviewQueueData: queue.payload
+      resolved.parsed.map.set('last-reviewed', reviewedAt);
+      resolved.parsed.map.set('review-cycle-days', String(reviewCycleDays));
+      const next = renderSkillFile(resolved.parsed);
+      fs.writeFileSync(resolved.skillFile, next, 'utf8');
+      reviewedSkills.push({
+        skill: String(resolved.parsed.map.get('name') || '').trim(),
+        'last-reviewed': reviewedAt,
+        'review-cycle-days': reviewCycleDays
+      });
+    }
+
+    const refreshed = refreshReviewGovernanceSurfaces(projectRoot, {
+      returnDetails: true
     });
-    refreshExpertSourceFamilyScorecard(projectRoot);
-    refreshSystemReadiness(projectRoot, { bestEffort: true });
-    const entry = (queue.payload.skills || []).find((item) => item.skill === skillName) || null;
+    const reviewEntriesBySkill = new Map(
+      ((refreshed.reviewQueue.payload && refreshed.reviewQueue.payload.skills) || [])
+        .map((item) => [item.skill, item])
+    );
+    const reviewedWithEntries = reviewedSkills.map((item) => ({
+      ...item,
+      ...(reviewEntriesBySkill.has(item.skill) ? { 'review-entry': reviewEntriesBySkill.get(item.skill) } : {})
+    }));
 
-    return {
+    const payload = {
       action: 'mark-reviewed',
-      skill: skillName,
-      'last-reviewed': reviewedAt,
-      'review-cycle-days': reviewCycleDays,
-      backlog: backlog.payload.summary,
-      ...(entry ? { 'review-entry': entry } : {}),
+      backlog: refreshed.backlog.payload.summary,
       follow_up: ['npm run verify:skill-system']
     };
+
+    if (reviewedWithEntries.length === 1) {
+      const reviewed = reviewedWithEntries[0];
+      return {
+        ...payload,
+        skill: reviewed.skill,
+        'last-reviewed': reviewed['last-reviewed'],
+        'review-cycle-days': reviewed['review-cycle-days'],
+        ...(reviewed['review-entry'] ? { 'review-entry': reviewed['review-entry'] } : {})
+      };
+    }
+
+    return {
+      ...payload,
+      scope: allOverdue ? 'overdue' : 'all-governed-skills',
+      reviewed: reviewedWithEntries,
+      total_reviewed: reviewedWithEntries.length
+    };
   } catch (error) {
-    fs.writeFileSync(resolved.skillFile, previousSkillText, 'utf8');
+    for (const [skillFile, previousSkillText] of previousSkillTexts.entries()) {
+      fs.writeFileSync(skillFile, previousSkillText, 'utf8');
+    }
     restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
     throw error;
   }
@@ -5597,11 +6969,16 @@ function recommendEvolutionPath(projectRoot, skillName, prompt, options = {}) {
   const wantsMerge = /\bmerge\b|合并/.test(lower);
 
   if (wantsDelete) {
+    const deleteGovernance = summarizeDeleteGovernance(projectRoot, normalizedSkill);
     result.recommendation = {
       action: 'delete-skill',
       target_status: 'deleted'
     };
     result.rationale.push('the request explicitly asks for removal, so the governed path should end at delete instead of a softer lifecycle move');
+    if (!deleteGovernance.allowed) {
+      result.rationale.push(...deleteGovernance.blockers.slice(0, 3).map((item) => normalizeString(item && item.message)).filter(Boolean));
+    }
+    result.follow_up.push(`preview blockers with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-retirement-blueprint --name ${normalizedSkill}`);
     result.follow_up.push(`archive '${normalizedSkill}' first unless you are intentionally deleting without historical preservation`);
     result.follow_up.push(`execute with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js delete --name ${normalizedSkill}`);
     return finalizeEvolutionResult(projectRoot, result, options);
@@ -5645,6 +7022,7 @@ function recommendEvolutionPath(projectRoot, skillName, prompt, options = {}) {
     result.rationale.push('stable promotion is not honest yet because governed top-tier blockers still exist');
     result.rationale.push(...assessment.blockers.slice(0, 3).map((item) => item.message));
     result.follow_up.push(`inspect blockers with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${normalizedSkill}`);
+    result.follow_up.push(`preview governed hardening with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-hardening-blueprint --name ${normalizedSkill}`);
     return finalizeEvolutionResult(projectRoot, result, options);
   }
 
@@ -5671,6 +7049,7 @@ function recommendEvolutionPath(projectRoot, skillName, prompt, options = {}) {
     result.follow_up.push(`inspect current state with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${normalizedSkill}`);
     if (assessment.blockers.length > 0) {
       result.follow_up.push(`inspect promotion blockers with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${normalizedSkill}`);
+      result.follow_up.push(`preview governed hardening with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-hardening-blueprint --name ${normalizedSkill}`);
     }
     return finalizeEvolutionResult(projectRoot, result, options);
   }
@@ -5735,7 +7114,17 @@ function finalizeAdmissionResult(projectRoot, result, options = {}) {
   const generatedSnapshot = snapshotGeneratedState(projectRoot);
   const recordedAt = new Date().toISOString();
   try {
-    const recommendationAction = normalizeAdmissionDecisionAction(result && result.recommendation && result.recommendation.action);
+    const skillNames = new Set([...buildSkillRecordIndex(projectRoot).keys()]);
+    const governedDecision = buildAdmissionDecision(
+      result && result.recommendation && result.recommendation.action,
+      result && result.recommendation,
+      {
+        skillNames,
+        entrySuggestedKind: result && result.suggested_kind
+      }
+    );
+    result.recommendation = governedDecision;
+    const recommendationAction = normalizeAdmissionDecisionAction(governedDecision.action);
     const admissionStatus = recommendationAction === 'status-already-correct'
       ? 'advised-noop'
       : getDefaultAdmissionStatusForDecision(recommendationAction);
@@ -5745,7 +7134,7 @@ function finalizeAdmissionResult(projectRoot, result, options = {}) {
       'suggested-kind': result.suggested_kind,
       'inferred-intent-tags': result.inferred_intent_tags,
       ...(options.opportunityId ? { 'opportunity-id': options.opportunityId } : {}),
-      decision: result.recommendation,
+      decision: governedDecision,
       status: admissionStatus,
       'recorded-at': recordedAt
     });
@@ -5817,6 +7206,7 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
   const runnerUp = ranked[1] || null;
   const explicitKindIntent = options.kind || normalizeString(linkedOpportunity && linkedOpportunity['suggested-kind']) || null;
   const recommendedKind = explicitKindIntent || inferRecommendedKindFromAdmission(query);
+  const suggestedSkillName = suggestSkillNameFromAdmissionRequest(query, recommendedKind);
   const inferredIntentTags = inferIntentFromCandidates(ranked);
   const recordIndex = buildSkillRecordIndex(projectRoot);
 
@@ -5827,6 +7217,7 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
       : `${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${slugifyAdmissionText(query).slice(0, 48)}`,
     request: query,
     suggested_kind: recommendedKind,
+    'suggested-skill-name': suggestedSkillName,
     inferred_intent_tags: inferredIntentTags,
     route_selection_reason: explain.selectionReason,
     selected_skill: explain.selectedSkill,
@@ -5846,11 +7237,10 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
     && Array.isArray(top.matched.keywords)
     && top.matched.keywords.length >= 2
   ) {
-    result.recommendation = {
-      action: 'reuse-existing-skill',
+    result.recommendation = buildAdmissionDecision('reuse-existing-skill', {
       target_skill: top.skill,
       target_kind: top.kind
-    };
+    });
     result.rationale.push(`existing route '${top.skill}' is already the right owner, even though its live route requires explicit invocation`);
     result.rationale.push('for admission work, explicit-route gating should not be mistaken for missing capability coverage');
     result.follow_up.push(`inspect ${top.skill} first with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${top.skill}`);
@@ -5858,11 +7248,10 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
   }
 
   if (top && top.confidence && top.confidence.passedMinimum && ['strong', 'very-strong'].includes(top.confidence.band)) {
-    result.recommendation = {
-      action: 'reuse-existing-skill',
+    result.recommendation = buildAdmissionDecision('reuse-existing-skill', {
       target_skill: top.skill,
       target_kind: top.kind
-    };
+    });
     result.rationale.push(`existing route '${top.skill}' already wins this request with ${top.confidence.band} confidence`);
     result.rationale.push('prefer deepening the existing route or references before adding a sibling skill');
     result.follow_up.push(`inspect ${top.skill} first with: node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${top.skill}`);
@@ -5879,14 +7268,16 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
     && top.confidence
     && ['low', 'minimum'].includes(top.confidence.band)
   ) {
-    result.recommendation = {
-      action: 'create-new-skill',
+    result.recommendation = buildAdmissionDecision('create-new-skill', {
       suggested_kind: recommendedKind
-    };
+    });
     result.rationale.push(`the nearest current route '${top.skill}' is only a weak ${top.kind}-shaped overlap, while the requested boundary is '${explicitKindIntent}'`);
     result.rationale.push('when explicit kind intent and weak current ownership disagree, prefer a clean new boundary over forcing the capability into the wrong layer');
     result.follow_up.push(`create the governed scaffold with: ${formatCreateCommand(recommendedKind)}`);
     result.follow_up.push('after scaffolding, define why this boundary should stay separate from the nearest live route');
+    result.blueprint = buildSkillBlueprint(projectRoot, recommendedKind, suggestedSkillName, {
+      scaffoldModules: supportsCapabilityModuleScaffold(recommendedKind)
+    });
     return finalizeAdmissionResult(projectRoot, result, options);
   }
 
@@ -5897,12 +7288,11 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
     && top.confidence.marginToRunnerUp != null
     && top.confidence.marginToRunnerUp <= 12
   ) {
-    result.recommendation = {
-      action: 'clarify-or-merge-boundary',
+    result.recommendation = buildAdmissionDecision('clarify-or-merge-boundary', {
       primary_skill: top.skill,
       competing_skill: runnerUp.skill,
       suggested_kind: recommendedKind
-    };
+    });
     result.rationale.push(`two existing routes are still close for this request ('${top.skill}' vs '${runnerUp.skill}')`);
     result.rationale.push('tighten boundaries or deepen one surface before introducing another overlapping skill');
     result.follow_up.push(`review route overlap between '${top.skill}' and '${runnerUp.skill}' before creating a new skill`);
@@ -5911,33 +7301,34 @@ function recommendAdmissionPath(projectRoot, prompt, options = {}) {
   }
 
   if (top && top.confidence && top.confidence.band === 'minimum') {
-    result.recommendation = {
-      action: 'upgrade-existing-skill',
+    result.recommendation = buildAdmissionDecision('upgrade-existing-skill', {
       target_skill: top.skill,
       target_kind: top.kind,
       suggested_kind: recommendedKind
-    };
+    });
     result.rationale.push(`existing route '${top.skill}' partially covers the request but only at minimum confidence`);
     result.rationale.push('this usually means the weak point is route depth, references, or capability coverage rather than missing surface area');
     result.follow_up.push(`upgrade '${top.skill}' before creating a new peer unless the boundary is genuinely distinct`);
     return finalizeAdmissionResult(projectRoot, result, options);
   }
 
-  result.recommendation = {
-    action: 'create-new-skill',
+  result.recommendation = buildAdmissionDecision('create-new-skill', {
     suggested_kind: recommendedKind
-  };
+  });
   result.rationale.push(`no current route owns this request strongly enough to justify reuse (selected='${explain.selectedSkill || 'none'}')`);
   result.rationale.push(`the request shape currently looks closest to a '${recommendedKind}' skill`);
   result.follow_up.push(`create the governed scaffold with: ${formatCreateCommand(recommendedKind)}`);
   result.follow_up.push('fill trigger boundaries and references before promoting the new skill into the live route surface');
+  result.blueprint = buildSkillBlueprint(projectRoot, recommendedKind, suggestedSkillName, {
+    scaffoldModules: supportsCapabilityModuleScaffold(recommendedKind)
+  });
   return finalizeAdmissionResult(projectRoot, result, options);
 }
 
 function main(argv) {
   const [action, arg1, arg2, ...rest] = argv;
   if (!action) {
-    fail('usage: manage-skill <record-opportunity|show-opportunity-queue|resolve-opportunity|admission-check|show-admission-ledger|resolve-admission|evolution-check|show-evolution-ledger|resolve-evolution|show-review-queue|show-investment-backlog|show-expert-source-families|register-expert-source-family|update-expert-source-family|archive-expert-source-family|restore-expert-source-family|diagnose-host-evolution|refresh-derived-governance|export-derived-governance|apply-derived-governance-export|show-pending-scaffolds|mark-reviewed|assess-top-tier|create|materialize-pending-scaffold|show|update|set-status|set-module-rating|archive|merge|delete|sync-scaffold-lineage|sync-runtime-proof|sync-host-metadata|sync-route-metadata|run-host-smoke|reconcile-host-smoke> ...');
+    fail('usage: manage-skill <record-opportunity|show-opportunity-queue|show-future-skill-pipeline|resolve-opportunity|admission-check|show-skill-blueprint|show-skill-hardening-blueprint|show-template-hardening-blueprint|show-skill-scaffold-upgrade-blueprint|show-skill-retirement-blueprint|show-admission-ledger|resolve-admission|evolution-check|show-evolution-ledger|resolve-evolution|show-review-queue|review-template|show-investment-backlog|show-lifecycle-governance|show-scaffold-governance|show-top-tier-wave|show-expert-source-families|register-expert-source-family|update-expert-source-family|archive-expert-source-family|restore-expert-source-family|diagnose-host-evolution|refresh-derived-governance|export-derived-governance|apply-derived-governance-export|show-pending-scaffolds|mark-reviewed|assess-top-tier|create|materialize-pending-scaffold|show|update|set-status|set-module-rating|archive|merge|delete|sync-scaffold-lineage|sync-runtime-proof|sync-host-metadata|sync-template-host-metadata|sync-route-metadata|run-host-smoke|reconcile-host-smoke> ...');
   }
 
   if (action === 'record-opportunity') {
@@ -6029,6 +7420,59 @@ function main(argv) {
     });
   }
 
+  if (action === 'show-future-skill-pipeline') {
+    const projectRoot = getProjectRoot();
+    let stage = null;
+    let priority = null;
+    let kind = null;
+    let skill = null;
+    let blockedOnly = false;
+    let includeResolved = false;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--stage' && argsList[i + 1]) {
+        stage = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--priority' && argsList[i + 1]) {
+        priority = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--kind' && argsList[i + 1]) {
+        kind = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--skill' && argsList[i + 1]) {
+        skill = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--blocked') {
+        blockedOnly = true;
+        continue;
+      }
+      if (argsList[i] === '--include-resolved') {
+        includeResolved = true;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-future-skill-pipeline option '${argsList[i]}'`);
+    }
+    return showFutureSkillPipeline(projectRoot, {
+      stage,
+      priority,
+      kind,
+      skill,
+      blockedOnly,
+      includeResolved
+    });
+  }
+
   if (action === 'resolve-opportunity') {
     const projectRoot = getProjectRoot();
     if (!arg1) {
@@ -6099,6 +7543,153 @@ function main(argv) {
       fail(`unsupported admission-check kind '${kind}'`);
     }
     return recommendAdmissionPath(projectRoot, promptParts.join(' '), { kind, record, opportunityId });
+  }
+  if (action === 'show-skill-blueprint') {
+    const projectRoot = getProjectRoot();
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    let kind = null;
+    let skillName = null;
+    let scaffoldModules = false;
+
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--scaffold-modules') {
+        scaffoldModules = true;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !kind) {
+        kind = argsList[i];
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !skillName) {
+        skillName = argsList[i];
+        continue;
+      }
+      fail(`unknown show-skill-blueprint option '${argsList[i]}'`);
+    }
+
+    if (!kind || !skillName) {
+      fail('show-skill-blueprint requires <kind> <skill-name>');
+    }
+    if (!VALID_KINDS.has(kind)) {
+      fail(`unsupported show-skill-blueprint kind '${kind}'`);
+    }
+    return buildSkillBlueprint(projectRoot, kind, skillName, {
+      scaffoldModules: scaffoldModules || supportsCapabilityModuleScaffold(kind)
+    });
+  }
+  if (action === 'show-skill-hardening-blueprint') {
+    const projectRoot = getProjectRoot();
+    let name = null;
+    let relPath = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--name' && argsList[i + 1]) {
+        name = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--path' && argsList[i + 1]) {
+        relPath = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !name && !relPath) {
+        name = argsList[i];
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-skill-hardening-blueprint option '${argsList[i]}'`);
+    }
+    if (!name && !relPath) {
+      fail('show-skill-hardening-blueprint requires <skill-name> or --path <authoritative-relative-path>');
+    }
+    return buildSkillHardeningBlueprint(projectRoot, { name, path: relPath });
+  }
+  if (action === 'show-template-hardening-blueprint') {
+    const projectRoot = getProjectRoot();
+    let kind = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--kind' && argsList[i + 1]) {
+        kind = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !kind) {
+        kind = argsList[i];
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-template-hardening-blueprint option '${argsList[i]}'`);
+    }
+    return buildTemplateHardeningBlueprint(projectRoot, { kind });
+  }
+  if (action === 'show-skill-scaffold-upgrade-blueprint') {
+    const projectRoot = getProjectRoot();
+    let name = null;
+    let relPath = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--name' && argsList[i + 1]) {
+        name = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--path' && argsList[i + 1]) {
+        relPath = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !name && !relPath) {
+        name = argsList[i];
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-skill-scaffold-upgrade-blueprint option '${argsList[i]}'`);
+    }
+    if (!name && !relPath) {
+      fail('show-skill-scaffold-upgrade-blueprint requires <skill-name> or --path <authoritative-relative-path>');
+    }
+    return buildSkillScaffoldUpgradeBlueprint(projectRoot, { name, path: relPath });
+  }
+  if (action === 'show-skill-retirement-blueprint') {
+    const projectRoot = getProjectRoot();
+    let name = null;
+    let relPath = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--name' && argsList[i + 1]) {
+        name = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--path' && argsList[i + 1]) {
+        relPath = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !name && !relPath) {
+        name = argsList[i];
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-skill-retirement-blueprint option '${argsList[i]}'`);
+    }
+    if (!name && !relPath) {
+      fail('show-skill-retirement-blueprint requires <skill-name> or --path <authoritative-relative-path>');
+    }
+    return buildSkillRetirementBlueprint(projectRoot, { name, path: relPath });
   }
   if (action === 'show-admission-ledger') {
     const projectRoot = getProjectRoot();
@@ -6279,6 +7870,36 @@ function main(argv) {
     }
     return showReviewQueue(projectRoot, { status, priority, skill, owner, overdueOnly });
   }
+  if (action === 'review-template') {
+    const projectRoot = getProjectRoot();
+    let kind = null;
+    let date = null;
+    let reviewCycleDays = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--kind' && argsList[i + 1]) {
+        kind = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--date' && argsList[i + 1]) {
+        date = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--review-cycle-days' && argsList[i + 1]) {
+        reviewCycleDays = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !kind) {
+        kind = argsList[i];
+        continue;
+      }
+      fail(`unknown review-template option '${argsList[i]}'`);
+    }
+    return reviewTemplate(projectRoot, kind, { date, reviewCycleDays });
+  }
   if (action === 'show-investment-backlog') {
     const projectRoot = getProjectRoot();
     let status = null;
@@ -6314,6 +7935,97 @@ function main(argv) {
       }
     }
     return showSkillInvestmentBacklog(projectRoot, { status, priority, category, source, skill });
+  }
+  if (action === 'show-lifecycle-governance') {
+    const projectRoot = getProjectRoot();
+    let status = null;
+    let kind = null;
+    let skill = null;
+    let includeStable = false;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--status' && argsList[i + 1]) {
+        status = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--kind' && argsList[i + 1]) {
+        kind = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--skill' && argsList[i + 1]) {
+        skill = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--include-stable') {
+        includeStable = true;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-lifecycle-governance option '${argsList[i]}'`);
+    }
+    return showLifecycleGovernance(projectRoot, { status, kind, skill, includeStable });
+  }
+  if (action === 'show-scaffold-governance') {
+    const projectRoot = getProjectRoot();
+    let kind = null;
+    let skill = null;
+    let status = null;
+    let includeHealthy = false;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--kind' && argsList[i + 1]) {
+        kind = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--skill' && argsList[i + 1]) {
+        skill = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--status' && argsList[i + 1]) {
+        status = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--include-healthy') {
+        includeHealthy = true;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-scaffold-governance option '${argsList[i]}'`);
+    }
+    return showScaffoldGovernance(projectRoot, { kind, skill, status, includeHealthy });
+  }
+  if (action === 'show-top-tier-wave') {
+    const projectRoot = getProjectRoot();
+    let priority = null;
+    let category = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--priority' && argsList[i + 1]) {
+        priority = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (argsList[i] === '--category' && argsList[i + 1]) {
+        category = argsList[i + 1];
+        i += 1;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      fail(`unknown show-top-tier-wave option '${argsList[i]}'`);
+    }
+    return showTopTierWave(projectRoot, { priority, category });
   }
   if (action === 'export-derived-governance') {
     const projectRoot = getProjectRoot();
@@ -6363,6 +8075,10 @@ function main(argv) {
       }
       if (argsList[i] === '--stale') {
         staleOnly = true;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
       }
     }
     return showExpertSourceFamilies(projectRoot, { family, source, parseErrorsOnly, unmappedOnly, staleOnly });
@@ -6547,12 +8263,12 @@ function main(argv) {
     return showPendingScaffolds(projectRoot, { status, skill, pendingId });
   }
   if (action === 'mark-reviewed') {
-    if (!arg1) {
-      fail('mark-reviewed requires <skill-name>');
-    }
     let date = null;
     let reviewCycleDays = null;
-    const argsList = [arg2, ...rest].filter((item) => item != null);
+    let overdueOnly = false;
+    let runAll = false;
+    let skillName = null;
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
     for (let i = 0; i < argsList.length; i += 1) {
       if (argsList[i] === '--date' && argsList[i + 1]) {
         date = argsList[i + 1];
@@ -6562,15 +8278,57 @@ function main(argv) {
       if (argsList[i] === '--review-cycle-days' && argsList[i + 1]) {
         reviewCycleDays = argsList[i + 1];
         i += 1;
+        continue;
       }
+      if (argsList[i] === '--overdue') {
+        overdueOnly = true;
+        continue;
+      }
+      if (argsList[i] === '--all') {
+        runAll = true;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !skillName) {
+        skillName = argsList[i];
+        continue;
+      }
+      fail(`unknown mark-reviewed option '${argsList[i]}'`);
     }
-    return markSkillReviewed(arg1, { date, reviewCycleDays });
+    if (!skillName && !overdueOnly && !runAll) {
+      fail('mark-reviewed requires <skill-name>, --overdue, or --all');
+    }
+    return markSkillReviewed(skillName, {
+      date,
+      reviewCycleDays,
+      overdueOnly,
+      all: runAll
+    });
   }
   if (action === 'assess-top-tier') {
-    if (!arg1) {
-      fail('assess-top-tier requires <skill-name>');
+    const argsList = [arg1, arg2, ...rest].filter((item) => item != null);
+    let runAll = false;
+    let skillName = null;
+    for (let i = 0; i < argsList.length; i += 1) {
+      if (argsList[i] === '--all') {
+        runAll = true;
+        continue;
+      }
+      if (isJsonOutputFlag(argsList[i])) {
+        continue;
+      }
+      if (!String(argsList[i]).startsWith('--') && !skillName) {
+        skillName = argsList[i];
+        continue;
+      }
+      fail(`unknown assess-top-tier option '${argsList[i]}'`);
     }
-    return assessTopTierReadiness(getProjectRoot(), arg1);
+    if (!runAll && !skillName) {
+      fail('assess-top-tier requires <skill-name> or --all');
+    }
+    return assessTopTierReadiness(getProjectRoot(), skillName, { all: runAll });
   }
 
   if (action === 'create') {
@@ -6844,6 +8602,26 @@ function main(argv) {
       includeDeprecated
     });
   }
+  if (action === 'sync-template-host-metadata') {
+    const projectRoot = getProjectRoot();
+    let kind = null;
+    const syncArgs = [arg1, arg2, ...rest].filter(Boolean);
+
+    for (let i = 0; i < syncArgs.length; i += 1) {
+      if (syncArgs[i] === '--kind' && syncArgs[i + 1]) {
+        kind = syncArgs[i + 1];
+        i += 1;
+        continue;
+      }
+      if (!String(syncArgs[i]).startsWith('--') && !kind) {
+        kind = syncArgs[i];
+        continue;
+      }
+      fail(`unknown sync-template-host-metadata option '${syncArgs[i]}'`);
+    }
+
+    return syncTemplateHostMetadata(projectRoot, kind);
+  }
   if (action === 'sync-route-metadata') {
     const projectRoot = getProjectRoot();
     let skillName = null;
@@ -6979,11 +8757,16 @@ if (require.main === module) {
 module.exports = {
   main,
   assessTopTierReadiness,
+  buildSkillHardeningBlueprint,
+  buildTemplateHardeningBlueprint,
+  buildSkillScaffoldUpgradeBlueprint,
+  buildSkillRetirementBlueprint,
   createSkill,
   materializePendingScaffold,
   showSkill,
   showPendingScaffolds,
   showAdmissionLedger,
+  showFutureSkillPipeline,
   showEvolutionLedger,
   showExpertSourceFamilies,
   registerExpertSourceFamily,
@@ -6997,13 +8780,16 @@ module.exports = {
   mergeSkill,
   removeSkill,
   syncScaffoldLineage,
+  reviewTemplate,
   recommendAdmissionPath,
   recommendEvolutionPath,
   resolveAdmissionDecision,
   resolveEvolutionDecision,
   syncRuntimeProofEntry,
   syncAllRuntimeProofEntries,
+  writeRuntimeProofRegistry,
   syncHostMetadata,
+  syncTemplateHostMetadata,
   syncRouteMetadata,
   reconcileHostSmoke,
   collectJestTestCases,

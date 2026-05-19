@@ -16,7 +16,7 @@
   "properties": {
     "schema-version": {
       "type": "integer",
-      "const": 2
+      "const": 3
     },
     "scope": {
       "type": "string",
@@ -104,6 +104,10 @@
             "stable-overdue",
             "stable-missing-metadata",
             "stable-expert-source-blocked",
+            "stable-route-evidence-blocked",
+            "stable-runtime-proof-blocked",
+            "stable-host-smoke-blocked",
+            "stable-module-depth-blocked",
             "stable-blocked-total"
           ],
           "properties": {
@@ -132,6 +136,22 @@
               "minimum": 0
             },
             "stable-expert-source-blocked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-route-evidence-blocked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-runtime-proof-blocked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-host-smoke-blocked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "stable-module-depth-blocked": {
               "type": "integer",
               "minimum": 0
             },

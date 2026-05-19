@@ -20,12 +20,11 @@ risk-level: medium
 supported-hosts: [codex, claude, gemini]
 status: stable
 owner: self
-last-reviewed: 2026-04-18
+last-reviewed: 2026-05-19
 review-cycle-days: 30
 tags: [workflow, skills, system-design]
 aliases: [skill-system, 技能系统演进]
 ---
-
 # Skill Evolution Workflow
 
 ## Chain

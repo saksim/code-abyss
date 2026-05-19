@@ -18,7 +18,7 @@ const {
 } = require('./skill-lifecycle-governance');
 const {
   validateSmokeManifest
-} = require('./skill-system-common');
+} = require('./skill-smoke-manifest-governance');
 const {
   normalizeHostSmokeContract
 } = require('./skill-system-host-smoke');
@@ -33,6 +33,38 @@ const HOST_SMOKED_EVIDENCE_FAILURE_REASONS = Object.freeze([
   'failing',
   'stale'
 ]);
+
+function dedupeRuntimeProofEntries(proofs, options = {}) {
+  const items = Array.isArray(proofs) ? proofs : [];
+  const prefer = options.prefer === 'first' ? 'first' : 'last';
+  const deduped = [];
+  const seenSkills = new Set();
+
+  if (prefer === 'first') {
+    for (const proof of items) {
+      const skill = String(proof && proof.skill || '').trim();
+      if (!skill || seenSkills.has(skill)) {
+        continue;
+      }
+      seenSkills.add(skill);
+      deduped.push(proof);
+    }
+    return deduped;
+  }
+
+  for (let index = items.length - 1; index >= 0; index -= 1) {
+    const proof = items[index];
+    const skill = String(proof && proof.skill || '').trim();
+    if (!skill || seenSkills.has(skill)) {
+      continue;
+    }
+    seenSkills.add(skill);
+    deduped.push(proof);
+  }
+
+  deduped.reverse();
+  return deduped;
+}
 
 function getRuntimeProofPath(bundleRoot) {
   return getGovernanceArtifactPath(bundleRoot, 'runtime-proof');
@@ -209,7 +241,7 @@ function buildRuntimeProofEntry(record, overrides = {}, existing = null) {
 function buildRuntimeProofRegistryDocument(proofs) {
   return {
     'schema-version': RUNTIME_PROOF_SCHEMA_VERSION,
-    proofs: Array.isArray(proofs) ? proofs : []
+    proofs: dedupeRuntimeProofEntries(proofs, { prefer: 'last' })
   };
 }
 
@@ -247,5 +279,6 @@ module.exports = {
   buildHostSmokePolicyForRuntimeProof,
   buildRuntimeProofEntry,
   buildRuntimeProofRegistryDocument,
+  dedupeRuntimeProofEntries,
   describeHostSmokedEvidenceFailure
 };

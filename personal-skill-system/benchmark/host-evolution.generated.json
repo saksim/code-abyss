@@ -1,82 +1,71 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-15T09:51:00.095Z",
+  "generated-at": "2026-05-19T13:22:53.520Z",
   "sources": {
     "system-readiness": "benchmark/system-readiness.generated.json",
     "skill-investment-backlog": "registry/skill-investment-backlog.generated.json",
     "pending-scaffolds": "registry/pending-scaffolds.generated.json",
     "admission-ledger": "registry/admission-ledger.generated.json"
   },
-  "status": "attention",
+  "status": "ready",
   "capabilities": {
-    "create-authoritative-skill": "blocked",
+    "create-authoritative-skill": "available",
     "materialize-pending-scaffold": "idle",
     "rewrite-generated-governance": "available"
   },
   "summary": {
-    "active-constraints": 1,
+    "active-constraints": 0,
     "blocked-governance-artifacts": 0,
     "pending-scaffolds": 0,
     "blocked-admissions": 0,
-    "host-writeability-backlog-items": 1
+    "host-writeability-backlog-items": 0,
+    "top-tier-next-wave-size": 0,
+    "top-tier-blocked-stable-skills": 0
   },
-  "active-constraints": [
-    {
-      "id": "authoritative-skill-tree",
-      "label": "authoritative skill tree create surface",
-      "mode": "create-child-directory",
-      "code": "EPERM",
-      "path": "skills/domains",
-      "severity": "high",
-      "message": "cannot create new governed skill because the authoritative skill tree cannot create child directories on this host: skills/domains (EPERM)"
-    }
-  ],
+  "active-constraints": [],
   "pending-scaffolds": [],
   "blocked-admissions": [],
-  "host-writeability-debt": [
-    {
-      "id": "host-writeability-authoritative-skill-create",
-      "category": "host-writeability",
-      "status": "open",
-      "priority": "high",
-      "source": "host-writeability",
-      "skill": null,
-      "kind": null,
-      "summary": "Restore host ability to create authoritative skill directories.",
-      "reasons": [
-        "artifact:authoritative-skill-tree",
-        "mode:create-child-directory",
-        "code:EPERM"
-      ],
-      "follow_up": [
-        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --kind domain \"<request>\"",
-        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js create domain <skill-name> --scaffold-modules"
-      ]
-    }
-  ],
+  "host-writeability-debt": [],
+  "top-tier-execution-focus": {
+    "blocked": 0,
+    "next-wave": [],
+    "next-wave-size": 0,
+    "current-priority-lane": null,
+    "current-blocker-family": null,
+    "follow_up": [
+      "node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier --all",
+      "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-top-tier-wave",
+      "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source top-tier-readiness"
+    ]
+  },
   "readiness": {
-    "status": "blocked",
-    "generated-at": "2026-05-15T09:51:00.095Z",
+    "status": "attention",
+    "generated-at": "2026-05-19T13:22:53.277Z",
     "host-writeability": {
-      "status": "attention",
+      "status": "ready",
       "total": 36,
-      "writable": 35,
-      "blocked": 1,
+      "writable": 36,
+      "blocked": 0,
       "critical": 0,
-      "high": 1,
+      "high": 0,
       "normal": 0,
-      "artifacts": [
-        {
-          "id": "authoritative-skill-tree",
-          "label": "authoritative skill tree create surface",
-          "mode": "create-child-directory",
-          "code": "EPERM"
-        }
+      "artifacts": []
+    },
+    "top-tier-execution-focus": {
+      "blocked": 0,
+      "next-wave": [],
+      "next-wave-size": 0,
+      "current-priority-lane": null,
+      "current-blocker-family": null,
+      "follow_up": [
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier --all",
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-top-tier-wave",
+        "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source top-tier-readiness"
       ]
     }
   },
   "follow_up": [
-    "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source host-writeability"
+    "node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier manage-skill"
   ],
   "notes": [
     "Generated from the current backlog, pending-scaffold registry, admission ledger, and live writeability probes.",

@@ -1,14 +1,30 @@
 {
   "schema-version": 2,
-  "generated-at": "2026-05-15T08:54:05.980Z",
+  "generated-at": "2026-05-19T08:32:03.133Z",
   "source": "managed-via-manage-skill",
   "summary": {
-    "total": 0,
+    "total": 1,
     "active": 0,
     "open": 0,
     "implemented": 0,
     "resolved": 0,
-    "advised-noop": 0
+    "advised-noop": 1
   },
-  "entries": []
+  "entries": [
+    {
+      "request-id": "20260519-verify-security-promote-this-active-skill-into-t",
+      "skill": "verify-security",
+      "request": "promote this active skill into the governed stable surface if it is honestly ready",
+      "decision": {
+        "action": "promote-to-stable",
+        "target_status": "stable"
+      },
+      "status": "advised-noop",
+      "recorded-at": "2026-05-19T08:26:32.295Z",
+      "resolved-at": "2026-05-19T08:32:03.133Z",
+      "executed-action": "assess-top-tier",
+      "result-status": "deprecated",
+      "note": "Resolved after validating promotion-ready recommendation without changing live status."
+    }
+  ]
 }

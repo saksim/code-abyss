@@ -1,0 +1,3 @@
+display_name: "Chart Visualization Domain"
+short_description: "Chart and table visualization knowledge for AntV G2/S2, infographic DSL, and T8 narrative text rendering."
+default_prompt: "Use ~/.agents/skills/domains/chart-visualization/SKILL.md as the primary instruction source before acting on chart-visualization."

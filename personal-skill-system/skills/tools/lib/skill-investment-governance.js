@@ -40,9 +40,13 @@ const {
   AUTHORITATIVE_SKILL_TREE_CONSTRAINT
 } = require('./skill-host-governance');
 const {
+  isLiveSkillStatus
+} = require('./skill-lifecycle-governance');
+const {
   MIN_RUNTIME_PROOF_CONTRACTS,
   normalizeEvidenceTests,
-  hasRequiredRuntimeProofEvidenceTests
+  hasRequiredRuntimeProofEvidenceTests,
+  dedupeRuntimeProofEntries
 } = require('./skill-runtime-proof-governance');
 const {
   summarizeExpertSourceIntegrations,
@@ -60,8 +64,14 @@ const {
 const {
   collectSkillRecords
 } = require('./skill-system-skills');
+const {
+  buildStableTopTierPortfolio,
+  buildStableTopTierUpgradeBoard,
+  buildStableTopTierExecutionFocusFromUpgradeBoard,
+  STABLE_TOP_TIER_PRIORITY_ORDER
+} = require('./skill-top-tier-governance');
 
-const SKILL_INVESTMENT_BACKLOG_SCHEMA_VERSION = 1;
+const SKILL_INVESTMENT_BACKLOG_SCHEMA_VERSION = 2;
 const INVESTMENT_PRIORITIES = ['critical', 'high', 'normal'];
 const INVESTMENT_ITEM_STATUSES = new Set([
   'open',
@@ -125,7 +135,11 @@ function readHostSmokeScorecard(bundleRoot) {
 }
 
 function readRuntimeProofRegistry(bundleRoot) {
-  return readJsonOrFallback(path.join(bundleRoot, 'registry', 'runtime-proof.generated.json'), { proofs: [] });
+  const registry = readJsonOrFallback(path.join(bundleRoot, 'registry', 'runtime-proof.generated.json'), { proofs: [] });
+  return {
+    ...registry,
+    proofs: dedupeRuntimeProofEntries(registry && registry.proofs, { prefer: 'first' })
+  };
 }
 
 function readTemplateVersions(bundleRoot) {
@@ -184,95 +198,66 @@ function normalizeRouteFixtureEvidence(fixtures, skillName) {
   });
 }
 
-function buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, ratingsData, reviewQueueData, routeFixturesData) {
-  const reviewEntries = getReviewEntries(reviewQueueData);
-  const reviewBySkill = new Map(reviewEntries.map((entry) => [normalizeString(entry.skill), entry]));
-  const fixtures = Array.isArray(routeFixturesData && routeFixturesData.cases) ? routeFixturesData.cases : [];
-  const moduleGroups = Array.isArray(registryData && registryData['module-groups'])
-    ? registryData['module-groups']
-    : [];
-  const topReady = new Set((((ratingsData || {})['rating-buckets'] || {})['top-ready']) || []);
-  const strongButNotTop = new Set((((ratingsData || {})['rating-buckets'] || {})['strong-but-not-top']) || []);
-  const templateVersions = readTemplateVersions(bundleRoot);
-  const expertSourceTopTierState = buildExpertSourceTopTierBlockerMap(bundleRoot, registryData || {});
+function buildTopTierReadinessItems(topTierPortfolio) {
+  const items = [];
+  for (const assessment of Array.isArray(topTierPortfolio && topTierPortfolio.assessments) ? topTierPortfolio.assessments : []) {
+    if (!assessment || assessment.ready === true) {
+      continue;
+    }
+    const reasons = uniqueSorted(
+      (Array.isArray(assessment.blockers) ? assessment.blockers : [])
+        .map((blocker) => normalizeString(blocker && blocker.message))
+        .filter(Boolean)
+    );
+    items.push({
+      id: `stable-gap-${assessment.skill}`,
+      category: 'top-tier-hardening',
+      status: 'open',
+      priority: normalizeString(assessment.priority) || 'normal',
+      source: 'top-tier-readiness',
+      skill: assessment.skill,
+      kind: assessment.kind,
+      summary: `Harden stable skill '${assessment.skill}' until top-tier governance debt clears.`,
+      reasons,
+      follow_up: [
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${assessment.skill}`,
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${assessment.skill}`
+      ]
+    });
+  }
+
+  return items;
+}
+
+function buildLifecycleHardeningItems(skillRecords) {
   const items = [];
 
   for (const record of Array.isArray(skillRecords) ? skillRecords : []) {
-    if (normalizeString(record.status) !== 'stable') {
-      continue;
-    }
-    if (normalizeString(record.kind) === 'adapter' || normalizeString(record.kind) === 'router') {
+    if (!record || !isLiveSkillStatus(record.status) || normalizeString(record.status) === 'stable') {
       continue;
     }
 
-    const reasons = [];
-    const reviewEntry = reviewBySkill.get(record.name) || null;
-    const reviewStatus = normalizeString(reviewEntry && reviewEntry['review-status']);
-    if (reviewStatus === 'overdue' || reviewStatus === 'missing-metadata') {
-      reasons.push(`review:${reviewStatus}`);
-    }
+    const normalizedStatus = normalizeString(record.status);
+    const priority = normalizedStatus === 'experimental' ? 'high' : 'normal';
+    const reasons = [
+      `active skill is still '${normalizedStatus}' and has not been promoted into the canonical stable/top-tier surface`
+    ];
 
-    if (shouldAppearOnActiveRouteSurface(record) && !normalizeRouteFixtureEvidence(fixtures, record.name)) {
-      reasons.push('route-evidence-missing');
-    }
-
-    const ownedModules = moduleGroups
-      .filter((group) => normalizeString(group && group['host-skill']) === record.name)
-      .flatMap((group) => Array.isArray(group.modules) ? group.modules : [])
-      .map((module) => normalizeString(module && module.id))
-      .filter(Boolean);
-    const weakModules = ownedModules.filter((moduleId) => !topReady.has(moduleId));
-    if (weakModules.length > 0) {
-      const weakKinds = weakModules.map((moduleId) => {
-        if (strongButNotTop.has(moduleId)) return `${moduleId}:strong-but-not-top`;
-        return `${moduleId}:thin-or-unrated`;
-      });
-      reasons.push(`module-depth:${weakKinds.join(',')}`);
-    }
-
-    const expertSourceBlockers = expertSourceTopTierState.blockersBySkill.get(record.name) || [];
-    if (expertSourceBlockers.length > 0) {
-      const expertReasons = uniqueSorted(expertSourceBlockers.map((blocker) => {
-        const family = normalizeString(blocker.family) || 'unknown-family';
-        const sourceSkill = normalizeString(blocker.sourceSkill);
-        if (sourceSkill) {
-          return `expert-source:${family}:${sourceSkill}`;
-        }
-        return `expert-source:${family}:${normalizeString(blocker.type) || 'blocked'}`;
-      }));
-      reasons.push(...expertReasons);
-    }
-
-    const scaffoldVersion = normalizeScaffoldVersion(record.scaffoldVersion);
-    const templateVersion = templateVersions.get(record.kind) || null;
-    if (templateVersion != null && scaffoldVersion != null && scaffoldVersion < templateVersion) {
-      reasons.push(`scaffold-behind:v${scaffoldVersion}->v${templateVersion}`);
-    }
-
-    if (reasons.length < 1) {
-      continue;
-    }
-
-    const priority = reasons.some((reason) =>
-      reason.startsWith('review:')
-      || reason.startsWith('module-depth:')
-      || reason.startsWith('expert-source:')
-    )
-      ? 'high'
-      : 'normal';
     items.push({
-      id: `stable-gap-${record.name}`,
+      id: `lifecycle-hardening-${record.name}`,
       category: 'top-tier-hardening',
       status: 'open',
       priority,
-      source: 'top-tier-readiness',
+      source: 'authoritative-skills',
       skill: record.name,
       kind: record.kind,
-      summary: `Harden stable skill '${record.name}' until top-tier governance debt clears.`,
+      summary: `Decide whether active skill '${record.name}' should be hardened to stable or intentionally retired.`,
       reasons,
       follow_up: [
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-lifecycle-governance --skill ${record.name}`,
         `node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier ${record.name}`,
-        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${record.name}`
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${record.name}`,
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check ${record.name} "promote this active skill into the governed stable surface if it is honestly ready"`
       ]
     });
   }
@@ -281,7 +266,7 @@ function buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, rati
 }
 
 function buildProofGovernanceItems(bundleRoot, skillRecords, runtimeProofData = {}, hostSmokeScorecardData = {}) {
-  const proofEntries = Array.isArray(runtimeProofData && runtimeProofData.proofs) ? runtimeProofData.proofs : [];
+  const proofEntries = dedupeRuntimeProofEntries(runtimeProofData && runtimeProofData.proofs, { prefer: 'first' });
   const proofBySkill = new Map(proofEntries.map((entry) => [normalizeString(entry && entry.skill), entry]));
   const hostSmokeEntries = Array.isArray(hostSmokeScorecardData && hostSmokeScorecardData.skills) ? hostSmokeScorecardData.skills : [];
   const hostSmokeBySkill = new Map(hostSmokeEntries.map((entry) => [normalizeString(entry && entry.skill), entry]));
@@ -452,7 +437,7 @@ function buildScaffoldLineageItems(skillRecords, bundleRoot) {
       summary: `Refresh '${record.name}' from canonical ${record.kind} scaffold lineage.`,
       reasons: [`scaffold-version:${scaffoldVersion}`, `template-version:${templateVersion}`],
       follow_up: [
-        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-scaffold-lineage ${record.name}`,
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-scaffold-upgrade-blueprint --name ${record.name}`,
         `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show ${record.name}`
       ]
     });
@@ -489,7 +474,7 @@ function buildTemplateGovernanceItems(bundleRoot, now) {
       summary: `Refresh canonical ${normalizeString(record.kind)} template governance metadata.`,
       reasons,
       follow_up: [
-        `review ${normalizeString(record.file)}`,
+        `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-template-hardening-blueprint --kind ${normalizeString(record.kind)}`,
         'npm run verify:skill-system'
       ]
     });
@@ -763,6 +748,89 @@ function buildSkillInvestmentBacklogMarkdown(backlogData) {
     lines.push('');
   }
 
+  const topTierPortfolio = backlogData && backlogData['top-tier-portfolio'] && typeof backlogData['top-tier-portfolio'] === 'object'
+    ? backlogData['top-tier-portfolio']
+    : null;
+  if (topTierPortfolio) {
+    const portfolioSummary = topTierPortfolio.summary || {};
+    const upgradeBoard = topTierPortfolio['upgrade-board'] || null;
+    const executionFocus = topTierPortfolio['execution-focus'] || null;
+    lines.push('## Stable Top-Tier Portfolio');
+    lines.push('');
+    lines.push(`- stable skills: ${Number(portfolioSummary.total || 0)}`);
+    lines.push(`- ready: ${Number(portfolioSummary.ready || 0)}`);
+    lines.push(`- blocked: ${Number(portfolioSummary.blocked || 0)}`);
+    for (const priority of STABLE_TOP_TIER_PRIORITY_ORDER) {
+      lines.push(`- ${priority}: ${Number((portfolioSummary.priorities || {})[priority] || 0)}`);
+    }
+    lines.push('');
+
+    const blockedAssessments = Array.isArray(topTierPortfolio.assessments)
+      ? topTierPortfolio.assessments.filter((item) => item && item.ready === false)
+      : [];
+    if (blockedAssessments.length > 0) {
+      lines.push('### Blocked Stable Skills');
+      lines.push('');
+      for (const assessment of blockedAssessments) {
+        const categories = formatList(assessment['blocker-categories']);
+        lines.push(`- ${asCode(assessment.skill)}: priority ${asCode(assessment.priority)}, blockers ${Number(assessment['blocker-count'] || 0)}, categories ${categories}`);
+      }
+      lines.push('');
+    }
+
+    if (upgradeBoard) {
+      const boardSummary = upgradeBoard.summary || {};
+      lines.push('### Upgrade Board');
+      lines.push('');
+      lines.push(`- blocked stable skills: ${Number(boardSummary.blocked || 0)}`);
+      lines.push(`- next wave: ${formatList(boardSummary['next-wave'])}`);
+      lines.push('');
+
+      const lanes = Array.isArray(upgradeBoard.lanes) ? upgradeBoard.lanes : [];
+      if (lanes.length > 0) {
+        lines.push('#### Priority Lanes');
+        lines.push('');
+        for (const lane of lanes) {
+          lines.push(`- ${asCode(lane.priority)}: ${Number(lane.count || 0)} -> ${formatList(lane.skills)}`);
+        }
+        lines.push('');
+      }
+
+      const groups = Array.isArray(upgradeBoard.groups) ? upgradeBoard.groups : [];
+      if (groups.length > 0) {
+        lines.push('#### Blocker Families');
+        lines.push('');
+        for (const group of groups) {
+          lines.push(`- ${asCode(group.category)}: ${Number(group.count || 0)} skills -> ${formatList(group.skills)}`);
+          lines.push(`  title: ${group.title || '-'}`);
+          lines.push(`  summary: ${group.summary || '-'}`);
+          lines.push(`  follow-up: ${formatList(group.follow_up)}`);
+        }
+        lines.push('');
+      }
+    }
+
+    if (executionFocus) {
+      lines.push('### Current Wave');
+      lines.push('');
+      lines.push(`- blocked stable skills: ${Number(executionFocus.blocked || 0)}`);
+      lines.push(`- next wave: ${formatList(executionFocus['next-wave'])}`);
+      lines.push(`- next wave size: ${Number(executionFocus['next-wave-size'] || 0)}`);
+      if (executionFocus['current-priority-lane']) {
+        const lane = executionFocus['current-priority-lane'];
+        lines.push(`- current priority lane: ${asCode(lane.priority)} (${Number(lane.count || 0)}) -> ${formatList(lane.skills)}`);
+      }
+      if (executionFocus['current-blocker-family']) {
+        const group = executionFocus['current-blocker-family'];
+        lines.push(`- current blocker family: ${asCode(group.category)} (${Number(group.count || 0)}) -> ${formatList(group.skills)}`);
+        lines.push(`  title: ${group.title || '-'}`);
+        lines.push(`  summary: ${group.summary || '-'}`);
+      }
+      lines.push(`- follow-up: ${formatList(executionFocus.follow_up)}`);
+      lines.push('');
+    }
+  }
+
   lines.push('## Summary');
   lines.push('');
   lines.push(`- total items: ${Number(summary.total || 0)}`);
@@ -855,6 +923,19 @@ function buildSkillInvestmentBacklog(bundleRoot, context = {}) {
   const expertSourceIntegrations = context.expertSourceIntegrations || summarizeExpertSourceIntegrations(bundleRoot, registryData);
   const now = Number.isFinite(context.now) ? context.now : Date.now();
   const templateGovernanceItems = buildTemplateGovernanceItems(bundleRoot, now);
+  const topTierPortfolio = context.topTierPortfolio || buildStableTopTierPortfolio(skillRecords, {
+    ...context,
+    bundleRoot,
+    skillRecords,
+    registryData,
+    ratingsData,
+    reviewQueueData,
+    routeFixturesData,
+    runtimeProofData,
+    hostSmokeScorecardData
+  });
+  const topTierUpgradeBoard = topTierPortfolio['upgrade-board'] || buildStableTopTierUpgradeBoard(topTierPortfolio);
+  const topTierExecutionFocus = topTierPortfolio['execution-focus'] || buildStableTopTierExecutionFocusFromUpgradeBoard(topTierUpgradeBoard);
 
   const items = [
     ...buildOpportunityItems(opportunityQueueData),
@@ -864,7 +945,8 @@ function buildSkillInvestmentBacklog(bundleRoot, context = {}) {
     ...templateGovernanceItems,
     ...buildScaffoldLineageItems(skillRecords, bundleRoot),
     ...buildPendingScaffoldItems(pendingScaffoldData),
-    ...buildTopTierReadinessItems(bundleRoot, skillRecords, registryData, ratingsData, reviewQueueData, routeFixturesData),
+    ...buildLifecycleHardeningItems(skillRecords),
+    ...buildTopTierReadinessItems(topTierPortfolio),
     ...buildProofGovernanceItems(bundleRoot, skillRecords, runtimeProofData, hostSmokeScorecardData),
     ...buildHostWriteabilityItems(bundleRoot),
     ...buildExpertSourceIntegrationItems(bundleRoot, {
@@ -902,6 +984,22 @@ function buildSkillInvestmentBacklog(bundleRoot, context = {}) {
     'schema-version': SKILL_INVESTMENT_BACKLOG_SCHEMA_VERSION,
     'generated-at': new Date(now).toISOString(),
     sources: sourceDescriptions,
+    'top-tier-portfolio': {
+      summary: topTierPortfolio.summary || {},
+      'upgrade-board': topTierUpgradeBoard,
+      'execution-focus': topTierExecutionFocus,
+      assessments: Array.isArray(topTierPortfolio.assessments)
+        ? topTierPortfolio.assessments.map((assessment) => ({
+            skill: assessment.skill,
+            kind: assessment.kind,
+            status: assessment.status,
+            ready: assessment.ready,
+            priority: assessment.priority,
+            'blocker-count': assessment['blocker-count'],
+            'blocker-categories': assessment['blocker-categories']
+          }))
+        : []
+    },
     summary: summarizeBacklogItems(items),
     items
   };

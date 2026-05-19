@@ -22,12 +22,11 @@ host-smoke-tier: critical
 host-smoke-target-level: host-smoked
 host-smoke-freshness-days: 7
 owner: self
-last-reviewed: 2026-04-18
+last-reviewed: 2026-05-19
 review-cycle-days: 30
 tags: [tool, skills, governance]
 aliases: [skill-system-audit, 技能系统审计]
 ---
-
 # Verify Skill System Tool
 
 ## Read These References

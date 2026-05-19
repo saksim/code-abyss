@@ -17,7 +17,7 @@
   "properties": {
     "schema-version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "generated-at": {
       "$ref": "#/$defs/isoDateTime"
@@ -86,6 +86,7 @@
         "route-evidence",
         "runtime-proof",
         "host-smoke",
+        "top-tier-readiness",
         "review-cadence",
         "investment-backlog",
         "expert-source-families",
@@ -103,6 +104,9 @@
         },
         "host-smoke": {
           "$ref": "#/$defs/hostSmokeSignal"
+        },
+        "top-tier-readiness": {
+          "$ref": "#/$defs/topTierReadinessSignal"
         },
         "review-cadence": {
           "$ref": "#/$defs/reviewCadenceSignal"
@@ -133,6 +137,21 @@
         "route-evidence-covered-skills",
         "runtime-proof-entries",
         "host-smoke-capable-skills",
+        "stable-top-tier-blocked-skills",
+        "stable-top-tier-ready-skills",
+        "stable-top-tier-critical-skills",
+        "stable-top-tier-high-skills",
+        "stable-top-tier-normal-skills",
+        "stable-top-tier-clear-skills",
+        "stable-top-tier-next-wave-size",
+        "stable-overdue",
+        "stable-missing-metadata",
+        "stable-expert-source-blocked",
+        "stable-route-evidence-blocked",
+        "stable-runtime-proof-blocked",
+        "stable-host-smoke-blocked",
+        "stable-module-depth-blocked",
+        "stable-blocked-total",
         "review-governed-skills",
         "review-overdue-skills",
         "review-due-soon-skills",
@@ -162,6 +181,66 @@
           "minimum": 0
         },
         "host-smoke-capable-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-top-tier-blocked-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-top-tier-ready-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-top-tier-critical-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-top-tier-high-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-top-tier-normal-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-top-tier-clear-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-top-tier-next-wave-size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-overdue": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-missing-metadata": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-expert-source-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-route-evidence-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-runtime-proof-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-host-smoke-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-module-depth-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-blocked-total": {
           "type": "integer",
           "minimum": 0
         },
@@ -486,6 +565,131 @@
         }
       }
     },
+    "topTierExecutionLane": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "priority",
+        "count",
+        "skills"
+      ],
+      "properties": {
+        "priority": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "normal",
+            "clear"
+          ]
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "topTierExecutionGroup": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "priority",
+        "title",
+        "summary",
+        "count",
+        "skills",
+        "follow_up"
+      ],
+      "properties": {
+        "category": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "priority": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "normal",
+            "clear"
+          ]
+        },
+        "title": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "summary": {
+          "$ref": "#/$defs/nonEmptyString"
+        },
+        "count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "skills": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "follow_up": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
+    "topTierExecutionFocus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "blocked",
+        "next-wave",
+        "next-wave-size",
+        "current-priority-lane",
+        "current-blocker-family",
+        "follow_up"
+      ],
+      "properties": {
+        "blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "next-wave": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        },
+        "next-wave-size": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "current-priority-lane": {
+          "$ref": "#/$defs/topTierExecutionLane"
+        },
+        "current-blocker-family": {
+          "$ref": "#/$defs/topTierExecutionGroup"
+        },
+        "follow_up": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/nonEmptyString"
+          }
+        }
+      }
+    },
     "benchmarkSignal": {
       "type": "object",
       "additionalProperties": false,
@@ -609,6 +813,106 @@
         },
         "policy": {
           "$ref": "#/$defs/hostSmokePolicySummary"
+        }
+      }
+    },
+    "topTierReadinessSignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "status",
+        "stable-skills",
+        "blocked-stable-skills",
+        "ready-stable-skills",
+        "priorities",
+        "execution-focus",
+        "stable-overdue",
+        "stable-missing-metadata",
+        "stable-expert-source-blocked",
+        "stable-route-evidence-blocked",
+        "stable-runtime-proof-blocked",
+        "stable-host-smoke-blocked",
+        "stable-module-depth-blocked",
+        "stable-blocked-total"
+      ],
+      "properties": {
+        "status": {
+          "$ref": "#/$defs/readinessStatus"
+        },
+        "stable-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "blocked-stable-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "ready-stable-skills": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "priorities": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "critical",
+            "high",
+            "normal",
+            "clear"
+          ],
+          "properties": {
+            "critical": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "high": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "normal": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "clear": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "execution-focus": {
+          "$ref": "#/$defs/topTierExecutionFocus"
+        },
+        "stable-overdue": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-missing-metadata": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-expert-source-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-route-evidence-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-runtime-proof-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-host-smoke-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-module-depth-blocked": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "stable-blocked-total": {
+          "type": "integer",
+          "minimum": 0
         }
       }
     },

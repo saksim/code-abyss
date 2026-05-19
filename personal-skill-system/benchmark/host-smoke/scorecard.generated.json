@@ -1,34 +1,34 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-15T12:45:36.625Z",
+  "generated-at": "2026-05-19T14:08:04.608Z",
   "source-runtime-proof": "registry/runtime-proof.generated.json",
   "runtime-run-dir": "benchmark/host-smoke/runtime-runs",
-  "run-count": 13,
+  "run-count": 22,
   "artifact-error-count": 0,
   "latest-run": {
-    "run-id": "host-smoke-20260510T090606475Z-codex",
-    "executed-at": "2026-05-10T09:06:06.475Z",
+    "run-id": "host-smoke-20260519T072342733Z-codex",
+    "executed-at": "2026-05-19T07:23:42.733Z",
     "host": "codex",
-    "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090606475Z-codex.json"
+    "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260519T072342733Z-codex.json"
   },
   "summary": {
-    "host-smoke-capable-skills": 9,
+    "host-smoke-capable-skills": 11,
     "levels": {
-      "declared-only": 1,
+      "declared-only": 0,
       "declared-and-tested": 6,
-      "host-smoked": 2
+      "host-smoked": 5
     },
     "evidence-status": {
-      "passing": 8,
-      "stale": 1,
+      "passing": 11,
+      "stale": 0,
       "failing": 0,
       "missing": 0,
       "contract-drift": 0,
       "invalid-contract": 0
     },
     "governance-status": {
-      "satisfied": 2,
-      "not-host-smoked": 7,
+      "satisfied": 5,
+      "not-host-smoked": 6,
       "stale": 0,
       "failing": 0,
       "missing": 0,
@@ -90,32 +90,32 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 445230931,
+        "ageMs": 187002171,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",
       "governance-status": "satisfied",
       "latest-any-matches-contract": true,
       "latest-any": {
-        "run-id": "host-smoke-20260510T090505693Z-codex",
-        "executed-at": "2026-05-10T09:05:05.694Z",
+        "run-id": "host-smoke-20260517T101122436Z-codex",
+        "executed-at": "2026-05-17T10:11:22.437Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090505693Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T101122436Z-codex.json"
       },
       "latest-matching": {
-        "run-id": "host-smoke-20260510T090505693Z-codex",
-        "executed-at": "2026-05-10T09:05:05.694Z",
+        "run-id": "host-smoke-20260517T101122436Z-codex",
+        "executed-at": "2026-05-17T10:11:22.437Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090505693Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T101122436Z-codex.json"
       },
       "latest-passing": {
-        "run-id": "host-smoke-20260510T090505693Z-codex",
-        "executed-at": "2026-05-10T09:05:05.694Z",
+        "run-id": "host-smoke-20260517T101122436Z-codex",
+        "executed-at": "2026-05-17T10:11:22.437Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090505693Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T101122436Z-codex.json"
       }
     },
     {
@@ -233,6 +233,48 @@
       }
     },
     {
+      "skill": "verify-chart-spec",
+      "kind": "tool",
+      "level": "host-smoked",
+      "manifest": "skills/tools/verify-chart-spec/scripts/smoke.json",
+      "command-count": 1,
+      "freshness": {
+        "max-age": 7,
+        "unit": "days"
+      },
+      "freshness-status": {
+        "required": true,
+        "fresh": true,
+        "stale": false,
+        "ageMs": 110172809,
+        "maxAgeMs": 604800000
+      },
+      "evidence-status": "passing",
+      "governance-status": "satisfied",
+      "latest-any-matches-contract": true,
+      "latest-any": {
+        "run-id": "host-smoke-20260518T073151799Z-codex",
+        "executed-at": "2026-05-18T07:31:51.799Z",
+        "host": "codex",
+        "status": "pass",
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260518T073151799Z-codex.json"
+      },
+      "latest-matching": {
+        "run-id": "host-smoke-20260518T073151799Z-codex",
+        "executed-at": "2026-05-18T07:31:51.799Z",
+        "host": "codex",
+        "status": "pass",
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260518T073151799Z-codex.json"
+      },
+      "latest-passing": {
+        "run-id": "host-smoke-20260518T073151799Z-codex",
+        "executed-at": "2026-05-18T07:31:51.799Z",
+        "host": "codex",
+        "status": "pass",
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260518T073151799Z-codex.json"
+      }
+    },
+    {
       "skill": "verify-module",
       "kind": "tool",
       "level": "declared-and-tested",
@@ -273,7 +315,7 @@
     {
       "skill": "verify-quality",
       "kind": "tool",
-      "level": "declared-and-tested",
+      "level": "host-smoked",
       "manifest": "skills/tools/verify-quality/scripts/smoke.json",
       "command-count": 1,
       "freshness": {
@@ -282,40 +324,82 @@
       },
       "freshness-status": {
         "required": true,
-        "fresh": false,
-        "stale": true,
-        "ageMs": 760090955,
+        "fresh": true,
+        "stale": false,
+        "ageMs": 194035736,
         "maxAgeMs": 604800000
       },
-      "evidence-status": "stale",
-      "governance-status": "not-host-smoked",
+      "evidence-status": "passing",
+      "governance-status": "satisfied",
       "latest-any-matches-contract": true,
       "latest-any": {
-        "run-id": "host-smoke-20260506T173725670Z-codex",
-        "executed-at": "2026-05-06T17:37:25.670Z",
+        "run-id": "host-smoke-20260517T081408872Z-codex",
+        "executed-at": "2026-05-17T08:14:08.872Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725670Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T081408872Z-codex.json"
       },
       "latest-matching": {
-        "run-id": "host-smoke-20260506T173725670Z-codex",
-        "executed-at": "2026-05-06T17:37:25.670Z",
+        "run-id": "host-smoke-20260517T081408872Z-codex",
+        "executed-at": "2026-05-17T08:14:08.872Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725670Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T081408872Z-codex.json"
       },
       "latest-passing": {
-        "run-id": "host-smoke-20260506T173725670Z-codex",
-        "executed-at": "2026-05-06T17:37:25.670Z",
+        "run-id": "host-smoke-20260517T081408872Z-codex",
+        "executed-at": "2026-05-17T08:14:08.872Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260506T173725670Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T081408872Z-codex.json"
+      }
+    },
+    {
+      "skill": "verify-s2-config",
+      "kind": "tool",
+      "level": "host-smoked",
+      "manifest": "skills/tools/verify-s2-config/scripts/smoke.json",
+      "command-count": 1,
+      "freshness": {
+        "max-age": 7,
+        "unit": "days"
+      },
+      "freshness-status": {
+        "required": true,
+        "fresh": true,
+        "stale": false,
+        "ageMs": 24261875,
+        "maxAgeMs": 604800000
+      },
+      "evidence-status": "passing",
+      "governance-status": "satisfied",
+      "latest-any-matches-contract": true,
+      "latest-any": {
+        "run-id": "host-smoke-20260519T072342733Z-codex",
+        "executed-at": "2026-05-19T07:23:42.733Z",
+        "host": "codex",
+        "status": "pass",
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260519T072342733Z-codex.json"
+      },
+      "latest-matching": {
+        "run-id": "host-smoke-20260519T072342733Z-codex",
+        "executed-at": "2026-05-19T07:23:42.733Z",
+        "host": "codex",
+        "status": "pass",
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260519T072342733Z-codex.json"
+      },
+      "latest-passing": {
+        "run-id": "host-smoke-20260519T072342733Z-codex",
+        "executed-at": "2026-05-19T07:23:42.733Z",
+        "host": "codex",
+        "status": "pass",
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260519T072342733Z-codex.json"
       }
     },
     {
       "skill": "verify-security",
       "kind": "tool",
-      "level": "declared-only",
+      "level": "declared-and-tested",
       "manifest": "skills/tools/verify-security/scripts/smoke.json",
       "command-count": 1,
       "freshness-status": {
@@ -364,32 +448,32 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 445170150,
+        "ageMs": 182644340,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",
       "governance-status": "satisfied",
       "latest-any-matches-contract": true,
       "latest-any": {
-        "run-id": "host-smoke-20260510T090606475Z-codex",
-        "executed-at": "2026-05-10T09:06:06.475Z",
+        "run-id": "host-smoke-20260517T112400267Z-codex",
+        "executed-at": "2026-05-17T11:24:00.268Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090606475Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T112400267Z-codex.json"
       },
       "latest-matching": {
-        "run-id": "host-smoke-20260510T090606475Z-codex",
-        "executed-at": "2026-05-10T09:06:06.475Z",
+        "run-id": "host-smoke-20260517T112400267Z-codex",
+        "executed-at": "2026-05-17T11:24:00.268Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090606475Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T112400267Z-codex.json"
       },
       "latest-passing": {
-        "run-id": "host-smoke-20260510T090606475Z-codex",
-        "executed-at": "2026-05-10T09:06:06.475Z",
+        "run-id": "host-smoke-20260517T112400267Z-codex",
+        "executed-at": "2026-05-17T11:24:00.268Z",
         "host": "codex",
         "status": "pass",
-        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260510T090606475Z-codex.json"
+        "file": "benchmark/host-smoke/runtime-runs/host-smoke-20260517T112400267Z-codex.json"
       }
     }
   ]

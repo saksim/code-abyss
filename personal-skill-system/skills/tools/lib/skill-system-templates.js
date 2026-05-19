@@ -10,9 +10,11 @@ const {
   listMarkdownFiles,
   parseJsonFile,
   getSmokeManifestFile,
-  validateSmokeManifest,
   readReferencePaths
 } = require('./skill-system-common');
+const {
+  validateSmokeManifest
+} = require('./skill-smoke-manifest-governance');
 const {
   OPENAI_METADATA_KEYS,
   buildOpenAiMetadata,
@@ -25,7 +27,8 @@ const {
 const {
   TEMPLATE_KINDS,
   SCRIPTED_TEMPLATE_KINDS,
-  TEMPLATE_REFERENCE_FLOOR_BY_KIND
+  TEMPLATE_REFERENCE_FLOOR_BY_KIND,
+  templateRequiresHostMetadata
 } = require('./skill-kind-governance');
 const TEMPLATE_VERSION_FIELD = 'template-version';
 const SCAFFOLD_ORIGIN_FIELD = 'scaffold-origin';
@@ -283,6 +286,218 @@ function collectTemplateRecords(targetDir, findings = []) {
   return records;
 }
 
+function collectTemplateHardeningBlockers(targetDir, kind, options = {}) {
+  const findings = [];
+  const blockers = [];
+  const record = buildTemplateRecord(targetDir, kind, findings);
+  const now = Number.isFinite(options.now) ? options.now : Date.now();
+
+  for (const finding of findings) {
+    blockers.push({
+      type: 'template-structure',
+      file: finding.file,
+      message: finding.message,
+      categories: ['structure']
+    });
+  }
+  if (!record) {
+    return blockers;
+  }
+
+  const { templateDir, relative, text, data } = record;
+
+  for (const key of REQUIRED_FRONTMATTER_KEYS) {
+    if (!(key in data)) {
+      blockers.push({
+        type: 'template-frontmatter-required',
+        file: relative,
+        message: `template missing frontmatter key '${key}'`,
+        categories: ['metadata']
+      });
+    }
+  }
+
+  if (data.kind !== kind) {
+    blockers.push({
+      type: 'template-kind-mismatch',
+      file: relative,
+      message: `template kind '${data.kind}' does not match directory '${kind}'`,
+      categories: ['metadata']
+    });
+  }
+
+  const expectedName = `${kind}-template`;
+  if (data.name !== expectedName) {
+    blockers.push({
+      type: 'template-name',
+      file: relative,
+      message: `template name should usually be '${expectedName}'`,
+      categories: ['metadata']
+    });
+  }
+
+  const templateVersion = normalizePositiveInteger(data[TEMPLATE_VERSION_FIELD]);
+  if (templateVersion == null) {
+    blockers.push({
+      type: 'template-version',
+      file: relative,
+      message: `template '${kind}' must declare a positive integer '${TEMPLATE_VERSION_FIELD}'`,
+      categories: ['metadata']
+    });
+  }
+
+  if (data.status !== 'draft') {
+    blockers.push({
+      type: 'template-status',
+      file: relative,
+      message: `template status should normally stay 'draft', got '${data.status}'`,
+      categories: ['lifecycle']
+    });
+  }
+
+  const reviewEntry = buildReviewQueueEntry({
+    name: String(data.name || `${kind}-template`).trim(),
+    kind,
+    status: 'draft',
+    owner: normalizeReviewOwner(data.owner),
+    file: relative,
+    lastReviewed: data['last-reviewed'],
+    reviewCycleDays: data['review-cycle-days']
+  }, { now });
+
+  if (!reviewEntry['last-reviewed']) {
+    blockers.push({
+      type: 'template-last-reviewed',
+      file: relative,
+      message: `template '${kind}' should declare last-reviewed`,
+      categories: ['review']
+    });
+  }
+
+  if (reviewEntry['review-cycle-days'] == null) {
+    blockers.push({
+      type: 'template-review-cycle-days',
+      file: relative,
+      message: `template '${kind}' should declare review-cycle-days`,
+      categories: ['review']
+    });
+  }
+
+  if (reviewEntry['review-status'] === 'overdue' && reviewEntry['next-review-due']) {
+    blockers.push({
+      type: 'template-review-overdue',
+      file: relative,
+      message: `template '${kind}' review cadence expired on ${reviewEntry['next-review-due']}`,
+      categories: ['review']
+    });
+  }
+
+  const referenceDir = path.join(templateDir, 'references');
+  const referenceFiles = listMarkdownFiles(referenceDir);
+  const minTemplateReferences = TEMPLATE_REFERENCE_FLOOR_BY_KIND[kind] || 2;
+  if (referenceFiles.length < minTemplateReferences) {
+    blockers.push({
+      type: 'template-reference-floor',
+      file: relative,
+      message: `template '${kind}' only has ${referenceFiles.length} reference files; expected at least ${minTemplateReferences}`,
+      categories: ['references']
+    });
+  }
+
+  for (const refPath of readReferencePaths(text)) {
+    if (!fs.existsSync(path.join(templateDir, refPath))) {
+      blockers.push({
+        type: 'template-reference-missing',
+        file: relative,
+        message: `template declares missing reference '${refPath}'`,
+        categories: ['references']
+      });
+    }
+  }
+
+  if (templateRequiresHostMetadata(kind)) {
+    const hostMetadataFile = path.join(templateDir, 'agents', 'openai.yaml');
+    if (!fs.existsSync(hostMetadataFile)) {
+      blockers.push({
+        type: 'template-host-metadata-missing',
+        file: relative,
+        message: `template '${kind}' is missing agents/openai.yaml`,
+        categories: ['host-metadata']
+      });
+    } else {
+      const parsedHostMetadata = readOpenAiMetadataFile(hostMetadataFile);
+      if (parsedHostMetadata.error) {
+        blockers.push({
+          type: 'template-host-metadata-parse',
+          file: rel(targetDir, hostMetadataFile),
+          message: `template host metadata parse failed: ${parsedHostMetadata.error}`,
+          categories: ['host-metadata']
+        });
+      } else {
+        const expectedHostMetadata = buildOpenAiMetadata({
+          name: data.name,
+          title: data.title,
+          description: data.description,
+          kind: data.kind
+        });
+        for (const key of OPENAI_METADATA_KEYS) {
+          if (normalizeValue(parsedHostMetadata.data[key]) !== normalizeValue(expectedHostMetadata[key])) {
+            blockers.push({
+              type: `template-host-metadata-${key}`,
+              file: rel(targetDir, hostMetadataFile),
+              message: `template host metadata '${key}' is out of sync with SKILL.md`,
+              categories: ['host-metadata']
+            });
+          }
+        }
+      }
+    }
+  }
+
+  if (SCRIPTED_TEMPLATE_KINDS.has(kind)) {
+    const scriptPath = path.join(templateDir, 'scripts', 'run.js');
+    if (!fs.existsSync(scriptPath)) {
+      blockers.push({
+        type: 'template-script-missing',
+        file: relative,
+        message: `scripted template '${kind}' is missing scripts/run.js`,
+        categories: ['runtime']
+      });
+    }
+
+    const smokeManifestFile = getSmokeManifestFile(templateDir);
+    if (!fs.existsSync(smokeManifestFile)) {
+      blockers.push({
+        type: 'template-smoke-manifest-missing',
+        file: relative,
+        message: `scripted template '${kind}' is missing scripts/smoke.json`,
+        categories: ['runtime']
+      });
+    } else {
+      const smokeManifest = parseJsonFile(smokeManifestFile);
+      if (smokeManifest.error) {
+        blockers.push({
+          type: 'template-smoke-manifest-parse',
+          file: rel(targetDir, smokeManifestFile),
+          message: `template smoke manifest parse failed: ${smokeManifest.error}`,
+          categories: ['runtime']
+        });
+      } else {
+        for (const error of validateSmokeManifest(smokeManifest.data)) {
+          blockers.push({
+            type: 'template-smoke-manifest-invalid',
+            file: rel(targetDir, smokeManifestFile),
+            message: error,
+            categories: ['runtime']
+          });
+        }
+      }
+    }
+  }
+
+  return blockers;
+}
+
 function analyzeTemplateScaffolds(targetDir, findings, options = {}) {
   let validCount = 0;
   for (const kind of TEMPLATE_KINDS) {
@@ -300,5 +515,6 @@ module.exports = {
   SCAFFOLD_VERSION_FIELD,
   readTemplateLineage,
   collectTemplateRecords,
+  collectTemplateHardeningBlockers,
   analyzeTemplateScaffolds
 };

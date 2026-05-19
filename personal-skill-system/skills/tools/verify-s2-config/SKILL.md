@@ -17,7 +17,10 @@ executor: node
 permissions: [Read, Grep, Bash]
 risk-level: low
 supported-hosts: [codex, claude, gemini]
-status: beta
+status: stable
+host-smoke-tier: critical
+host-smoke-target-level: host-smoked
+host-smoke-freshness-days: 7
 owner: self
 last-reviewed: 2026-04-20
 review-cycle-days: 30
@@ -42,6 +45,11 @@ aliases: [s2-config-audit, pivot-config-check, S2配置审计]
 - `fields.rows` / `fields.columns` / `fields.values` written as scalar instead of array
 - pivot-like `fields` blocks with rows or columns but missing values
 - imperative `new PivotSheet(...)` / `new TableSheet(...)` without visible `render()` or `destroy()`
+
+## Runtime Proof
+
+- `node scripts/run.js --target ./src --json` returns a structured S2 configuration validation report with finding entries and rule ids
+- SheetComponent prop misuse, field-shape drift, pagination wiring gaps, and imperative lifecycle mistakes are surfaced as explicit findings rather than silent pass states
 
 ## Run
 

@@ -8,13 +8,14 @@
     "schema-version",
     "generated-at",
     "sources",
+    "top-tier-portfolio",
     "summary",
     "items"
   ],
   "properties": {
     "schema-version": {
       "type": "integer",
-      "const": 1
+      "const": 2
     },
     "generated-at": {
       "$ref": "#/$defs/isoDateTime"
@@ -45,6 +46,540 @@
         "host-smoke-scorecard",
         "authoritative-skills"
       ]
+    },
+    "top-tier-portfolio": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "summary",
+        "upgrade-board",
+        "execution-focus",
+        "assessments"
+      ],
+      "properties": {
+        "summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "total",
+            "ready",
+            "blocked",
+            "priorities",
+            "categories",
+            "blocked-by-priority"
+          ],
+          "properties": {
+            "total": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "ready": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "blocked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "priorities": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "critical",
+                "high",
+                "normal",
+                "clear"
+              ],
+              "properties": {
+                "critical": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "high": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "normal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "clear": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "categories": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "stable-overdue",
+                "stable-missing-metadata",
+                "stable-expert-source-blocked",
+                "stable-route-evidence-blocked",
+                "stable-runtime-proof-blocked",
+                "stable-host-smoke-blocked",
+                "stable-module-depth-blocked",
+                "stable-blocked-total"
+              ],
+              "properties": {
+                "stable-overdue": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stable-missing-metadata": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stable-expert-source-blocked": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stable-route-evidence-blocked": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stable-runtime-proof-blocked": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stable-host-smoke-blocked": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stable-module-depth-blocked": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "stable-blocked-total": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            },
+            "blocked-by-priority": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "critical",
+                "high",
+                "normal",
+                "clear"
+              ],
+              "properties": {
+                "critical": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "high": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "normal": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "clear": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              }
+            }
+          }
+        },
+        "upgrade-board": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "summary",
+            "lanes",
+            "groups"
+          ],
+          "properties": {
+            "summary": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "blocked",
+                "lanes",
+                "groups",
+                "next-wave"
+              ],
+              "properties": {
+                "blocked": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "lanes": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "critical",
+                    "high",
+                    "normal",
+                    "clear"
+                  ],
+                  "properties": {
+                    "critical": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "high": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "normal": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "clear": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "groups": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "stable-overdue",
+                    "stable-missing-metadata",
+                    "stable-runtime-proof-blocked",
+                    "stable-host-smoke-blocked",
+                    "stable-expert-source-blocked",
+                    "stable-route-evidence-blocked",
+                    "stable-module-depth-blocked"
+                  ],
+                  "properties": {
+                    "stable-overdue": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "stable-missing-metadata": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "stable-runtime-proof-blocked": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "stable-host-smoke-blocked": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "stable-expert-source-blocked": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "stable-route-evidence-blocked": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "stable-module-depth-blocked": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  }
+                },
+                "next-wave": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/$defs/skillName"
+                  },
+                  "uniqueItems": true
+                }
+              }
+            },
+            "lanes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "priority",
+                  "count",
+                  "skills"
+                ],
+                "properties": {
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "critical",
+                      "high",
+                      "normal",
+                      "clear"
+                    ]
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "skills": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/skillName"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            },
+            "groups": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "category",
+                  "priority",
+                  "title",
+                  "summary",
+                  "count",
+                  "skills",
+                  "follow_up"
+                ],
+                "properties": {
+                  "category": {
+                    "type": "string",
+                    "enum": [
+                      "stable-overdue",
+                      "stable-missing-metadata",
+                      "stable-runtime-proof-blocked",
+                      "stable-host-smoke-blocked",
+                      "stable-expert-source-blocked",
+                      "stable-route-evidence-blocked",
+                      "stable-module-depth-blocked"
+                    ]
+                  },
+                  "priority": {
+                    "type": "string",
+                    "enum": [
+                      "critical",
+                      "high",
+                      "normal",
+                      "clear"
+                    ]
+                  },
+                  "title": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "summary": {
+                    "$ref": "#/$defs/nonEmptyString"
+                  },
+                  "count": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "skills": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/skillName"
+                    },
+                    "uniqueItems": true
+                  },
+                  "follow_up": {
+                    "type": "array",
+                    "items": {
+                      "$ref": "#/$defs/nonEmptyString"
+                    },
+                    "uniqueItems": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "execution-focus": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "blocked",
+            "next-wave",
+            "next-wave-size",
+            "current-priority-lane",
+            "current-blocker-family",
+            "follow_up"
+          ],
+          "properties": {
+            "blocked": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "next-wave": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/skillName"
+              },
+              "uniqueItems": true
+            },
+            "next-wave-size": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "current-priority-lane": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "priority",
+                    "count",
+                    "skills"
+                  ],
+                  "properties": {
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "critical",
+                        "high",
+                        "normal",
+                        "clear"
+                      ]
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "skills": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/skillName"
+                      },
+                      "uniqueItems": true
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "current-blocker-family": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "category",
+                    "priority",
+                    "title",
+                    "summary",
+                    "count",
+                    "skills",
+                    "follow_up"
+                  ],
+                  "properties": {
+                    "category": {
+                      "type": "string",
+                      "enum": [
+                        "stable-overdue",
+                        "stable-missing-metadata",
+                        "stable-runtime-proof-blocked",
+                        "stable-host-smoke-blocked",
+                        "stable-expert-source-blocked",
+                        "stable-route-evidence-blocked",
+                        "stable-module-depth-blocked"
+                      ]
+                    },
+                    "priority": {
+                      "type": "string",
+                      "enum": [
+                        "critical",
+                        "high",
+                        "normal",
+                        "clear"
+                      ]
+                    },
+                    "title": {
+                      "$ref": "#/$defs/nonEmptyString"
+                    },
+                    "summary": {
+                      "$ref": "#/$defs/nonEmptyString"
+                    },
+                    "count": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "skills": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/skillName"
+                      },
+                      "uniqueItems": true
+                    },
+                    "follow_up": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/$defs/nonEmptyString"
+                      },
+                      "uniqueItems": true
+                    }
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "follow_up": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/nonEmptyString"
+              }
+            }
+          }
+        },
+        "assessments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "skill",
+              "kind",
+              "status",
+              "ready",
+              "priority",
+              "blocker-count",
+              "blocker-categories"
+            ],
+            "properties": {
+              "skill": {
+                "$ref": "#/$defs/skillName"
+              },
+              "kind": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "status": {
+                "$ref": "#/$defs/nonEmptyString"
+              },
+              "ready": {
+                "type": "boolean"
+              },
+              "priority": {
+                "type": "string",
+                "enum": [
+                  "critical",
+                  "high",
+                  "normal",
+                  "clear"
+                ]
+              },
+              "blocker-count": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "blocker-categories": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/nonEmptyString"
+                },
+                "uniqueItems": true
+              }
+            }
+          }
+        }
+      }
     },
     "summary": {
       "type": "object",

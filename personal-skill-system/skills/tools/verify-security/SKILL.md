@@ -17,11 +17,11 @@ executor: node
 permissions: [Read, Grep, Bash]
 risk-level: medium
 supported-hosts: [codex, claude, gemini]
-status: deprecated
+status: stable
 host-smoke-tier: standard
 host-smoke-target-level: declared-and-tested
 owner: self
-last-reviewed: 2026-04-17
+last-reviewed: 2026-05-18
 review-cycle-days: 30
 tags: [tool, security]
 aliases: [vs, security-audit, 安全校验]

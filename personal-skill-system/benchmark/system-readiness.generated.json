@@ -1,6 +1,6 @@
 {
-  "schema-version": 1,
-  "generated-at": "2026-05-15T09:51:00.095Z",
+  "schema-version": 2,
+  "generated-at": "2026-05-19T13:22:53.277Z",
   "sources": {
     "benchmark-summary": "benchmark/summary.generated.json",
     "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",
@@ -12,7 +12,7 @@
     "pending-scaffolds": "registry/pending-scaffolds.generated.json",
     "skill-investment-backlog": "registry/skill-investment-backlog.generated.json"
   },
-  "status": "blocked",
+  "status": "attention",
   "signals": {
     "benchmark": {
       "status": "ready",
@@ -22,51 +22,83 @@
     },
     "route-evidence": {
       "status": "ready",
-      "stable_skills": 31,
-      "covered_skills": 31
+      "stable_skills": 35,
+      "covered_skills": 35
     },
     "runtime-proof": {
       "status": "ready",
-      "live_scripted_skills": 9,
-      "runtime_proof_entries": 9
+      "live_scripted_skills": 11,
+      "runtime_proof_entries": 11
     },
     "host-smoke": {
-      "status": "attention",
-      "host_smoke_capable_skills": 9,
-      "satisfied": 2,
-      "passing": 8,
+      "status": "ready",
+      "host_smoke_capable_skills": 11,
+      "satisfied": 5,
+      "passing": 11,
       "missing": 0,
       "failing": 0,
-      "stale": 1,
+      "stale": 0,
       "contract_drift": 0,
       "policy": {
         "tiers": {
-          "critical": 3,
+          "critical": 5,
           "standard": 6,
           "experimental": 0
         },
         "statuses": {
-          "ready": 7,
-          "attention": 2,
+          "ready": 11,
+          "attention": 0,
           "blocked": 0
         }
       }
     },
+    "top-tier-readiness": {
+      "status": "ready",
+      "stable-skills": 39,
+      "blocked-stable-skills": 0,
+      "ready-stable-skills": 39,
+      "priorities": {
+        "critical": 0,
+        "high": 0,
+        "normal": 0,
+        "clear": 39
+      },
+      "execution-focus": {
+        "blocked": 0,
+        "next-wave": [],
+        "next-wave-size": 0,
+        "current-priority-lane": null,
+        "current-blocker-family": null,
+        "follow_up": [
+          "node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier --all",
+          "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-top-tier-wave",
+          "node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --source top-tier-readiness"
+        ]
+      },
+      "stable-overdue": 0,
+      "stable-missing-metadata": 0,
+      "stable-expert-source-blocked": 0,
+      "stable-route-evidence-blocked": 0,
+      "stable-runtime-proof-blocked": 0,
+      "stable-host-smoke-blocked": 0,
+      "stable-module-depth-blocked": 0,
+      "stable-blocked-total": 0
+    },
     "review-cadence": {
       "status": "attention",
-      "governed-skills": 36,
+      "governed-skills": 39,
       "overdue": 0,
-      "due-soon": 5,
-      "scheduled": 31,
+      "due-soon": 3,
+      "scheduled": 36,
       "missing-metadata": 0,
       "stable-overdue": 0,
       "stable-missing-metadata": 0
     },
     "investment-backlog": {
-      "status": "blocked",
-      "total": 2,
-      "critical": 1,
-      "high": 1,
+      "status": "ready",
+      "total": 0,
+      "critical": 0,
+      "high": 0,
       "normal": 0
     },
     "expert-source-families": {
@@ -80,21 +112,14 @@
       "active-missing-pack-includes": 0
     },
     "host-writeability": {
-      "status": "attention",
+      "status": "ready",
       "total": 36,
-      "writable": 35,
-      "blocked": 1,
+      "writable": 36,
+      "blocked": 0,
       "critical": 0,
-      "high": 1,
+      "high": 0,
       "normal": 0,
-      "artifacts": [
-        {
-          "id": "authoritative-skill-tree",
-          "label": "authoritative skill tree create surface",
-          "mode": "create-child-directory",
-          "code": "EPERM"
-        }
-      ]
+      "artifacts": []
     }
   },
   "host-smoke-policy": [
@@ -155,6 +180,18 @@
       "governance-status": "not-host-smoked"
     },
     {
+      "skill": "verify-chart-spec",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "ready",
+      "level": "host-smoked",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "passing",
+      "governance-status": "satisfied"
+    },
+    {
       "skill": "verify-module",
       "kind": "tool",
       "tier": "standard",
@@ -169,20 +206,32 @@
       "skill": "verify-quality",
       "kind": "tool",
       "tier": "critical",
-      "status": "attention",
-      "level": "declared-and-tested",
+      "status": "ready",
+      "level": "host-smoked",
       "target-level": "host-smoked",
       "requires-freshness": true,
       "max-freshness-days": 7,
-      "evidence-status": "stale",
-      "governance-status": "not-host-smoked"
+      "evidence-status": "passing",
+      "governance-status": "satisfied"
+    },
+    {
+      "skill": "verify-s2-config",
+      "kind": "tool",
+      "tier": "critical",
+      "status": "ready",
+      "level": "host-smoked",
+      "target-level": "host-smoked",
+      "requires-freshness": true,
+      "max-freshness-days": 7,
+      "evidence-status": "passing",
+      "governance-status": "satisfied"
     },
     {
       "skill": "verify-security",
       "kind": "tool",
       "tier": "standard",
-      "status": "attention",
-      "level": "declared-only",
+      "status": "ready",
+      "level": "declared-and-tested",
       "target-level": "declared-and-tested",
       "requires-freshness": false,
       "evidence-status": "passing",
@@ -202,25 +251,41 @@
     }
   ],
   "summary": {
-    "live-scripted-skills": 9,
-    "stable-user-invocable-skills": 31,
-    "route-evidence-covered-skills": 31,
-    "runtime-proof-entries": 9,
-    "host-smoke-capable-skills": 9,
-    "review-governed-skills": 36,
+    "live-scripted-skills": 11,
+    "stable-user-invocable-skills": 35,
+    "route-evidence-covered-skills": 35,
+    "runtime-proof-entries": 11,
+    "host-smoke-capable-skills": 11,
+    "stable-top-tier-blocked-skills": 0,
+    "stable-top-tier-ready-skills": 39,
+    "stable-top-tier-critical-skills": 0,
+    "stable-top-tier-high-skills": 0,
+    "stable-top-tier-normal-skills": 0,
+    "stable-top-tier-clear-skills": 39,
+    "stable-top-tier-next-wave-size": 0,
+    "stable-overdue": 0,
+    "stable-missing-metadata": 0,
+    "stable-expert-source-blocked": 0,
+    "stable-route-evidence-blocked": 0,
+    "stable-runtime-proof-blocked": 0,
+    "stable-host-smoke-blocked": 0,
+    "stable-module-depth-blocked": 0,
+    "stable-blocked-total": 0,
+    "review-governed-skills": 39,
     "review-overdue-skills": 0,
-    "review-due-soon-skills": 5,
+    "review-due-soon-skills": 3,
     "review-missing-metadata-skills": 0,
-    "investment-backlog-items": 2,
-    "investment-backlog-critical": 1,
-    "investment-backlog-high": 1,
+    "investment-backlog-items": 0,
+    "investment-backlog-critical": 0,
+    "investment-backlog-high": 0,
     "active-expert-source-families": 1,
     "active-expert-source-unmapped-raw-sources": 0,
-    "host-writeability-blocked-artifacts": 1
+    "host-writeability-blocked-artifacts": 0
   },
   "notes": [
     "Generated from benchmark summary, route fixtures, runtime proof registry, host-smoke scorecard, review queue, skill opportunity queue, expert-source family scorecard, pending scaffold registry, and skill investment backlog.",
     "Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter.",
+    "Top-tier readiness is sourced from the same centralized stable-skill blocker taxonomy and prioritized portfolio view that drive capability-ratings and assess-top-tier.",
     "Generated artifact writeability is tracked separately so host-level execution constraints do not get mistaken for skill-content defects."
   ]
 }

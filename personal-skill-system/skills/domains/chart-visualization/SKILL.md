@@ -17,7 +17,7 @@ executor: none
 permissions: [Read]
 risk-level: low
 supported-hosts: [codex, claude, gemini]
-status: beta
+status: stable
 owner: self
 last-reviewed: 2026-04-19
 review-cycle-days: 30

@@ -38,8 +38,10 @@ Use the governed entry point that matches the path:
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check <skill-name>
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier <skill-name>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-hardening-blueprint --name <skill-name>
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js record-opportunity --name <capability-name> --kind <kind>
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-check --name <capability-name> --kind <kind>
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-future-skill-pipeline
 ```
 
 ## Two Enforcement Layers
@@ -171,6 +173,35 @@ It is the shared source for:
 - default runtime-proof level by status
 - evolution action names and default target-status mapping
 
+## Route Fixture Governance Source
+
+Code-level route-fixture semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-route-fixture-governance.js`
+
+When you need to change governed placeholder-route fixture behavior or route-evidence semantics, update that file first.
+
+It is the shared source for:
+
+- governed placeholder fixture naming and query generation
+- real-evidence vs governed-evidence distinction for top-tier promotion
+- route-fixture expectation parsing for direct-route vs fallback assertions
+- governed fixture lookup and per-skill evidence summaries used by hardening/promotion views
+
+## Smoke Manifest Governance Source
+
+Code-level `scripts/smoke.json` semantics are centralized in:
+
+- `personal-skill-system/skills/tools/lib/skill-smoke-manifest-governance.js`
+
+When you need to change smoke-manifest validation or contract shape, update that file first.
+
+It is the shared source for:
+
+- `scripts/smoke.json` schema version
+- smoke-manifest `cwd` modes and freshness units
+- smoke-manifest path helper and validation rules
+
 ## Host Governance Source
 
 Code-level host and host-smoke governance semantics are centralized in:
@@ -182,7 +213,6 @@ When you need to change host-smoke or host-writeability behavior, update that fi
 It is the shared source for:
 
 - host-smoke policy tiers and target levels
-- host-smoke contract enums such as cwd modes, freshness units, result statuses, and invalidation reasons
 - governed runtime-proof eligibility for scripted tools and guards
 - host-writeability severity rules, including the authoritative skill-tree create surface
 
@@ -201,6 +231,7 @@ It is the shared source for:
 - governed runtime-proof entry construction from authoritative skill metadata
 - evidence-test normalization and selection precedence
 - host-smoke-backed runtime-proof policy/error semantics used by lifecycle and validation flows
+- smoke-manifest validation used by runtime-proof, template, and skill validation flows
 
 ## Expert-Source Governance Source
 
@@ -273,6 +304,7 @@ When you need to change how self-smoke or governed export flows rebuild derived 
 
 It is the shared source for:
 
+- the canonical refresh-step plan, including step order, artifact membership, and governed artifact paths
 - governed refresh order for `runtime-proof`, `review-queue`, capability ratings, expert-source family scorecard, host-smoke scorecard, and investment backlog
 - self-smoke reconstruction used by `verify-skill-system --self-smoke`
 - derived-governance export payload construction for blocked `system-readiness` / `host-evolution` recovery loops
@@ -378,6 +410,14 @@ node personal-skill-system/skills/tools/manage-skill/scripts/run.js admission-ch
 ```
 
 Use `admission-check --opportunity-id <id>` when the future-skill demand already exists in the governed queue.
+Admission decisions are centrally governed by action, not by ad hoc ledger shape:
+
+- `create-new-skill` must carry `suggested_kind`.
+- `reuse-existing-skill` must carry `target_skill` and `target_kind`.
+- `upgrade-existing-skill` must carry `target_skill`, `target_kind`, and `suggested_kind`.
+- `clarify-or-merge-boundary` must carry `primary_skill`, `competing_skill`, and `suggested_kind`.
+
+Do not hand-edit `admission-ledger.generated.json` with extra decision fields. The generated governance reference is the contract surface for allowed and required admission fields.
 
 1. Use the canonical scaffold path only after the boundary is sharp:
 

@@ -18,6 +18,12 @@ Inspect the future-skill opportunity queue:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-opportunity-queue --status open --priority high
 ```
 
+Inspect the unified future-skill pipeline, including host-blocked pending scaffolds:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-future-skill-pipeline --blocked
+```
+
 Escalate a governed future-skill opportunity into a linked admission decision:
 
 ```bash
@@ -48,6 +54,42 @@ Check whether an existing skill should be upgraded, promoted, archived, or merge
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check review "this workflow is ready for stable promotion"
 ```
 
+Preview whether an existing skill is honestly ready for archive, merge, or delete before mutating anything:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-retirement-blueprint --name review
+```
+
+Preview the governed hardening path for an existing skill before stable promotion:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-hardening-blueprint --name verify-security
+```
+
+Preview the governed hardening path for a canonical template before future descendants inherit drift:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-template-hardening-blueprint --kind workflow
+```
+
+Preview the governed scaffold-upgrade path for one descendant before syncing lineage forward:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-skill-scaffold-upgrade-blueprint --name review
+```
+
+Refresh a canonical template's review metadata through the governed path:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js review-template --kind workflow --date 2026-05-19 --review-cycle-days 45
+```
+
+Resync canonical template host metadata after editing template title or description:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js sync-template-host-metadata --kind workflow
+```
+
 Inspect recorded evolution decisions:
 
 ```bash
@@ -58,6 +100,18 @@ Inspect the generated cross-cutting investment backlog:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-investment-backlog --priority high
+```
+
+Inspect the lifecycle decision board for active non-stable skills:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-lifecycle-governance
+```
+
+Inspect one skill's lifecycle state and direct promotion/hardening follow-up:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-lifecycle-governance --skill verify-security
 ```
 
 Inspect governed expert-source families and focus only on families with unmapped raw sources:
@@ -100,6 +154,18 @@ Resolve an admission request after a governed skill create:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js resolve-admission 20260508-skill-gap --status implemented --created-skill reliability-governance
+```
+
+Refresh one reviewed skill and keep all review-dependent governance artifacts synchronized:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js mark-reviewed manage-skill --date 2026-05-19
+```
+
+Refresh every currently overdue governed skill in one pass:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js mark-reviewed --overdue --date 2026-05-19
 ```
 
 Create a workflow:
@@ -153,11 +219,21 @@ Check whether a skill is genuinely ready for top-tier / `stable` promotion:
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier review
 ```
 
+This check is promotion-oriented even for non-`stable` skills, so missing stable-surface evidence such as route fixtures, runtime-proof floor, or review metadata is reported before `set-status stable` is allowed.
+
 Update frontmatter fields:
 
 ```bash
 node personal-skill-system/skills/tools/manage-skill/scripts/run.js update review --set owner=self --set review-cycle-days=14
 ```
+
+Use `update` for safe metadata drift, not identity or lifecycle mutations. For example, changing route participation through frontmatter will also sync governed route artifacts:
+
+```bash
+node personal-skill-system/skills/tools/manage-skill/scripts/run.js update review --set user-invocable=false
+```
+
+Do not use `update` for `status`, `name`, `kind`, scaffold-lineage fields, or runtime/host-smoke contract fields; those must move through dedicated governed commands such as `set-status`, `create` + `merge`, `sync-scaffold-lineage`, `sync-runtime-proof`, or `run-host-smoke`.
 
 Backfill scaffold lineage for one historical skill:
 

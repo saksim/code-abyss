@@ -17,6 +17,11 @@ const {
 const {
   buildExpertSourceTopTierBlockerMap
 } = require('./expert-source-integration');
+const {
+  STABLE_TOP_TIER_BLOCKER_FIELDS,
+  summarizeStableTopTierBlockers,
+  isStableSkillTopTierReady
+} = require('./skill-top-tier-governance');
 
 const CAPABILITY_RATING_BUCKET_SEQUENCE = Object.freeze(['thin', 'strong-but-not-top', 'top-ready']);
 const CAPABILITY_RATING_BUCKET_INDEX = new Map(
@@ -43,12 +48,7 @@ const EMPTY_NEXT_BATCH_LINE = '- `(none; the current bundle is fully promoted in
 const EMPTY_CAPABILITY_MODULE_SECTION_LINE = '- `(none in this snapshot)`';
 const DEFAULT_SKILL_LEVEL_SUMMARY_SOURCE = 'docs/SKILL_TOP_LEVEL_AUDIT_2026-04-20.md';
 const CAPABILITY_RATINGS_DOC_RELATIVE_PATH = 'docs/CAPABILITY_MODULE_RATINGS.md';
-const STABLE_TOP_TIER_BLOCKER_COUNT_FIELDS = Object.freeze([
-  'stable-overdue',
-  'stable-missing-metadata',
-  'stable-expert-source-blocked',
-  'stable-blocked-total'
-]);
+const STABLE_TOP_TIER_BLOCKER_COUNT_FIELDS = STABLE_TOP_TIER_BLOCKER_FIELDS;
 
 function getCapabilityRatingsPath(bundleRoot) {
   return getGovernanceArtifactPath(bundleRoot, 'capability-ratings');
@@ -150,12 +150,11 @@ function normalizeSkillLevelSummary(summary) {
     'useful-overlay-not-top-level-alone': nextSummary['useful-overlay-not-top-level-alone'].length,
     'total-skills-rated': nextSummary['top-level-enough-now'].length
       + nextSummary['strong-uplift-but-not-top-yet'].length
-      + nextSummary['useful-overlay-not-top-level-alone'].length,
-    'stable-overdue': Number(nextSummary.counts && nextSummary.counts['stable-overdue'] || 0),
-    'stable-missing-metadata': Number(nextSummary.counts && nextSummary.counts['stable-missing-metadata'] || 0),
-    'stable-expert-source-blocked': Number(nextSummary.counts && nextSummary.counts['stable-expert-source-blocked'] || 0),
-    'stable-blocked-total': Number(nextSummary.counts && nextSummary.counts['stable-blocked-total'] || 0)
+      + nextSummary['useful-overlay-not-top-level-alone'].length
   };
+  for (const field of STABLE_TOP_TIER_BLOCKER_COUNT_FIELDS) {
+    nextSummary.counts[field] = Number(nextSummary.counts && nextSummary.counts[field] || 0);
+  }
 
   return nextSummary;
 }
@@ -182,10 +181,7 @@ function resolveSkillLevelSummaryBucket(record, reviewEntryMap, options = {}) {
     return 'strong-uplift-but-not-top-yet';
   }
 
-  const expertSourceBlockersBySkill = options.expertSourceBlockersBySkill instanceof Map
-    ? options.expertSourceBlockersBySkill
-    : new Map();
-  if ((expertSourceBlockersBySkill.get(String(record && record.name || '').trim()) || []).length > 0) {
+  if (!isStableSkillTopTierReady(String(record && record.name || '').trim(), options.topTierSummary)) {
     return 'strong-uplift-but-not-top-yet';
   }
 
@@ -193,35 +189,9 @@ function resolveSkillLevelSummaryBucket(record, reviewEntryMap, options = {}) {
 }
 
 function summarizeBlockingReviewDebt(skillRecords, options = {}) {
-  const reviewEntryMap = buildReviewEntryMap(skillRecords, options);
-  let stableOverdue = 0;
-  let stableMissingMetadata = 0;
-  let stableExpertSourceBlocked = 0;
-  const expertSourceBlockersBySkill = options.expertSourceBlockersBySkill instanceof Map
-    ? options.expertSourceBlockersBySkill
-    : new Map();
-
-  for (const record of Array.isArray(skillRecords) ? skillRecords : []) {
-    if (!record || getSkillLevelBucketForStatus(record.status) !== 'top-level-enough-now') {
-      continue;
-    }
-    const reviewEntry = reviewEntryMap.get(String(record.name || '').trim()) || null;
-    const reviewStatus = String(reviewEntry && reviewEntry['review-status'] || '').trim();
-    if (reviewStatus === 'overdue') {
-      stableOverdue += 1;
-    } else if (reviewStatus === 'missing-metadata') {
-      stableMissingMetadata += 1;
-    }
-    if ((expertSourceBlockersBySkill.get(String(record.name || '').trim()) || []).length > 0) {
-      stableExpertSourceBlocked += 1;
-    }
-  }
-
+  const summary = options.topTierSummary || summarizeStableTopTierBlockers(skillRecords, options);
   return {
-    'stable-overdue': stableOverdue,
-    'stable-missing-metadata': stableMissingMetadata,
-    'stable-expert-source-blocked': stableExpertSourceBlocked,
-    'stable-blocked-total': stableOverdue + stableMissingMetadata + stableExpertSourceBlocked
+    ...summary.counts
   };
 }
 
@@ -234,12 +204,16 @@ function buildSkillLevelSummary(skillRecords, existingSummary, options = {}) {
     'useful-overlay-not-top-level-alone': []
   };
   const reviewEntryMap = buildReviewEntryMap(skillRecords, options);
+  const topTierSummary = options.topTierSummary || summarizeStableTopTierBlockers(skillRecords, options);
 
   for (const record of Array.isArray(skillRecords) ? skillRecords : []) {
     if (!shouldAppearInSkillLevelSummary(record)) {
       continue;
     }
-    const bucket = resolveSkillLevelSummaryBucket(record, reviewEntryMap, options);
+    const bucket = resolveSkillLevelSummaryBucket(record, reviewEntryMap, {
+      ...options,
+      topTierSummary
+    });
     if (!bucket) {
       continue;
     }
@@ -249,7 +223,10 @@ function buildSkillLevelSummary(skillRecords, existingSummary, options = {}) {
   const normalized = normalizeSkillLevelSummary(summary);
   normalized.counts = {
     ...normalized.counts,
-    ...summarizeBlockingReviewDebt(skillRecords, options)
+    ...summarizeBlockingReviewDebt(skillRecords, {
+      ...options,
+      topTierSummary
+    })
   };
   return normalized;
 }
@@ -338,6 +315,18 @@ function buildCapabilityRatingsNotes(ratingsData, context = {}) {
     if (reviewDebt['stable-expert-source-blocked'] > 0) {
       reasons.push(`${reviewDebt['stable-expert-source-blocked']} expert-source governance blocker`);
     }
+    if (reviewDebt['stable-route-evidence-blocked'] > 0) {
+      reasons.push(`${reviewDebt['stable-route-evidence-blocked']} route evidence blocker`);
+    }
+    if (reviewDebt['stable-runtime-proof-blocked'] > 0) {
+      reasons.push(`${reviewDebt['stable-runtime-proof-blocked']} runtime-proof blocker`);
+    }
+    if (reviewDebt['stable-host-smoke-blocked'] > 0) {
+      reasons.push(`${reviewDebt['stable-host-smoke-blocked']} host-smoke blocker`);
+    }
+    if (reviewDebt['stable-module-depth-blocked'] > 0) {
+      reasons.push(`${reviewDebt['stable-module-depth-blocked']} module-depth blocker`);
+    }
     notes.push(
       `${reviewDebt['stable-blocked-total']} stable skills are temporarily outside 'top-level-enough-now' because of ${reasons.join(' and ')}.`
     );
@@ -360,11 +349,21 @@ function applyCapabilityRatingsGovernance(ratingsData, context = {}) {
           integrations: context.expertSourceIntegrations
         })
       : { blockersBySkill: new Map() });
+  const topTierSummary = Array.isArray(context.skillRecords)
+    ? summarizeStableTopTierBlockers(context.skillRecords, {
+        ...context,
+        expertSourceTopTierState,
+        ratingsData: ratings
+      })
+    : null;
 
   if (Array.isArray(context.skillRecords)) {
     ratings['skill-level-summary'] = buildSkillLevelSummary(context.skillRecords, ratings['skill-level-summary'], {
       ...context,
-      expertSourceBlockersBySkill: expertSourceTopTierState.blockersBySkill
+      expertSourceBlockersBySkill: expertSourceTopTierState.blockersBySkill,
+      expertSourceTopTierState,
+      topTierSummary,
+      ratingsData: ratings
     });
   } else {
     ratings['skill-level-summary'] = normalizeSkillLevelSummary(ratings['skill-level-summary']);
@@ -376,7 +375,9 @@ function applyCapabilityRatingsGovernance(ratingsData, context = {}) {
   ratings['next-batch'] = buildCapabilityRatingsNextBatch(ratings, moduleMetadata);
   ratings.notes = buildCapabilityRatingsNotes(ratings, {
     ...context,
-    expertSourceBlockersBySkill: expertSourceTopTierState.blockersBySkill
+    expertSourceBlockersBySkill: expertSourceTopTierState.blockersBySkill,
+    topTierSummary,
+    ratingsData: ratings
   });
 
   return ratings;

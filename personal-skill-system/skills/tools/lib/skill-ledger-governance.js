@@ -10,7 +10,10 @@ const {
 } = require('./skill-generated-artifact-governance');
 const {
   FUTURE_SKILL_REGISTRY_SOURCE,
+  ADMISSION_DECISION_FIELD_ORDER,
   isKnownAdmissionDecisionAction,
+  normalizeAdmissionDecision,
+  collectAdmissionDecisionContractErrors,
   ADMISSION_STATUS_ORDER,
   isKnownAdmissionStatus,
   normalizeAdmissionStatus,
@@ -89,6 +92,7 @@ function normalizeAdmissionLedgerEntries(entries) {
     seen.add(key);
 
     const status = normalizeAdmissionStatus(entry.status || 'open');
+    const normalizedDecision = normalizeAdmissionDecision(entry && entry.decision);
     const normalizedEntry = {
       'request-id': requestId,
       request,
@@ -97,14 +101,7 @@ function normalizeAdmissionLedgerEntries(entries) {
         ? { 'inferred-intent-tags': uniqueSorted(entry['inferred-intent-tags']) }
         : {}),
       ...(entry['opportunity-id'] ? { 'opportunity-id': normalizeString(entry['opportunity-id']) } : {}),
-      decision: {
-        action: decisionAction,
-        ...(entry && entry.decision && entry.decision.target_skill ? { target_skill: normalizeString(entry.decision.target_skill) } : {}),
-        ...(entry && entry.decision && entry.decision.target_kind ? { target_kind: normalizeString(entry.decision.target_kind) } : {}),
-        ...(entry && entry.decision && entry.decision.primary_skill ? { primary_skill: normalizeString(entry.decision.primary_skill) } : {}),
-        ...(entry && entry.decision && entry.decision.competing_skill ? { competing_skill: normalizeString(entry.decision.competing_skill) } : {}),
-        ...(entry && entry.decision && entry.decision.suggested_kind ? { suggested_kind: normalizeString(entry.decision.suggested_kind) } : {})
-      },
+      decision: normalizedDecision.action ? normalizedDecision : { action: decisionAction },
       status,
       'recorded-at': recordedAt,
       ...(entry['created-skill'] ? { 'created-skill': normalizeString(entry['created-skill']) } : {}),
@@ -322,6 +319,17 @@ function validateAdmissionLedger(bundleRoot, skillRecords, opportunityIds, findi
       findings.push({ severity: 'error', file: rel(bundleRoot, ledgerPath), message: `admission ledger entry '${requestId}' is missing decision.action` });
     } else if (!isKnownAdmissionDecisionAction(decisionAction)) {
       findings.push({ severity: 'error', file: rel(bundleRoot, ledgerPath), message: `admission ledger entry '${requestId}' has unsupported decision.action '${decisionAction}'` });
+    }
+    const decisionErrors = collectAdmissionDecisionContractErrors(entry && entry.decision, {
+      skillNames,
+      entrySuggestedKind: normalizeString(entry && entry['suggested-kind'])
+    });
+    for (const error of decisionErrors) {
+      findings.push({
+        severity: 'error',
+        file: rel(bundleRoot, ledgerPath),
+        message: `admission ledger entry '${requestId}' ${error}`
+      });
     }
     if (!isKnownAdmissionStatus(status)) {
       findings.push({ severity: 'error', file: rel(bundleRoot, ledgerPath), message: `admission ledger entry '${requestId}' has unsupported status '${status}'` });

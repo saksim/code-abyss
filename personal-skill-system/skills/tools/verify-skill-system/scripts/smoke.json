@@ -6,12 +6,12 @@
   },
   "commands": [
     {
-      "cwd": "bundle-root",
+      "cwd": "project-root",
       "argv": [
         "node",
-        "skills/tools/verify-skill-system/scripts/run.js",
+        "personal-skill-system/skills/tools/verify-skill-system/scripts/run.js",
         "--target",
-        ".",
+        "personal-skill-system",
         "--self-smoke",
         "--json"
       ],

@@ -81,12 +81,12 @@ Use this reference for volatile token sets and matrices that should not be copie
 
 ### Admission Decision Actions
 
-| Action | Default Admission Status | Default Opportunity Status |
-| --- | --- | --- |
-| `create-new-skill` | `open` | `planned` |
-| `clarify-or-merge-boundary` | `blocked` | `blocked` |
-| `reuse-existing-skill` | `advised-reuse` | `cancelled` |
-| `upgrade-existing-skill` | `advised-upgrade` | `cancelled` |
+| Action | Default Admission Status | Default Opportunity Status | Required Fields | Allowed Fields |
+| --- | --- | --- | --- | --- |
+| `create-new-skill` | `open` | `planned` | `suggested_kind` | `suggested_kind` |
+| `clarify-or-merge-boundary` | `blocked` | `blocked` | `primary_skill`, `competing_skill`, `suggested_kind` | `primary_skill`, `competing_skill`, `suggested_kind` |
+| `reuse-existing-skill` | `advised-reuse` | `cancelled` | `target_skill`, `target_kind` | `target_skill`, `target_kind` |
+| `upgrade-existing-skill` | `advised-upgrade` | `cancelled` | `target_skill`, `target_kind`, `suggested_kind` | `target_skill`, `target_kind`, `suggested_kind` |
 
 ### Admission Statuses
 
@@ -117,10 +117,14 @@ Use this reference for volatile token sets and matrices that should not be copie
 
 - policy tiers: `critical`, `experimental`, `standard`
 - target levels: `declared-and-tested`, `declared-only`, `host-smoked`
-- command cwd modes: `bundle-root`, `skill-dir`
-- freshness units: `days`, `hours`
 - result statuses: `fail`, `pass`
 - invalidation reasons: `contract-drift`, `manual-reset`, `superseded`
+
+## Smoke Manifest Governance
+
+- schema version: 1
+- command cwd modes: `bundle-root`, `project-root`, `skill-dir`
+- freshness units: `days`, `hours`
 
 ### Writeability Severities
 

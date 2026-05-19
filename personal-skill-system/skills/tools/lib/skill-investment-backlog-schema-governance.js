@@ -10,6 +10,11 @@ const {
   SKILL_INVESTMENT_BACKLOG_SCHEMA_VERSION,
   INVESTMENT_PRIORITIES
 } = require('./skill-investment-governance');
+const {
+  STABLE_TOP_TIER_BLOCKER_FIELDS,
+  STABLE_TOP_TIER_PRIORITY_ORDER,
+  STABLE_TOP_TIER_UPGRADE_BOARD_CATEGORY_ORDER
+} = require('./skill-top-tier-governance');
 
 const SKILL_INVESTMENT_BACKLOG_SCHEMA_SOURCE = 'generated-from-skill-governance';
 const SKILL_INVESTMENT_BACKLOG_SCHEMA_ID = 'https://code-abyss.local/personal-skill-system/skill-investment-backlog.schema.json';
@@ -110,6 +115,7 @@ function buildSkillInvestmentBacklogSchema() {
       'schema-version',
       'generated-at',
       'sources',
+      'top-tier-portfolio',
       'summary',
       'items'
     ],
@@ -131,6 +137,289 @@ function buildSkillInvestmentBacklogSchema() {
           $ref: '#/$defs/nonEmptyString'
         },
         required: cloneArray(SKILL_INVESTMENT_BACKLOG_CANONICAL_SOURCES)
+      },
+      'top-tier-portfolio': {
+        type: 'object',
+        additionalProperties: false,
+        required: ['summary', 'upgrade-board', 'execution-focus', 'assessments'],
+        properties: {
+          summary: {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'total',
+              'ready',
+              'blocked',
+              'priorities',
+              'categories',
+              'blocked-by-priority'
+            ],
+            properties: {
+              total: buildCounterSchema(),
+              ready: buildCounterSchema(),
+              blocked: buildCounterSchema(),
+              priorities: {
+                type: 'object',
+                additionalProperties: false,
+                required: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER),
+                properties: Object.fromEntries(
+                  cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER).map((priority) => [priority, buildCounterSchema()])
+                )
+              },
+              categories: {
+                type: 'object',
+                additionalProperties: false,
+                required: cloneArray(STABLE_TOP_TIER_BLOCKER_FIELDS),
+                properties: Object.fromEntries(
+                  cloneArray(STABLE_TOP_TIER_BLOCKER_FIELDS).map((field) => [field, buildCounterSchema()])
+                )
+              },
+              'blocked-by-priority': {
+                type: 'object',
+                additionalProperties: false,
+                required: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER),
+                properties: Object.fromEntries(
+                  cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER).map((priority) => [priority, buildCounterSchema()])
+                )
+              }
+            }
+          },
+          'upgrade-board': {
+            type: 'object',
+            additionalProperties: false,
+            required: ['summary', 'lanes', 'groups'],
+            properties: {
+              summary: {
+                type: 'object',
+                additionalProperties: false,
+                required: ['blocked', 'lanes', 'groups', 'next-wave'],
+                properties: {
+                  blocked: buildCounterSchema(),
+                  lanes: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER),
+                    properties: Object.fromEntries(
+                      cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER).map((priority) => [priority, buildCounterSchema()])
+                    )
+                  },
+                  groups: {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: cloneArray(STABLE_TOP_TIER_UPGRADE_BOARD_CATEGORY_ORDER),
+                    properties: Object.fromEntries(
+                      cloneArray(STABLE_TOP_TIER_UPGRADE_BOARD_CATEGORY_ORDER).map((category) => [category, buildCounterSchema()])
+                    )
+                  },
+                  'next-wave': {
+                    type: 'array',
+                    items: {
+                      $ref: '#/$defs/skillName'
+                    },
+                    uniqueItems: true
+                  }
+                }
+              },
+              lanes: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['priority', 'count', 'skills'],
+                  properties: {
+                    priority: {
+                      type: 'string',
+                      enum: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER)
+                    },
+                    count: buildCounterSchema(),
+                    skills: {
+                      type: 'array',
+                      items: {
+                        $ref: '#/$defs/skillName'
+                      },
+                      uniqueItems: true
+                    }
+                  }
+                }
+              },
+              groups: {
+                type: 'array',
+                items: {
+                  type: 'object',
+                  additionalProperties: false,
+                  required: ['category', 'priority', 'title', 'summary', 'count', 'skills', 'follow_up'],
+                  properties: {
+                    category: {
+                      type: 'string',
+                      enum: cloneArray(STABLE_TOP_TIER_UPGRADE_BOARD_CATEGORY_ORDER)
+                    },
+                    priority: {
+                      type: 'string',
+                      enum: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER)
+                    },
+                    title: {
+                      $ref: '#/$defs/nonEmptyString'
+                    },
+                    summary: {
+                      $ref: '#/$defs/nonEmptyString'
+                    },
+                    count: buildCounterSchema(),
+                    skills: {
+                      type: 'array',
+                      items: {
+                        $ref: '#/$defs/skillName'
+                      },
+                      uniqueItems: true
+                    },
+                    follow_up: {
+                      type: 'array',
+                      items: {
+                        $ref: '#/$defs/nonEmptyString'
+                      },
+                      uniqueItems: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          'execution-focus': {
+            type: 'object',
+            additionalProperties: false,
+            required: [
+              'blocked',
+              'next-wave',
+              'next-wave-size',
+              'current-priority-lane',
+              'current-blocker-family',
+              'follow_up'
+            ],
+            properties: {
+              blocked: buildCounterSchema(),
+              'next-wave': {
+                type: 'array',
+                items: {
+                  $ref: '#/$defs/skillName'
+                },
+                uniqueItems: true
+              },
+              'next-wave-size': buildCounterSchema(),
+              'current-priority-lane': {
+                anyOf: [
+                  {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['priority', 'count', 'skills'],
+                    properties: {
+                      priority: {
+                        type: 'string',
+                        enum: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER)
+                      },
+                      count: buildCounterSchema(),
+                      skills: {
+                        type: 'array',
+                        items: {
+                          $ref: '#/$defs/skillName'
+                        },
+                        uniqueItems: true
+                      }
+                    }
+                  },
+                  { type: 'null' }
+                ]
+              },
+              'current-blocker-family': {
+                anyOf: [
+                  {
+                    type: 'object',
+                    additionalProperties: false,
+                    required: ['category', 'priority', 'title', 'summary', 'count', 'skills', 'follow_up'],
+                    properties: {
+                      category: {
+                        type: 'string',
+                        enum: cloneArray(STABLE_TOP_TIER_UPGRADE_BOARD_CATEGORY_ORDER)
+                      },
+                      priority: {
+                        type: 'string',
+                        enum: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER)
+                      },
+                      title: {
+                        $ref: '#/$defs/nonEmptyString'
+                      },
+                      summary: {
+                        $ref: '#/$defs/nonEmptyString'
+                      },
+                      count: buildCounterSchema(),
+                      skills: {
+                        type: 'array',
+                        items: {
+                          $ref: '#/$defs/skillName'
+                        },
+                        uniqueItems: true
+                      },
+                      follow_up: {
+                        type: 'array',
+                        items: {
+                          $ref: '#/$defs/nonEmptyString'
+                        },
+                        uniqueItems: true
+                      }
+                    }
+                  },
+                  { type: 'null' }
+                ]
+              },
+              follow_up: {
+                type: 'array',
+                items: {
+                  $ref: '#/$defs/nonEmptyString'
+                }
+              }
+            }
+          },
+          assessments: {
+            type: 'array',
+            items: {
+              type: 'object',
+              additionalProperties: false,
+              required: [
+                'skill',
+                'kind',
+                'status',
+                'ready',
+                'priority',
+                'blocker-count',
+                'blocker-categories'
+              ],
+              properties: {
+                skill: {
+                  $ref: '#/$defs/skillName'
+                },
+                kind: {
+                  $ref: '#/$defs/nonEmptyString'
+                },
+                status: {
+                  $ref: '#/$defs/nonEmptyString'
+                },
+                ready: {
+                  type: 'boolean'
+                },
+                priority: {
+                  type: 'string',
+                  enum: cloneArray(STABLE_TOP_TIER_PRIORITY_ORDER)
+                },
+                'blocker-count': buildCounterSchema(),
+                'blocker-categories': {
+                  type: 'array',
+                  items: {
+                    $ref: '#/$defs/nonEmptyString'
+                  },
+                  uniqueItems: true
+                }
+              }
+            }
+          }
+        }
       },
       summary: buildBacklogSummarySchema(),
       items: {

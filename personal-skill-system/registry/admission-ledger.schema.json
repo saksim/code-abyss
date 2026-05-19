@@ -137,53 +137,136 @@
             "$ref": "#/$defs/registryId"
           },
           "decision": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "action"
-            ],
-            "properties": {
-              "action": {
-                "type": "string",
-                "enum": [
-                  "create-new-skill",
-                  "clarify-or-merge-boundary",
-                  "reuse-existing-skill",
-                  "upgrade-existing-skill"
-                ]
+            "oneOf": [
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "suggested_kind"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "create-new-skill"
+                  },
+                  "suggested_kind": {
+                    "type": "string",
+                    "enum": [
+                      "router",
+                      "domain",
+                      "workflow",
+                      "tool",
+                      "guard",
+                      "adapter"
+                    ]
+                  }
+                }
               },
-              "target_skill": {
-                "$ref": "#/$defs/skillName"
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "primary_skill",
+                  "competing_skill",
+                  "suggested_kind"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "clarify-or-merge-boundary"
+                  },
+                  "primary_skill": {
+                    "$ref": "#/$defs/skillName"
+                  },
+                  "competing_skill": {
+                    "$ref": "#/$defs/skillName"
+                  },
+                  "suggested_kind": {
+                    "type": "string",
+                    "enum": [
+                      "router",
+                      "domain",
+                      "workflow",
+                      "tool",
+                      "guard",
+                      "adapter"
+                    ]
+                  }
+                }
               },
-              "target_kind": {
-                "type": "string",
-                "enum": [
-                  "router",
-                  "domain",
-                  "workflow",
-                  "tool",
-                  "guard",
-                  "adapter"
-                ]
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "target_skill",
+                  "target_kind"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "reuse-existing-skill"
+                  },
+                  "target_skill": {
+                    "$ref": "#/$defs/skillName"
+                  },
+                  "target_kind": {
+                    "type": "string",
+                    "enum": [
+                      "router",
+                      "domain",
+                      "workflow",
+                      "tool",
+                      "guard",
+                      "adapter"
+                    ]
+                  }
+                }
               },
-              "primary_skill": {
-                "$ref": "#/$defs/skillName"
-              },
-              "competing_skill": {
-                "$ref": "#/$defs/skillName"
-              },
-              "suggested_kind": {
-                "type": "string",
-                "enum": [
-                  "router",
-                  "domain",
-                  "workflow",
-                  "tool",
-                  "guard",
-                  "adapter"
-                ]
+              {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "action",
+                  "target_skill",
+                  "target_kind",
+                  "suggested_kind"
+                ],
+                "properties": {
+                  "action": {
+                    "type": "string",
+                    "const": "upgrade-existing-skill"
+                  },
+                  "target_skill": {
+                    "$ref": "#/$defs/skillName"
+                  },
+                  "target_kind": {
+                    "type": "string",
+                    "enum": [
+                      "router",
+                      "domain",
+                      "workflow",
+                      "tool",
+                      "guard",
+                      "adapter"
+                    ]
+                  },
+                  "suggested_kind": {
+                    "type": "string",
+                    "enum": [
+                      "router",
+                      "domain",
+                      "workflow",
+                      "tool",
+                      "guard",
+                      "adapter"
+                    ]
+                  }
+                }
               }
-            }
+            ]
           },
           "status": {
             "type": "string",

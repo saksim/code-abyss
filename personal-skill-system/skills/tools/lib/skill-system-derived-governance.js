@@ -8,7 +8,9 @@ const {
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT,
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS,
   DERIVED_GOVERNANCE_ARTIFACT_PATHS,
-  DERIVED_GOVERNANCE_REFRESH_STEP_ORDER
+  DERIVED_GOVERNANCE_REFRESH_STEP_ORDER,
+  listDerivedGovernanceRefreshPlan,
+  findDerivedGovernanceRefreshStepByArtifactId
 } = require('./skill-system-derived-governance-contract');
 const {
   getGovernanceArtifactPath,
@@ -54,6 +56,9 @@ const {
   shouldAutoPromoteRuntimeProofLevel,
   getDefaultRuntimeProofLevelForStatus
 } = require('./skill-lifecycle-governance');
+const {
+  dedupeRuntimeProofEntries
+} = require('./skill-runtime-proof-governance');
 const {
   buildSystemReadiness,
   writeSystemReadiness,
@@ -117,6 +122,7 @@ function normalizeRuntimeProofData(runtimeProofData, skillRecords, bundleRoot = 
   if (!nextData || !Array.isArray(nextData.proofs)) {
     throw new Error('runtime proof registry is missing proofs');
   }
+  nextData.proofs = dedupeRuntimeProofEntries(nextData.proofs, { prefer: 'first' });
   const hostSmokeIndex = bundleRoot ? loadHostSmokeRunIndex(bundleRoot) : null;
   if (hostSmokeIndex && !hostSmokeIndex.invalidationIndex) {
     hostSmokeIndex.invalidationIndex = loadHostSmokeInvalidationIndex(bundleRoot);
@@ -220,7 +226,8 @@ function buildDerivedGovernanceState(bundleRoot, context = {}) {
     investmentBacklog: backlogData,
     expertSourceFamilyScorecard: expertSourceFamilyScorecardData,
     hostSmokeScorecard: hostSmokeScorecardData,
-    registryData
+    registryData,
+    ratingsData
   };
   const readiness = context.readiness || buildSystemReadiness(bundleRoot, readinessContext);
   const hostEvolutionContext = {
@@ -469,6 +476,7 @@ function buildDerivedGovernanceExport(bundleRoot, context = {}) {
     recovery: {
       'distribution-scope': 'Copy the exported benchmark subtree back into the same blocked bundle snapshot through a writable distribution or install path.',
       warning: 'These derived artifacts are host-specific because host writeability and host-evolution state are part of the payload.',
+      'refresh-plan': listDerivedGovernanceRefreshPlan(),
       'target-runtime-follow-up': [
         'node personal-skill-system/skills/tools/manage-skill/scripts/run.js diagnose-host-evolution',
         'npm run verify:skill-system'
@@ -635,6 +643,8 @@ module.exports = {
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT,
   DERIVED_GOVERNANCE_EXPORT_ARTIFACT_IDS,
   DERIVED_GOVERNANCE_ARTIFACT_PATHS,
+  listDerivedGovernanceRefreshPlan,
+  findDerivedGovernanceRefreshStepByArtifactId,
   buildDerivedGovernanceState,
   refreshDerivedGovernanceArtifacts,
   buildDerivedGovernanceFingerprint,

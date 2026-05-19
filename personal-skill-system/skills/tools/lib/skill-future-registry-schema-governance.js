@@ -13,6 +13,11 @@ const {
   FUTURE_SKILL_HORIZON_ORDER,
   OPPORTUNITY_STATUS_ORDER,
   ADMISSION_DECISION_ACTIONS,
+  ADMISSION_DECISION_ACTION_ORDER,
+  ADMISSION_DECISION_FIELD_ORDER,
+  getAdmissionDecisionFieldDefinition,
+  getRequiredAdmissionDecisionFields,
+  getAllowedAdmissionDecisionFields,
   ADMISSION_STATUS_ORDER,
   EVOLUTION_LEDGER_STATUS_ORDER,
   PENDING_SCAFFOLD_STATUS_ORDER,
@@ -100,6 +105,48 @@ function buildCountSummarySchema(countKeys) {
     additionalProperties: false,
     required,
     properties
+  };
+}
+
+function buildAdmissionDecisionFieldSchema(fieldName) {
+  const definition = getAdmissionDecisionFieldDefinition(fieldName);
+  if (!definition) {
+    return { type: 'string' };
+  }
+  if (definition.type === 'skill-name') {
+    return { $ref: '#/$defs/skillName' };
+  }
+  if (definition.type === 'kind') {
+    return {
+      type: 'string',
+      enum: cloneArray(FUTURE_SKILL_KINDS)
+    };
+  }
+  return { $ref: '#/$defs/nonEmptyString' };
+}
+
+function buildAdmissionDecisionVariantSchema(action) {
+  const requiredFields = getRequiredAdmissionDecisionFields(action);
+  const allowedFields = new Set(getAllowedAdmissionDecisionFields(action));
+  const variantProperties = {
+    action: {
+      type: 'string',
+      const: action
+    }
+  };
+  const required = ['action', ...requiredFields];
+
+  for (const fieldName of ADMISSION_DECISION_FIELD_ORDER) {
+    if (allowedFields.has(fieldName)) {
+      variantProperties[fieldName] = buildAdmissionDecisionFieldSchema(fieldName);
+    }
+  }
+
+  return {
+    type: 'object',
+    additionalProperties: false,
+    required,
+    properties: variantProperties
   };
 }
 
@@ -246,32 +293,7 @@ function buildAdmissionLedgerSchema() {
           $ref: '#/$defs/registryId'
         },
         decision: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['action'],
-          properties: {
-            action: {
-              type: 'string',
-              enum: cloneArray(FUTURE_REGISTRY_DECISION_ACTIONS)
-            },
-            target_skill: {
-              $ref: '#/$defs/skillName'
-            },
-            target_kind: {
-              type: 'string',
-              enum: cloneArray(FUTURE_SKILL_KINDS)
-            },
-            primary_skill: {
-              $ref: '#/$defs/skillName'
-            },
-            competing_skill: {
-              $ref: '#/$defs/skillName'
-            },
-            suggested_kind: {
-              type: 'string',
-              enum: cloneArray(FUTURE_SKILL_KINDS)
-            }
-          }
+          oneOf: ADMISSION_DECISION_ACTION_ORDER.map((action) => buildAdmissionDecisionVariantSchema(action))
         },
         status: {
           type: 'string',

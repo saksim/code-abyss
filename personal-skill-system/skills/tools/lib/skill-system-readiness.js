@@ -41,10 +41,19 @@ const {
   getExpertSourceFamilyScorecardPath
 } = require('./expert-source-integration');
 const {
+  summarizeStableTopTierBlockers,
+  STABLE_TOP_TIER_BLOCKER_FIELDS,
+  buildStableTopTierPortfolio,
+  buildStableTopTierExecutionFocus
+} = require('./skill-top-tier-governance');
+const {
+  dedupeRuntimeProofEntries
+} = require('./skill-runtime-proof-governance');
+const {
   shouldAppearOnActiveRouteSurface
 } = require('./skill-kind-governance');
 
-const SYSTEM_READINESS_SCHEMA_VERSION = 1;
+const SYSTEM_READINESS_SCHEMA_VERSION = 2;
 const SYSTEM_READINESS_STATUSES = new Set(['ready', 'attention', 'blocked']);
 const SYSTEM_READINESS_STATUS_ORDER = Object.freeze([...SYSTEM_READINESS_STATUSES]);
 const SYSTEM_READINESS_SIGNAL_ORDER = Object.freeze([
@@ -52,6 +61,7 @@ const SYSTEM_READINESS_SIGNAL_ORDER = Object.freeze([
   'route-evidence',
   'runtime-proof',
   'host-smoke',
+  'top-tier-readiness',
   'review-cadence',
   'investment-backlog',
   'expert-source-families',
@@ -74,6 +84,14 @@ const SYSTEM_READINESS_SUMMARY_KEYS = Object.freeze([
   'route-evidence-covered-skills',
   'runtime-proof-entries',
   'host-smoke-capable-skills',
+  'stable-top-tier-blocked-skills',
+  'stable-top-tier-ready-skills',
+  'stable-top-tier-critical-skills',
+  'stable-top-tier-high-skills',
+  'stable-top-tier-normal-skills',
+  'stable-top-tier-clear-skills',
+  'stable-top-tier-next-wave-size',
+  ...STABLE_TOP_TIER_BLOCKER_FIELDS,
   'review-governed-skills',
   'review-overdue-skills',
   'review-due-soon-skills',
@@ -155,7 +173,7 @@ function collectSystemReadinessContext(bundleRoot) {
 
   return {
     skillRecords,
-    runtimeProofs: readArrayField(getRuntimeProofPath(bundleRoot), 'proofs'),
+    runtimeProofs: dedupeRuntimeProofEntries(readArrayField(getRuntimeProofPath(bundleRoot), 'proofs'), { prefer: 'first' }),
     routeFixtures: readArrayField(getRouteFixturesPath(bundleRoot), 'cases')
   };
 }
@@ -322,7 +340,8 @@ function buildRouteEvidenceSignal(skillRecords, routeFixtures) {
 }
 
 function buildRuntimeProofSignal(runtimeProofs, liveScriptedSkills) {
-  const count = Array.isArray(runtimeProofs) ? runtimeProofs.length : 0;
+  const dedupedProofs = dedupeRuntimeProofEntries(runtimeProofs, { prefer: 'first' });
+  const count = dedupedProofs.length;
   return {
     status: count === liveScriptedSkills ? 'ready' : 'attention',
     live_scripted_skills: liveScriptedSkills,
@@ -352,6 +371,35 @@ function buildReviewCadenceSignal(reviewQueue) {
     'missing-metadata': Number(summary['missing-metadata'] || 0),
     'stable-overdue': Number(summary['stable-overdue'] || 0),
     'stable-missing-metadata': Number(summary['stable-missing-metadata'] || 0)
+  };
+}
+
+function buildTopTierReadinessSignal(skillRecords, context = {}) {
+  const topTierSummary = context.topTierSummary || summarizeStableTopTierBlockers(skillRecords, context);
+  const topTierPortfolio = context.topTierPortfolio || buildStableTopTierPortfolio(skillRecords, context);
+  const executionFocus = context.topTierExecutionFocus || buildStableTopTierExecutionFocus(topTierPortfolio);
+  const counts = topTierSummary && topTierSummary.counts ? topTierSummary.counts : {};
+  const blockedSkills = topTierSummary && topTierSummary.blockersBySkill instanceof Map
+    ? [...topTierSummary.blockersBySkill.values()].filter((blockers) => Array.isArray(blockers) && blockers.length > 0).length
+    : 0;
+  const stableSkills = (Array.isArray(skillRecords) ? skillRecords : []).filter((record) => record && record.status === 'stable').length;
+  const portfolioSummary = topTierPortfolio && topTierPortfolio.summary ? topTierPortfolio.summary : {};
+
+  return {
+    status: blockedSkills > 0 ? 'attention' : 'ready',
+    'stable-skills': stableSkills,
+    'blocked-stable-skills': blockedSkills,
+    'ready-stable-skills': Number(portfolioSummary.ready || 0),
+    priorities: {
+      critical: Number((portfolioSummary.priorities || {}).critical || 0),
+      high: Number((portfolioSummary.priorities || {}).high || 0),
+      normal: Number((portfolioSummary.priorities || {}).normal || 0),
+      clear: Number((portfolioSummary.priorities || {}).clear || 0)
+    },
+    'execution-focus': executionFocus,
+    ...Object.fromEntries(
+      STABLE_TOP_TIER_BLOCKER_FIELDS.map((field) => [field, Number(counts[field] || 0)])
+    )
   };
 }
 
@@ -460,7 +508,7 @@ function buildHostSmokeSignal(scorecard, policyEntries) {
 function buildSystemReadiness(bundleRoot, context = {}) {
   const now = Number.isFinite(context.now) ? context.now : Date.now();
   const skillRecords = Array.isArray(context.skillRecords) ? context.skillRecords : [];
-  const runtimeProofs = Array.isArray(context.runtimeProofs) ? context.runtimeProofs : [];
+  const runtimeProofs = dedupeRuntimeProofEntries(context.runtimeProofs, { prefer: 'first' });
   const routeFixtures = Array.isArray(context.routeFixtures) ? context.routeFixtures : [];
   const hostSmokeProofs = Array.isArray(context.hostSmokeProofs)
     ? context.hostSmokeProofs
@@ -473,11 +521,39 @@ function buildSystemReadiness(bundleRoot, context = {}) {
   const scorecard = context.hostSmokeScorecard || buildHostSmokeScorecard(bundleRoot, hostSmokeProofs, { now });
   const policyEntries = normalizeHostSmokePolicyEntries(scorecard, runtimeProofs, skillRecords);
   const liveScriptedSkills = countLiveScriptedSkills(skillRecords);
+  const topTierSummary = context.topTierSummary || summarizeStableTopTierBlockers(skillRecords, {
+    ...context,
+    bundleRoot,
+    runtimeProofData: { proofs: runtimeProofs },
+    routeFixturesData: { cases: routeFixtures },
+    reviewQueueData: reviewQueue,
+    hostSmokeScorecardData: scorecard,
+    ratingsData: context.ratingsData,
+    registryData: context.registryData
+  });
+  const topTierPortfolio = context.topTierPortfolio || buildStableTopTierPortfolio(skillRecords, {
+    ...context,
+    bundleRoot,
+    skillRecords,
+    runtimeProofData: { proofs: runtimeProofs },
+    routeFixturesData: { cases: routeFixtures },
+    reviewQueueData: reviewQueue,
+    hostSmokeScorecardData: scorecard,
+    ratingsData: context.ratingsData,
+    registryData: context.registryData
+  });
+  const topTierExecutionFocus = context.topTierExecutionFocus || buildStableTopTierExecutionFocus(topTierPortfolio);
 
   const benchmarkSignal = buildBenchmarkSignal(bundleRoot);
   const routeEvidenceSignal = buildRouteEvidenceSignal(skillRecords, routeFixtures);
   const runtimeProofSignal = buildRuntimeProofSignal(runtimeProofs, liveScriptedSkills);
   const hostSmokeSignal = buildHostSmokeSignal(scorecard, policyEntries);
+  const topTierReadinessSignal = buildTopTierReadinessSignal(skillRecords, {
+    ...context,
+    topTierSummary,
+    topTierPortfolio,
+    topTierExecutionFocus
+  });
   const reviewCadenceSignal = buildReviewCadenceSignal(reviewQueue);
   const investmentBacklogSignal = buildInvestmentBacklogSignal(investmentBacklog);
   const expertSourceFamiliesSignal = buildExpertSourceFamiliesSignal(expertSourceFamilyScorecard);
@@ -487,6 +563,7 @@ function buildSystemReadiness(bundleRoot, context = {}) {
     routeEvidenceSignal.status,
     runtimeProofSignal.status,
     hostSmokeSignal.status,
+    topTierReadinessSignal.status,
     reviewCadenceSignal.status,
     investmentBacklogSignal.status,
     expertSourceFamiliesSignal.status,
@@ -513,6 +590,7 @@ function buildSystemReadiness(bundleRoot, context = {}) {
       'route-evidence': routeEvidenceSignal,
       'runtime-proof': runtimeProofSignal,
       'host-smoke': hostSmokeSignal,
+      'top-tier-readiness': topTierReadinessSignal,
       'review-cadence': reviewCadenceSignal,
       'investment-backlog': investmentBacklogSignal,
       'expert-source-families': expertSourceFamiliesSignal,
@@ -525,6 +603,16 @@ function buildSystemReadiness(bundleRoot, context = {}) {
       'route-evidence-covered-skills': routeEvidenceSignal.covered_skills,
       'runtime-proof-entries': runtimeProofSignal.runtime_proof_entries,
       'host-smoke-capable-skills': hostSmokeSignal.host_smoke_capable_skills,
+      'stable-top-tier-blocked-skills': topTierReadinessSignal['blocked-stable-skills'],
+      'stable-top-tier-ready-skills': Number(topTierReadinessSignal['ready-stable-skills'] || 0),
+      'stable-top-tier-critical-skills': Number((topTierReadinessSignal.priorities || {}).critical || 0),
+      'stable-top-tier-high-skills': Number((topTierReadinessSignal.priorities || {}).high || 0),
+      'stable-top-tier-normal-skills': Number((topTierReadinessSignal.priorities || {}).normal || 0),
+      'stable-top-tier-clear-skills': Number((topTierReadinessSignal.priorities || {}).clear || 0),
+      'stable-top-tier-next-wave-size': Number((topTierReadinessSignal['execution-focus'] || {})['next-wave-size'] || 0),
+      ...Object.fromEntries(
+        STABLE_TOP_TIER_BLOCKER_FIELDS.map((field) => [field, Number(topTierReadinessSignal[field] || 0)])
+      ),
       'review-governed-skills': reviewCadenceSignal['governed-skills'],
       'review-overdue-skills': reviewCadenceSignal.overdue,
       'review-due-soon-skills': reviewCadenceSignal['due-soon'],
@@ -539,6 +627,7 @@ function buildSystemReadiness(bundleRoot, context = {}) {
     notes: [
       'Generated from benchmark summary, route fixtures, runtime proof registry, host-smoke scorecard, review queue, skill opportunity queue, expert-source family scorecard, pending scaffold registry, and skill investment backlog.',
       'Host-smoke policy is sourced from runtime-proof governance metadata generated from authoritative skill frontmatter.',
+      'Top-tier readiness is sourced from the same centralized stable-skill blocker taxonomy and prioritized portfolio view that drive capability-ratings and assess-top-tier.',
       'Generated artifact writeability is tracked separately so host-level execution constraints do not get mistaken for skill-content defects.'
     ]
   };
@@ -647,8 +736,8 @@ function validateSystemReadiness(bundleRoot, findings, context = {}) {
       severity: probe.ok ? 'error' : 'warning',
       file: portablePath(bundleRoot, readinessPath),
       message: probe.ok
-        ? 'system readiness is out of sync with benchmark summary, route evidence, runtime proof, host-smoke state, or review cadence state'
-        : `system readiness is out of sync with benchmark summary, route evidence, runtime proof, host-smoke state, or review cadence state, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
+        ? 'system readiness is out of sync with benchmark summary, route evidence, runtime proof, host-smoke state, top-tier readiness state, or review cadence state'
+        : `system readiness is out of sync with benchmark summary, route evidence, runtime proof, host-smoke state, top-tier readiness state, or review cadence state, but the artifact is not writable on this host (${probe.code || 'UNKNOWN'})`
     });
   }
 }

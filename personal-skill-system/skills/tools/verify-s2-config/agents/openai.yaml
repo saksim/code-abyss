@@ -1,0 +1,3 @@
+display_name: "Verify S2 Config Tool"
+short_description: "Heuristic validation for AntV S2 configuration misuse in dataCfg, SheetComponent props, imperative sheet lifecycle, pagination wiring, and field mapping shape."
+default_prompt: "Use ~/.agents/skills/tools/verify-s2-config/SKILL.md as the primary instruction source before acting on verify-s2-config."

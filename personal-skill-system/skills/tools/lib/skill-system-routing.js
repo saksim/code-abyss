@@ -3,6 +3,13 @@
 const {
   shouldAppearOnActiveRouteSurface
 } = require('./skill-kind-governance');
+const {
+  isGovernedRouteFixture,
+  routeFixtureReferencesSkill,
+  buildGovernedRouteFixture,
+  hasRouteFixtureEvidence,
+  parseRouteFixtureExpectations
+} = require('./skill-route-fixture-governance');
 
 const EXPLICIT_HINTS = [
   'use ',
@@ -564,99 +571,6 @@ function arraysEqual(left, right) {
   return true;
 }
 
-function isGovernedRouteFixture(fixture) {
-  if (!fixture || typeof fixture !== 'object') {
-    return false;
-  }
-  if (fixture.governed === true) {
-    return true;
-  }
-  return String(fixture.name || '').trim().startsWith('placeholder-route-');
-}
-
-function routeFixtureReferencesSkill(fixture, skillName) {
-  const normalizedSkill = String(skillName || '').trim().toLowerCase();
-  if (!normalizedSkill) {
-    return false;
-  }
-  if (String(fixture && fixture.expect || '').trim().toLowerCase() === normalizedSkill) {
-    return true;
-  }
-  return String(fixture && fixture['expect-fallback-question-contains'] || '').trim().toLowerCase().includes(normalizedSkill);
-}
-
-function hasRouteFixtureEvidence(skillName, fixtures, options = {}) {
-  const includeGoverned = options.includeGoverned !== false;
-  return (Array.isArray(fixtures) ? fixtures : []).some((fixture) => {
-    if (!includeGoverned && isGovernedRouteFixture(fixture)) {
-      return false;
-    }
-    return routeFixtureReferencesSkill(fixture, skillName);
-  });
-}
-
-function normalizeGovernedFixtureToken(value) {
-  return String(value || '')
-    .trim()
-    .replace(/[-_]+/g, ' ')
-    .replace(/\s+/g, ' ');
-}
-
-function isAsciiLikeFixtureToken(value) {
-  return /^[a-z0-9 ]+$/i.test(String(value || '').trim());
-}
-
-function collectGovernedFixtureTokens(skillName, values) {
-  const skillToken = normalizeGovernedFixtureToken(skillName).toLowerCase();
-  const preferred = [];
-  const fallback = [];
-  const seen = new Set();
-
-  for (const raw of Array.isArray(values) ? values : []) {
-    if (/-signal$|-trigger$/i.test(String(raw || '').trim())) {
-      continue;
-    }
-    const normalized = normalizeGovernedFixtureToken(raw);
-    if (!normalized) {
-      continue;
-    }
-    const key = normalized.toLowerCase();
-    if (key === skillToken || seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    if (isAsciiLikeFixtureToken(normalized)) {
-      preferred.push(normalized);
-    } else {
-      fallback.push(normalized);
-    }
-  }
-
-  return preferred.length > 0 ? preferred : fallback;
-}
-
-function buildGovernedRouteFixture(routeDescriptor) {
-  const skillName = String(routeDescriptor && (routeDescriptor.skill || routeDescriptor.name) || '').trim();
-  const terms = collectGovernedFixtureTokens(skillName, [
-    ...(Array.isArray(routeDescriptor && routeDescriptor.triggerKeywords) ? routeDescriptor.triggerKeywords : []),
-    ...(Array.isArray(routeDescriptor && routeDescriptor.aliases) ? routeDescriptor.aliases : [])
-  ]);
-  const firstTerm = terms[0] || '';
-  let query = `Run ${skillName} for this request.`;
-
-  if (firstTerm) {
-    query = `Run ${skillName} for this ${firstTerm} request.`;
-  }
-
-  return {
-    name: `placeholder-route-${skillName}`,
-    query,
-    expect: skillName,
-    'expect-no-fallback': true,
-    governed: true
-  };
-}
-
 function shouldRequireExplicitInvocation(record) {
   return !normalizeStringList(record && record.triggerMode).includes('auto');
 }
@@ -807,29 +721,11 @@ function summarizeTopCandidates(explain, max = 3) {
   return list.map(item => `${item.skill}(${item.rerankScore ?? item.score})`).join(', ');
 }
 
-function parseFixtureExpectations(fixture) {
-  const expectedSkill = typeof fixture.expect === 'string' && fixture.expect.trim() ? fixture.expect : null;
-  const expectedFallbackMode = typeof fixture['expect-fallback-mode'] === 'string' && fixture['expect-fallback-mode'].trim()
-    ? fixture['expect-fallback-mode']
-    : null;
-  const expectedFallbackQuestionContains = typeof fixture['expect-fallback-question-contains'] === 'string' && fixture['expect-fallback-question-contains'].trim()
-    ? fixture['expect-fallback-question-contains'].toLowerCase()
-    : null;
-  const expectNoFallback = fixture['expect-no-fallback'] === true;
-
-  return {
-    expectedSkill,
-    expectedFallbackMode,
-    expectedFallbackQuestionContains,
-    expectNoFallback
-  };
-}
-
 function validateRouteFixtures(targetDir, fixturesPath, fixturesData, routeMapData, registryNames, findings, rel) {
   const fixtures = Array.isArray(fixturesData && fixturesData.cases) ? fixturesData.cases : [];
 
   for (const fixture of fixtures) {
-    const expectations = parseFixtureExpectations(fixture);
+    const expectations = parseRouteFixtureExpectations(fixture);
     if (expectations.expectedSkill && !registryNames.has(expectations.expectedSkill)) {
       findings.push({ severity: 'error', file: rel(targetDir, fixturesPath), message: `route fixture '${fixture.name}' expects unknown skill '${expectations.expectedSkill}'` });
       continue;

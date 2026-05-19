@@ -22,12 +22,11 @@ status: stable
 host-smoke-tier: standard
 host-smoke-target-level: declared-and-tested
 owner: self
-last-reviewed: 2026-04-17
+last-reviewed: 2026-05-18
 review-cycle-days: 30
 tags: [guard, merge]
 aliases: [merge-gate, 合并门禁]
 ---
-
 # Pre-Merge Gate
 
 ## Read These References

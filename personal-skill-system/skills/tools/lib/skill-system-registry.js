@@ -5,10 +5,12 @@ const path = require('path');
 const {
   parseJsonFile,
   rel,
-  validateSmokeManifest,
   probeArtifactWriteAccess,
   collectGeneratedArtifactWriteability
 } = require('./skill-system-common');
+const {
+  validateSmokeManifest
+} = require('./skill-smoke-manifest-governance');
 const {
   loadHostSmokeRunIndex,
   loadHostSmokeInvalidationIndex,
@@ -52,7 +54,8 @@ const {
   RUNTIME_PROOF_SCHEMA_VERSION,
   MIN_RUNTIME_PROOF_CONTRACTS,
   normalizeEvidenceTests,
-  hasRequiredRuntimeProofEvidenceTests
+  hasRequiredRuntimeProofEvidenceTests,
+  dedupeRuntimeProofEntries
 } = require('./skill-runtime-proof-governance');
 const {
   CAPABILITY_RATING_BUCKET_SEQUENCE,
@@ -82,6 +85,9 @@ const {
   validateExpertSourceFamilyScorecard,
   buildExpertSourceTopTierBlockerMap
 } = require('./expert-source-integration');
+const {
+  summarizeStableTopTierBlockers
+} = require('./skill-top-tier-governance');
 const {
   validateExpertSourceSchemas
 } = require('./skill-expert-source-schema-governance');
@@ -351,9 +357,17 @@ function validateSkillLevelSummary(targetDir, ratingsPath, ratingsData, skillRec
     });
   }
 
-  const expectedReviewDebt = summarizeBlockingReviewDebt(skillRecords, {
-    expertSourceBlockersBySkill: options.expertSourceTopTierState && options.expertSourceTopTierState.blockersBySkill
-  });
+  const expectedReviewDebt = summarizeStableTopTierBlockers(skillRecords, {
+    bundleRoot: targetDir,
+    registryData: options.registryData || validateSkillRegistry(targetDir, []),
+    ratingsData: ratingsData,
+    routeFixturesData: options.routeFixturesData ? { cases: options.routeFixturesData } : undefined,
+    routeMapData: options.routeMapData,
+    runtimeProofData: options.runtimeProofData ? { proofs: options.runtimeProofData } : undefined,
+    reviewQueueData: options.reviewQueueData ? { skills: options.reviewQueueData.skills || [] } : undefined,
+    hostSmokeScorecardData: options.hostSmokeScorecardData,
+    expertSourceTopTierState: options.expertSourceTopTierState
+  }).counts;
   for (const field of STABLE_TOP_TIER_BLOCKER_COUNT_FIELDS) {
     const expected = Number(expectedReviewDebt[field] || 0);
     const declared = Number(countFields[field] || 0);
@@ -615,6 +629,7 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
   const schemaData = schema.data || {};
   const registryData = runtimeProof.data || {};
   const proofs = Array.isArray(registryData.proofs) ? registryData.proofs : [];
+  const dedupedProofs = dedupeRuntimeProofEntries(proofs, { prefer: 'first' });
   const governedRuntimeProofRecords = skillRecords.filter((record) => isGovernedRuntimeProofRecord(record));
   const stableScriptedRecords = governedRuntimeProofRecords.filter((record) => record.status === 'stable');
   const stableScriptedNames = new Set(stableScriptedRecords.map((record) => record.name));
@@ -887,11 +902,11 @@ function validateRuntimeProofRegistry(targetDir, skillRecords, findings) {
     }
   }
 
-  validateHostSmokeScorecard(targetDir, registryPath, proofs, findings, hostSmokeIndex);
+  validateHostSmokeScorecard(targetDir, registryPath, dedupedProofs, findings, hostSmokeIndex);
   validateHostSmokeInvalidationLedger(targetDir, findings, hostSmokeIndex);
 
   return {
-    proofs,
+    proofs: dedupedProofs,
     registeredSkills
   };
 }
@@ -1126,7 +1141,9 @@ function validateGeneratedMetadata(targetDir, skillRecords, findings) {
     skillRecords,
     runtimeProofs: runtimeProof.proofs,
     routeFixtures: fixtures,
-    reviewQueue
+    reviewQueue,
+    ratingsData: capabilityRatings && capabilityRatings.data ? capabilityRatings.data : {},
+    registryData: governedRegistry || {}
   });
   validateHostEvolution(targetDir, findings);
   validateGeneratedArtifactWriteability(targetDir, findings);

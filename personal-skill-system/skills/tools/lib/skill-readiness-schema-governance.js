@@ -17,6 +17,9 @@ const {
   SYSTEM_READINESS_BENCHMARK_SUMMARY_STATUS_ORDER
 } = require('./skill-system-readiness');
 const {
+  STABLE_TOP_TIER_BLOCKER_FIELDS
+} = require('./skill-top-tier-governance');
+const {
   HOST_EVOLUTION_SCHEMA_VERSION,
   HOST_EVOLUTION_CAPABILITY_VALUE_ORDER,
   HOST_EVOLUTION_NOTES_MIN_ITEMS
@@ -238,6 +241,91 @@ function buildSharedDefs() {
           $ref: '#/$defs/nonEmptyString'
         }
       }
+    },
+    topTierExecutionLane: {
+      type: ['object', 'null'],
+      additionalProperties: false,
+      required: ['priority', 'count', 'skills'],
+      properties: {
+        priority: {
+          type: 'string',
+          enum: ['critical', 'high', 'normal', 'clear']
+        },
+        count: buildCounterSchema(),
+        skills: {
+          type: 'array',
+          items: {
+            $ref: '#/$defs/nonEmptyString'
+          }
+        }
+      }
+    },
+    topTierExecutionGroup: {
+      type: ['object', 'null'],
+      additionalProperties: false,
+      required: ['category', 'priority', 'title', 'summary', 'count', 'skills', 'follow_up'],
+      properties: {
+        category: {
+          $ref: '#/$defs/nonEmptyString'
+        },
+        priority: {
+          type: 'string',
+          enum: ['critical', 'high', 'normal', 'clear']
+        },
+        title: {
+          $ref: '#/$defs/nonEmptyString'
+        },
+        summary: {
+          $ref: '#/$defs/nonEmptyString'
+        },
+        count: buildCounterSchema(),
+        skills: {
+          type: 'array',
+          items: {
+            $ref: '#/$defs/nonEmptyString'
+          }
+        },
+        follow_up: {
+          type: 'array',
+          items: {
+            $ref: '#/$defs/nonEmptyString'
+          }
+        }
+      }
+    },
+    topTierExecutionFocus: {
+      type: 'object',
+      additionalProperties: false,
+      required: [
+        'blocked',
+        'next-wave',
+        'next-wave-size',
+        'current-priority-lane',
+        'current-blocker-family',
+        'follow_up'
+      ],
+      properties: {
+        blocked: buildCounterSchema(),
+        'next-wave': {
+          type: 'array',
+          items: {
+            $ref: '#/$defs/nonEmptyString'
+          }
+        },
+        'next-wave-size': buildCounterSchema(),
+        'current-priority-lane': {
+          $ref: '#/$defs/topTierExecutionLane'
+        },
+        'current-blocker-family': {
+          $ref: '#/$defs/topTierExecutionGroup'
+        },
+        follow_up: {
+          type: 'array',
+          items: {
+            $ref: '#/$defs/nonEmptyString'
+          }
+        }
+      }
     }
   };
 }
@@ -329,6 +417,9 @@ function buildSystemReadinessSchema() {
           },
           'host-smoke': {
             $ref: '#/$defs/hostSmokeSignal'
+          },
+          'top-tier-readiness': {
+            $ref: '#/$defs/topTierReadinessSignal'
           },
           'review-cadence': {
             $ref: '#/$defs/reviewCadenceSignal'
@@ -441,6 +532,44 @@ function buildSystemReadinessSchema() {
           }
         }
       },
+      topTierReadinessSignal: {
+        type: 'object',
+        additionalProperties: false,
+        required: [
+          'status',
+          'stable-skills',
+          'blocked-stable-skills',
+          'ready-stable-skills',
+          'priorities',
+          'execution-focus',
+          ...cloneArray(STABLE_TOP_TIER_BLOCKER_FIELDS)
+        ],
+        properties: {
+          status: {
+            $ref: '#/$defs/readinessStatus'
+          },
+          'stable-skills': buildCounterSchema(),
+          'blocked-stable-skills': buildCounterSchema(),
+          'ready-stable-skills': buildCounterSchema(),
+          priorities: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['critical', 'high', 'normal', 'clear'],
+            properties: {
+              critical: buildCounterSchema(),
+              high: buildCounterSchema(),
+              normal: buildCounterSchema(),
+              clear: buildCounterSchema()
+            }
+          },
+          'execution-focus': {
+            $ref: '#/$defs/topTierExecutionFocus'
+          },
+          ...Object.fromEntries(
+            cloneArray(STABLE_TOP_TIER_BLOCKER_FIELDS).map((field) => [field, buildCounterSchema()])
+          )
+        }
+      },
       reviewCadenceSignal: {
         type: 'object',
         additionalProperties: false,
@@ -551,6 +680,7 @@ function buildHostEvolutionSchema() {
       'pending-scaffolds',
       'blocked-admissions',
       'host-writeability-debt',
+      'top-tier-execution-focus',
       'follow_up',
       'notes'
     ],
@@ -624,14 +754,18 @@ function buildHostEvolutionSchema() {
           'blocked-governance-artifacts',
           'pending-scaffolds',
           'blocked-admissions',
-          'host-writeability-backlog-items'
+          'host-writeability-backlog-items',
+          'top-tier-next-wave-size',
+          'top-tier-blocked-stable-skills'
         ],
         properties: {
           'active-constraints': buildCounterSchema(),
           'blocked-governance-artifacts': buildCounterSchema(),
           'pending-scaffolds': buildCounterSchema(),
           'blocked-admissions': buildCounterSchema(),
-          'host-writeability-backlog-items': buildCounterSchema()
+          'host-writeability-backlog-items': buildCounterSchema(),
+          'top-tier-next-wave-size': buildCounterSchema(),
+          'top-tier-blocked-stable-skills': buildCounterSchema()
         }
       },
       'active-constraints': {
@@ -658,10 +792,13 @@ function buildHostEvolutionSchema() {
           type: 'object'
         }
       },
+      'top-tier-execution-focus': {
+        $ref: '#/$defs/topTierExecutionFocus'
+      },
       readiness: {
         type: ['object', 'null'],
         additionalProperties: false,
-        required: ['status', 'generated-at', 'host-writeability'],
+        required: ['status', 'generated-at', 'host-writeability', 'top-tier-execution-focus'],
         properties: {
           status: {
             type: ['string', 'null']
@@ -671,6 +808,16 @@ function buildHostEvolutionSchema() {
           },
           'host-writeability': {
             type: ['object', 'null']
+          },
+          'top-tier-execution-focus': {
+            anyOf: [
+              {
+                $ref: '#/$defs/topTierExecutionFocus'
+              },
+              {
+                type: 'null'
+              }
+            ]
           }
         }
       },

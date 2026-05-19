@@ -13,7 +13,7 @@ const {
   SKILL_LEVEL_SUMMARY_BUCKETS
 } = require('./skill-capability-ratings-governance');
 
-const CAPABILITY_RATINGS_SCHEMA_VERSION = 2;
+const CAPABILITY_RATINGS_SCHEMA_VERSION = 3;
 const CAPABILITY_RATINGS_SCHEMA_SOURCE = 'generated-from-skill-governance';
 const CAPABILITY_RATINGS_SCHEMA_ID = 'https://code-abyss.local/personal-skill-system/capability-ratings.schema.json';
 
@@ -113,6 +113,10 @@ function buildCapabilityRatingsSchema() {
               'stable-overdue',
               'stable-missing-metadata',
               'stable-expert-source-blocked',
+              'stable-route-evidence-blocked',
+              'stable-runtime-proof-blocked',
+              'stable-host-smoke-blocked',
+              'stable-module-depth-blocked',
               'stable-blocked-total'
             ],
             properties: {
@@ -123,6 +127,10 @@ function buildCapabilityRatingsSchema() {
               'stable-overdue': buildCounterSchema(),
               'stable-missing-metadata': buildCounterSchema(),
               'stable-expert-source-blocked': buildCounterSchema(),
+              'stable-route-evidence-blocked': buildCounterSchema(),
+              'stable-runtime-proof-blocked': buildCounterSchema(),
+              'stable-host-smoke-blocked': buildCounterSchema(),
+              'stable-module-depth-blocked': buildCounterSchema(),
               'stable-blocked-total': buildCounterSchema()
             }
           }

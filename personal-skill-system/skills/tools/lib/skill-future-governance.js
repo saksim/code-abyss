@@ -8,6 +8,24 @@ const FUTURE_SKILL_KINDS = ALL_SKILL_KINDS;
 const FUTURE_SKILL_PRIORITY_ORDER = Object.freeze(['critical', 'high', 'normal']);
 const FUTURE_SKILL_HORIZON_ORDER = Object.freeze(['now', 'next', 'later']);
 const FUTURE_SKILL_REGISTRY_SOURCE = 'managed-via-manage-skill';
+const ADMISSION_DECISION_FIELD_DEFINITIONS = Object.freeze({
+  target_skill: {
+    type: 'skill-name'
+  },
+  target_kind: {
+    type: 'kind'
+  },
+  primary_skill: {
+    type: 'skill-name'
+  },
+  competing_skill: {
+    type: 'skill-name'
+  },
+  suggested_kind: {
+    type: 'kind'
+  }
+});
+const ADMISSION_DECISION_FIELD_ORDER = Object.freeze(Object.keys(ADMISSION_DECISION_FIELD_DEFINITIONS));
 
 const OPPORTUNITY_STATUS_DEFINITIONS = {
   open: {
@@ -43,19 +61,27 @@ const OPPORTUNITY_STATUS_DEFINITIONS = {
 const ADMISSION_DECISION_ACTION_DEFINITIONS = {
   'create-new-skill': {
     defaultStatus: 'open',
-    opportunityStatus: 'planned'
+    opportunityStatus: 'planned',
+    requiredFields: Object.freeze(['suggested_kind']),
+    allowedFields: Object.freeze(['suggested_kind'])
   },
   'clarify-or-merge-boundary': {
     defaultStatus: 'blocked',
-    opportunityStatus: 'blocked'
+    opportunityStatus: 'blocked',
+    requiredFields: Object.freeze(['primary_skill', 'competing_skill', 'suggested_kind']),
+    allowedFields: Object.freeze(['primary_skill', 'competing_skill', 'suggested_kind'])
   },
   'reuse-existing-skill': {
     defaultStatus: 'advised-reuse',
-    opportunityStatus: 'cancelled'
+    opportunityStatus: 'cancelled',
+    requiredFields: Object.freeze(['target_skill', 'target_kind']),
+    allowedFields: Object.freeze(['target_skill', 'target_kind'])
   },
   'upgrade-existing-skill': {
     defaultStatus: 'advised-upgrade',
-    opportunityStatus: 'cancelled'
+    opportunityStatus: 'cancelled',
+    requiredFields: Object.freeze(['target_skill', 'target_kind', 'suggested_kind']),
+    allowedFields: Object.freeze(['target_skill', 'target_kind', 'suggested_kind'])
   }
 };
 
@@ -149,7 +175,8 @@ const PENDING_SCAFFOLD_STATUS_DEFINITIONS = {
 };
 
 const OPPORTUNITY_STATUS_ORDER = Object.freeze(Object.keys(OPPORTUNITY_STATUS_DEFINITIONS));
-const ADMISSION_DECISION_ACTIONS = new Set(Object.keys(ADMISSION_DECISION_ACTION_DEFINITIONS));
+const ADMISSION_DECISION_ACTION_ORDER = Object.freeze(Object.keys(ADMISSION_DECISION_ACTION_DEFINITIONS));
+const ADMISSION_DECISION_ACTIONS = new Set(ADMISSION_DECISION_ACTION_ORDER);
 const ADMISSION_STATUS_ORDER = Object.freeze(Object.keys(ADMISSION_STATUS_DEFINITIONS));
 const EVOLUTION_LEDGER_STATUS_ORDER = Object.freeze(Object.keys(EVOLUTION_LEDGER_STATUS_DEFINITIONS));
 const PENDING_SCAFFOLD_STATUS_ORDER = Object.freeze(Object.keys(PENDING_SCAFFOLD_STATUS_DEFINITIONS));
@@ -267,6 +294,149 @@ function getAdmissionDecisionDefinition(value) {
   return ADMISSION_DECISION_ACTION_DEFINITIONS[normalizeAdmissionDecisionAction(value)] || null;
 }
 
+function getAdmissionDecisionFieldDefinition(fieldName) {
+  return ADMISSION_DECISION_FIELD_DEFINITIONS[String(fieldName || '').trim()] || null;
+}
+
+function getRequiredAdmissionDecisionFields(action) {
+  const definition = getAdmissionDecisionDefinition(action);
+  return definition ? [...definition.requiredFields] : [];
+}
+
+function getAllowedAdmissionDecisionFields(action) {
+  const definition = getAdmissionDecisionDefinition(action);
+  return definition ? [...definition.allowedFields] : [];
+}
+
+function normalizeAdmissionDecisionField(fieldName, value) {
+  const definition = getAdmissionDecisionFieldDefinition(fieldName);
+  const normalized = normalizeString(value);
+  if (!definition || !normalized) {
+    return normalized;
+  }
+  return normalized;
+}
+
+function normalizeAdmissionDecision(decision) {
+  const action = normalizeAdmissionDecisionAction(decision && decision.action);
+  const definition = getAdmissionDecisionDefinition(action);
+  const fields = definition ? definition.allowedFields : ADMISSION_DECISION_FIELD_ORDER;
+  const normalized = {};
+
+  if (action) {
+    normalized.action = action;
+  }
+
+  for (const fieldName of fields) {
+    const normalizedValue = normalizeAdmissionDecisionField(fieldName, decision && decision[fieldName]);
+    if (normalizedValue) {
+      normalized[fieldName] = normalizedValue;
+    }
+  }
+
+  return normalized;
+}
+
+function collectAdmissionDecisionContractErrors(decision, options = {}) {
+  const normalizedDecision = normalizeAdmissionDecision(decision);
+  const action = normalizeAdmissionDecisionAction(normalizedDecision.action);
+  const definition = getAdmissionDecisionDefinition(action);
+  const errors = [];
+  const skillNames = options.skillNames instanceof Set ? options.skillNames : null;
+  const entrySuggestedKind = normalizeAdmissionDecisionField('suggested_kind', options.entrySuggestedKind);
+
+  if (!action) {
+    errors.push('decision.action is missing');
+    return errors;
+  }
+
+  if (!definition) {
+    errors.push(`unsupported decision.action '${action}'`);
+    return errors;
+  }
+
+  for (const fieldName of definition.requiredFields) {
+    if (!normalizedDecision[fieldName]) {
+      errors.push(`decision '${action}' is missing ${fieldName}`);
+    }
+  }
+
+  for (const fieldName of ADMISSION_DECISION_FIELD_ORDER) {
+    const normalizedValue = normalizeAdmissionDecisionField(fieldName, decision && decision[fieldName]);
+    if (normalizedValue && !definition.allowedFields.includes(fieldName)) {
+      errors.push(`decision '${action}' should not set ${fieldName}`);
+    }
+  }
+
+  for (const fieldName of ['target_kind', 'suggested_kind']) {
+    const value = normalizedDecision[fieldName];
+    if (value && !FUTURE_SKILL_KINDS.has(value)) {
+      errors.push(`decision '${action}' has unsupported ${fieldName} '${value}'`);
+    }
+  }
+
+  if (skillNames) {
+    for (const fieldName of ['target_skill', 'primary_skill', 'competing_skill']) {
+      const value = normalizedDecision[fieldName];
+      if (value && !skillNames.has(value)) {
+        errors.push(`decision '${action}' references unknown ${fieldName} '${value}'`);
+      }
+    }
+  }
+
+  if (
+    normalizedDecision.primary_skill
+    && normalizedDecision.competing_skill
+    && normalizedDecision.primary_skill === normalizedDecision.competing_skill
+  ) {
+    errors.push(`decision '${action}' should not use the same skill for primary_skill and competing_skill`);
+  }
+
+  if (normalizedDecision.suggested_kind && entrySuggestedKind && normalizedDecision.suggested_kind !== entrySuggestedKind) {
+    errors.push(
+      `decision '${action}' suggested_kind '${normalizedDecision.suggested_kind}' does not match entry suggested-kind '${entrySuggestedKind}'`
+    );
+  }
+
+  return errors;
+}
+
+function buildAdmissionDecision(action, fields = {}, options = {}) {
+  const normalizedDecision = normalizeAdmissionDecision({
+    action,
+    ...(fields && typeof fields === 'object' && !Array.isArray(fields) ? fields : {})
+  });
+  const errors = collectAdmissionDecisionContractErrors(normalizedDecision, options);
+  if (options.strict === false || errors.length < 1) {
+    return normalizedDecision;
+  }
+  throw new Error(`admission decision '${normalizeAdmissionDecisionAction(action) || 'unknown'}' violates centralized contract: ${errors.join('; ')}`);
+}
+
+function buildAdmissionOpportunityNote(action, context = {}) {
+  const normalizedAction = normalizeAdmissionDecisionAction(action);
+  const admissionRequestId = normalizeString(context.admissionRequestId);
+  const decision = normalizeAdmissionDecision(context.decision || {});
+  const targetSkill = normalizeAdmissionDecisionField('target_skill', context.targetSkill || decision.target_skill) || 'unknown';
+  const primarySkill = normalizeAdmissionDecisionField('primary_skill', context.primarySkill || decision.primary_skill) || 'unknown';
+  const competingSkill = normalizeAdmissionDecisionField('competing_skill', context.competingSkill || decision.competing_skill) || 'unknown';
+
+  if (normalizedAction === 'create-new-skill') {
+    return `escalated to admission request '${admissionRequestId}' with create-new-skill recommendation`;
+  }
+  if (normalizedAction === 'clarify-or-merge-boundary') {
+    return `escalated to admission request '${admissionRequestId}' and blocked on route-boundary clarification between '${primarySkill}' and '${competingSkill}'`;
+  }
+  if (normalizedAction === 'reuse-existing-skill') {
+    return `resolved by reusing existing skill '${targetSkill}' via admission request '${admissionRequestId}'`;
+  }
+  if (normalizedAction === 'upgrade-existing-skill') {
+    return `resolved by upgrading existing skill '${targetSkill}' via admission request '${admissionRequestId}'`;
+  }
+
+  return '';
+}
+
 function getDefaultAdmissionStatusForDecision(value) {
   const definition = getAdmissionDecisionDefinition(value);
   return definition ? definition.defaultStatus : 'open';
@@ -334,9 +504,12 @@ module.exports = {
   FUTURE_SKILL_PRIORITY_ORDER,
   FUTURE_SKILL_HORIZON_ORDER,
   FUTURE_SKILL_REGISTRY_SOURCE,
+  ADMISSION_DECISION_FIELD_DEFINITIONS,
+  ADMISSION_DECISION_FIELD_ORDER,
   OPPORTUNITY_STATUS_ORDER,
   ACTIVE_OPPORTUNITY_STATUSES,
   CLOSED_OPPORTUNITY_STATUSES,
+  ADMISSION_DECISION_ACTION_ORDER,
   ADMISSION_DECISION_ACTIONS,
   ADMISSION_STATUS_ORDER,
   ACTIVE_ADMISSION_STATUSES,
@@ -358,6 +531,13 @@ module.exports = {
   isClosedOpportunityStatus,
   normalizeAdmissionDecisionAction,
   isKnownAdmissionDecisionAction,
+  getAdmissionDecisionFieldDefinition,
+  getRequiredAdmissionDecisionFields,
+  getAllowedAdmissionDecisionFields,
+  normalizeAdmissionDecision,
+  buildAdmissionDecision,
+  collectAdmissionDecisionContractErrors,
+  buildAdmissionOpportunityNote,
   getDefaultAdmissionStatusForDecision,
   getDefaultOpportunityStatusForDecision,
   normalizeAdmissionStatus,

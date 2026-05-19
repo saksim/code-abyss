@@ -49,7 +49,8 @@ Use this loop when the capability already exists but is not yet top-tier.
 3. move dense detail into named references
 4. harden deterministic runtime or validation behavior where needed
 5. add route, runtime, and review evidence
-6. reassess top-tier readiness through governed tooling
+6. preview the governed hardening blueprint so blocker families and command order are explicit
+7. reassess top-tier readiness through governed tooling
 
 ### 2. Future-Skill Portfolio Evolution
 
@@ -114,7 +115,8 @@ Use this order when hardening a current skill:
 3. remove duplicated expert material
 4. harden scripted behavior
 5. add route fixtures and runtime tests
-6. refresh review cadence and promote lifecycle status only after evidence exists
+6. inspect the governed hardening blueprint before changing lifecycle state
+7. refresh review cadence and promote lifecycle status only after evidence exists
 
 Do not upgrade all skills at once by mass-editing tone or length. Upgrade by removing real failure modes.
 
@@ -131,13 +133,19 @@ Every future skill should start from the canonical scaffold and inherit:
 
 This is the main mechanism that keeps future additions cheap and consistent.
 
+Canonical templates should not only be inspectable; they should be governable through the same preview-first loop as live skills. Template review debt, host-metadata drift, scripted-stub breakage, and reference-floor erosion should be previewable through one hardening blueprint before the next generation of skills inherits that drift.
+
 Kind-level system rules should also stay centralized instead of being redefined in scattered validators, scaffolders, and routing helpers. Future kind expansion should start from one governed definition surface, then let downstream tooling consume it.
 
 Lifecycle-level system rules should stay centralized too. Status semantics, review-governed coverage, runtime-proof-governed coverage, and evolution-action defaults should come from one governed definition surface instead of being redefined separately in CLI flows, validators, and readiness tooling.
 
 Capability-ratings system rules should stay centralized too. Rating buckets, next-batch promotion policy, mirrored ratings-doc sync behavior, and top-ready blocker construction should come from one governed definition surface instead of being redefined separately across CLI write paths, validators, self-smoke refresh flows, and top-tier promotion checks.
 
+Route-fixture system rules should stay centralized too. Placeholder fixture naming, governed-fixture query generation, real-evidence vs governed-evidence semantics, and fallback expectation parsing should come from one governed definition surface instead of being redefined separately across routing validators, top-tier promotion checks, hardening blueprints, and skill CRUD flows.
+
 Host-level system rules should stay centralized as well. Host-smoke policy tiers, host-smoke contract enums, governed runtime-proof eligibility, and host-writeability severity rules should come from one governed definition surface instead of being redefined separately across runtime validators, readiness artifacts, host-smoke runners, and recovery tooling.
+
+Smoke-manifest rules should stay centralized too. The `scripts/smoke.json` schema version, command cwd modes, freshness units, path helper, and validation rules should come from one governed definition surface instead of being redefined separately across templates, runtime-proof construction, skill validation, and host-smoke normalization.
 
 Derived-governance refresh rules should stay centralized too. The refresh order and rebuild semantics for runtime-proof promotion floors, review queue regeneration, capability-ratings sync, expert-source scorecards, host-smoke scorecards, investment backlog regeneration, and blocked-host export payloads should come from one governed definition surface instead of being redefined separately in self-smoke scripts, export paths, and future recovery helpers.
 

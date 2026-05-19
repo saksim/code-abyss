@@ -11,12 +11,14 @@ const {
 } = require('./skill-generated-artifact-governance');
 const {
   HOST_SMOKE_RESULT_STATUSES,
-  HOST_SMOKE_COMMAND_CWD_MODES,
-  HOST_SMOKE_FRESHNESS_UNITS,
   HOST_SMOKE_EVIDENCE_STATUSES,
   HOST_SMOKE_GOVERNANCE_STATUSES,
   HOST_SMOKE_INVALIDATION_REASONS
 } = require('./skill-host-governance');
+const {
+  SMOKE_MANIFEST_COMMAND_CWD_MODES,
+  SMOKE_MANIFEST_FRESHNESS_UNITS
+} = require('./skill-smoke-manifest-governance');
 
 const HOST_SMOKE_RUN_SCHEMA_VERSION = 1;
 const HOST_SMOKE_SCORECARD_SCHEMA_VERSION = 1;
@@ -57,7 +59,7 @@ function normalizeHostSmokeContract(hostSmoke) {
   const freshness = isPlainObject(hostSmoke.freshness)
     ? {
         maxAge: Number.isInteger(hostSmoke.freshness['max-age']) ? hostSmoke.freshness['max-age'] : null,
-        unit: HOST_SMOKE_FRESHNESS_UNITS.has(hostSmoke.freshness.unit) ? hostSmoke.freshness.unit : null
+        unit: SMOKE_MANIFEST_FRESHNESS_UNITS.has(hostSmoke.freshness.unit) ? hostSmoke.freshness.unit : null
       }
     : null;
   return {
@@ -291,7 +293,7 @@ function isHostSmokeArtifactInvalidated(invalidationIndex, skillName, runId) {
 function normalizeHostSmokeRunCommand(command) {
   if (!isPlainObject(command)) return null;
   const normalized = {
-    ...(command.cwd && HOST_SMOKE_COMMAND_CWD_MODES.has(command.cwd) ? { cwd: command.cwd } : {}),
+    ...(command.cwd && SMOKE_MANIFEST_COMMAND_CWD_MODES.has(command.cwd) ? { cwd: command.cwd } : {}),
     argv: Array.isArray(command.argv) ? [...command.argv] : [],
     expect: normalizeScalarObject(command.expect),
     status: HOST_SMOKE_RESULT_STATUSES.has(command.status) ? command.status : 'fail',
@@ -477,7 +479,7 @@ function getFreshnessWindowMs(freshness) {
     return null;
   }
   const maxAge = Number.isInteger(freshness['max-age']) ? freshness['max-age'] : null;
-  const unit = HOST_SMOKE_FRESHNESS_UNITS.has(freshness.unit) ? freshness.unit : null;
+  const unit = SMOKE_MANIFEST_FRESHNESS_UNITS.has(freshness.unit) ? freshness.unit : null;
   if (!maxAge || !unit) {
     return null;
   }

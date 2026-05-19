@@ -5,7 +5,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const { parseArgs, resolveTarget, emit } = require('../../lib/runtime');
+const { parseArgs, resolveSkillBundleTarget, emit } = require('../../lib/runtime');
 const { analyzeSkillSystem } = require('../../lib/skill-system');
 const {
   refreshDerivedGovernanceArtifacts
@@ -13,7 +13,7 @@ const {
 
 const args = parseArgs(process.argv.slice(2));
 const selfSmoke = process.argv.includes('--self-smoke');
-const target = resolveTarget(args.target);
+const target = resolveSkillBundleTarget(args.target, { scriptPath: __filename });
 const report = selfSmoke
   ? runSelfSmoke(target, args)
   : analyzeSkillSystem(target, args);

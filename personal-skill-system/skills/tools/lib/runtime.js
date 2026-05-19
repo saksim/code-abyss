@@ -25,6 +25,7 @@ const TEXT_EXTS = new Set([
   '.md', '.txt', '.json', '.yml', '.yaml', '.toml', '.ini', '.cfg', '.conf',
   '.sh', '.ps1', '.sql', '.css', '.scss', '.html', '.xml'
 ]);
+const SKILL_BUNDLE_DIRNAME = 'personal-skill-system';
 
 function parseArgs(argv) {
   const args = {
@@ -153,6 +154,82 @@ function resolveTarget(target) {
   }
 
   return findExistingAncestorRelativeTarget(value, process.cwd()) || direct;
+}
+
+function isExistingDirectory(candidate) {
+  try {
+    return fs.existsSync(candidate) && fs.statSync(candidate).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+function getDirectoryCandidate(targetPath) {
+  const resolved = path.resolve(String(targetPath || '.').trim() || '.');
+  if (!fs.existsSync(resolved)) {
+    return resolved;
+  }
+  try {
+    return fs.statSync(resolved).isDirectory() ? resolved : path.dirname(resolved);
+  } catch {
+    return resolved;
+  }
+}
+
+function looksLikeSkillBundleRoot(candidate) {
+  if (!isExistingDirectory(candidate)) {
+    return false;
+  }
+  if (path.basename(candidate) === SKILL_BUNDLE_DIRNAME) {
+    return true;
+  }
+  return isExistingDirectory(path.join(candidate, 'skills'))
+    && (
+      isExistingDirectory(path.join(candidate, 'registry'))
+      || isExistingDirectory(path.join(candidate, 'templates'))
+      || isExistingDirectory(path.join(candidate, 'docs'))
+    );
+}
+
+function getContainedSkillBundleRoot(candidate) {
+  if (!isExistingDirectory(candidate)) {
+    return null;
+  }
+  if (looksLikeSkillBundleRoot(candidate)) {
+    return path.resolve(candidate);
+  }
+  const child = path.join(candidate, SKILL_BUNDLE_DIRNAME);
+  return looksLikeSkillBundleRoot(child) ? child : null;
+}
+
+function findSkillBundleRoot(startPath) {
+  let current = getDirectoryCandidate(startPath);
+  while (true) {
+    const match = getContainedSkillBundleRoot(current);
+    if (match) {
+      return match;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+  return null;
+}
+
+function resolveSkillBundleTarget(target, options = {}) {
+  const direct = resolveTarget(target);
+  return findSkillBundleRoot(direct)
+    || (options.scriptPath ? findSkillBundleRoot(path.dirname(options.scriptPath)) : null)
+    || direct;
+}
+
+function resolveSkillProjectRoot(options = {}) {
+  const startDir = options.startDir || process.cwd();
+  const bundleRoot = findSkillBundleRoot(startDir)
+    || (options.scriptPath ? findSkillBundleRoot(path.dirname(options.scriptPath)) : null);
+  return bundleRoot ? path.dirname(bundleRoot) : path.resolve(startDir);
 }
 
 function walkFiles(root, options = {}) {
@@ -495,6 +572,8 @@ function listChangedFiles(startDir, mode, options = {}) {
 module.exports = {
   parseArgs,
   resolveTarget,
+  resolveSkillBundleTarget,
+  resolveSkillProjectRoot,
   walkFiles,
   readText,
   relativeTo,
