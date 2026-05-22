@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "hosts": {
+    "claude": {
+      "required": [
+        "gstack"
+      ],
+      "optional": [],
+      "optional_policy": "auto",
+      "sources": {
+        "gstack": "pinned"
+      }
+    },
+    "codex": {
+      "required": [
+        "gstack"
+      ],
+      "optional": [],
+      "optional_policy": "auto",
+      "sources": {
+        "gstack": "pinned"
+      }
+    },
+    "gemini": {
+      "required": [
+        "gstack"
+      ],
+      "optional": [],
+      "optional_policy": "auto",
+      "sources": {
+        "gstack": "pinned"
+      }
+    }
+  }
+}
