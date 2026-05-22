@@ -18,12 +18,13 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run verify:skills
+      - run: npm run verify:skill-system
       - run: npm run packs:check
       - run: npm run packs:vendor:sync -- --check
-      - run: node skills/tools/verify-change/scripts/change_analyzer.js --mode staged || node skills/tools/verify-change/scripts/change_analyzer.js --mode working
-      - run: node skills/tools/verify-module/scripts/module_scanner.js .
-      - run: node skills/tools/verify-quality/scripts/quality_checker.js .
-      - run: node skills/tools/verify-security/scripts/security_scanner.js .
+      - run: node personal-skill-system/skills/tools/verify-change/scripts/run.js --mode staged || node personal-skill-system/skills/tools/verify-change/scripts/run.js --mode working
+      - run: node personal-skill-system/skills/tools/verify-module/scripts/run.js .
+      - run: node personal-skill-system/skills/tools/verify-quality/scripts/run.js .
+      - run: node personal-skill-system/skills/tools/verify-security/scripts/run.js .
 
   smoke-claude:
     runs-on: ${{ matrix.os }}
@@ -102,17 +103,20 @@ jobs:
 
           npx --yes --package "./$pkg_tgz" code-abyss --target codex -y
 
-          test ! -e "$abyss_home/.codex/AGENTS.md"
+          test -f "$abyss_home/.codex/AGENTS.md"
+          test -d "$abyss_home/.codex/skills"
           test -d "$abyss_home/.agents/skills"
-          test -d "$abyss_home/.agents/bin/lib"
+          test -d "$abyss_home/.codex/bin/lib"
           test -f "$abyss_home/.agents/skills/gstack/review/SKILL.md"
           test -f "$abyss_home/.codex/config.toml"
+          test -f "$abyss_home/.codex/instruction.md"
           test ! -e "$abyss_home/.codex/settings.json"
           test -f "$abyss_home/.codex/.sage-uninstall.js"
 
           npx --yes --package "./$pkg_tgz" code-abyss --uninstall codex
 
           test ! -e "$abyss_home/.codex/AGENTS.md"
+          test ! -e "$abyss_home/.codex/skills"
           test ! -e "$abyss_home/.agents/skills"
           test ! -e "$abyss_home/.codex/.sage-backup"
 

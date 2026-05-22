@@ -453,7 +453,6 @@ function cleanupLegacyCodexRuntime({
   info = () => {},
 }) {
   const legacyTargets = [
-    { relPath: 'AGENTS.md', label: 'AGENTS.md' },
     { relPath: 'prompts', label: 'prompts/' },
   ];
 

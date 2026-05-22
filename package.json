@@ -37,7 +37,7 @@
     "node": ">=18.0.0"
   },
   "scripts": {
-    "test": "jest",
+    "test": "jest --runInBand",
     "verify:skills": "node bin/verify-skills-contract.js",
     "verify:skill-system": "node personal-skill-system/skills/tools/verify-skill-system/scripts/run.js --target personal-skill-system && node bin/verify-skill-distribution.js",
     "packs:init": "node bin/packs.js init",

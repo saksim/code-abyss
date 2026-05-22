@@ -235,6 +235,44 @@ function manifestLabel(entry, defaultRoot) {
     : `${normalized.root}/${normalized.path}`;
 }
 
+function cleanupEmptyManagedAncestors(targetPath, stopDir) {
+  if (!targetPath || !stopDir) return;
+
+  const boundary = path.resolve(stopDir);
+  let current = path.resolve(path.dirname(targetPath));
+
+  while (current !== boundary) {
+    if (!current.startsWith(`${boundary}${path.sep}`)) return;
+    if (!fs.existsSync(current)) {
+      current = path.dirname(current);
+      continue;
+    }
+
+    let stat;
+    try {
+      stat = fs.lstatSync(current);
+    } catch {
+      return;
+    }
+    if (!stat.isDirectory()) return;
+
+    let entries;
+    try {
+      entries = fs.readdirSync(current);
+    } catch {
+      return;
+    }
+    if (entries.length > 0) return;
+
+    try {
+      fs.rmdirSync(current);
+    } catch {
+      return;
+    }
+    current = path.dirname(current);
+  }
+}
+
 // ── CLI 参数 ──
 
 const args = process.argv.slice(2);
@@ -313,6 +351,7 @@ function runUninstall(tgt) {
     const targetPath = path.join(installRoot, normalized.path);
     if (fs.existsSync(targetPath)) {
       rmSafe(targetPath);
+      cleanupEmptyManagedAncestors(targetPath, installRoot);
       console.log(`  ${c.red('✘')} ${manifestLabel(entry, tgt)}`);
     }
   });
@@ -800,7 +839,7 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
       });
     }
   } else if (tgt === 'codex') {
-    // Codex 走 skills-only：不再生成 ~/.codex/AGENTS.md，项目声明的 pack 自动装入 ~/.agents/skills/
+    // Codex 以 skills-first runtime 为主，同时保留 ~/.codex/AGENTS.md 作为 persona/style guidance。
     if (packPlan.selected.includes('gstack')) {
       const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
       const result = installGstackCodexPack({
@@ -905,8 +944,6 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
     pruneLegacyCodexSettings(tgt, backupDir, manifest);
   }
 
-  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
-
   // 根据独立选择的 persona 覆盖 CLAUDE.md / GEMINI.md
   if (selectedPersona) {
     const personaContent = readPersonaContent(PKG_ROOT, selectedPersona);
@@ -920,13 +957,18 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
       fs.writeFileSync(geminiMdPath, guidance);
       ok(`人格（心）→ ${c.mag(selectedPersona.label)} (${selectedPersona.slug})`);
     } else if (tgt === 'codex') {
-      const agentsMdPath = path.join(targetDir, 'AGENTS.md');
+      const relPath = 'AGENTS.md';
+      backupManagedPathIfExists(tgt, 'codex', backupDir, relPath, manifest);
+      const agentsMdPath = path.join(targetDir, relPath);
       const guidance = renderCodexAgents(PKG_ROOT, selectedStyle.slug, selectedPersona.slug);
       fs.writeFileSync(agentsMdPath, guidance);
+      pushManifestEntry(manifest.installed, 'codex', relPath);
       ok(`人格（心）→ ${c.mag(selectedPersona.label)} (${selectedPersona.slug})`);
       ok(`风格（口）→ ${c.mag(selectedStyle.label)} → ~/.codex/AGENTS.md`);
     }
   }
+
+  fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + '\n');
 
   const uSrc = path.join(PKG_ROOT, 'bin', 'uninstall.js');
   const uDest = path.join(targetDir, '.sage-uninstall.js');
@@ -1149,10 +1191,14 @@ function finish(ctx) {
   if (ctx.packPlan && ctx.packPlan.root) {
     const projectLock = readProjectPackLock(ctx.packPlan.root);
     if (projectLock) {
-      const bootstrap = syncProjectBootstrapArtifacts(ctx.packPlan.root, projectLock.lock);
-      const updatedDocs = bootstrap.docs.filter((entry) => entry.action !== 'skipped');
-      if (updatedDocs.length > 0) {
-        updatedDocs.forEach((entry) => console.log(`  ${c.b('文档同步:')} ${entry.action} ${entry.filePath}`));
+      try {
+        const bootstrap = syncProjectBootstrapArtifacts(ctx.packPlan.root, projectLock.lock);
+        const updatedDocs = bootstrap.docs.filter((entry) => entry.action !== 'skipped');
+        if (updatedDocs.length > 0) {
+          updatedDocs.forEach((entry) => console.log(`  ${c.b('文档同步:')} ${entry.action} ${entry.filePath}`));
+        }
+      } catch (error) {
+        warn(`bootstrap artifact skipped: ${error.message}`);
       }
     }
   }
@@ -1172,6 +1218,7 @@ if (require.main === module) {
 module.exports = {
   deepMergeNew, detectClaudeAuth, detectCodexAuth,
   detectCcstatusline, copyRecursive, shouldSkip, SETTINGS_TEMPLATE,
+  finish,
   scanInvocableSkills,
   generateCommandContent,
   generateGeminiCommandContent,
