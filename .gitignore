@@ -53,3 +53,12 @@ node_modules/
 .ace-tool/
 .code-abyss/reports/
 .npmrc
+tmp-npm-cache-*/
+tmp-npm-cache-pack-*/
+tmp-npm-cache-release/
+tmp-npm-cache-verify/
+tmp-pssp-manual-*/
+tmp-pssp-smoke-*/
+tmp-pssp-probe/
+**/.codex-write-probe*
+**/.codex-dir-probe-*
