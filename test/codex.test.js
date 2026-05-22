@@ -75,7 +75,7 @@ describe('codex adapter', () => {
     ]);
   });
 
-  test('cleanupLegacyCodexRuntime: 清理旧 AGENTS 与 prompts 残留', () => {
+  test('cleanupLegacyCodexRuntime: 仅清理 legacy prompts 残留', () => {
     const codexDir = path.join(tmpHome, '.codex');
     fs.mkdirSync(path.join(codexDir, 'prompts'), { recursive: true });
     fs.writeFileSync(path.join(codexDir, 'AGENTS.md'), '# old\n');
@@ -87,10 +87,9 @@ describe('codex adapter', () => {
       info: (msg) => infos.push(msg),
     });
 
-    expect(removed.sort()).toEqual(['AGENTS.md', 'prompts/']);
-    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(removed.sort()).toEqual(['prompts/']);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
-    expect(infos.join('\n')).toContain('AGENTS.md');
     expect(infos.join('\n')).toContain('prompts/');
   });
 

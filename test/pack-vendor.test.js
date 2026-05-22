@@ -12,6 +12,10 @@ const {
 } = require('../bin/lib/pack-vendor');
 const { validatePackManifest } = require('../bin/lib/pack-registry');
 
+function isSpawnBlocked(result) {
+  return !!(result && result.status == null && result.error && result.error.code === 'EPERM');
+}
+
 describe('pack vendor providers', () => {
   let tmpDir;
 
@@ -72,6 +76,10 @@ describe('pack vendor providers', () => {
     const zipResult = process.platform === 'win32'
       ? spawnSync('powershell', ['-NoProfile', '-Command', `Compress-Archive -Path '${sourceDir}\\*' -DestinationPath '${archivePath}' -Force`], { encoding: 'utf8' })
       : spawnSync('zip', ['-rq', archivePath, '.'], { cwd: sourceDir, encoding: 'utf8' });
+    if (isSpawnBlocked(zipResult)) {
+      expect(zipResult.error).toEqual(expect.objectContaining({ code: 'EPERM' }));
+      return;
+    }
     expect(zipResult.status).toBe(0);
     writeManifest('archive-pack', { provider: 'archive', path: 'archive-source.zip' });
 

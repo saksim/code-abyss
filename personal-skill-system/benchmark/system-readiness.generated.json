@@ -1,6 +1,6 @@
 {
   "schema-version": 2,
-  "generated-at": "2026-05-19T13:22:53.277Z",
+  "generated-at": "2026-05-20T12:12:51.151Z",
   "sources": {
     "benchmark-summary": "benchmark/summary.generated.json",
     "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",
@@ -12,7 +12,7 @@
     "pending-scaffolds": "registry/pending-scaffolds.generated.json",
     "skill-investment-backlog": "registry/skill-investment-backlog.generated.json"
   },
-  "status": "attention",
+  "status": "ready",
   "signals": {
     "benchmark": {
       "status": "ready",
@@ -85,11 +85,11 @@
       "stable-blocked-total": 0
     },
     "review-cadence": {
-      "status": "attention",
+      "status": "ready",
       "governed-skills": 39,
       "overdue": 0,
-      "due-soon": 3,
-      "scheduled": 36,
+      "due-soon": 0,
+      "scheduled": 39,
       "missing-metadata": 0,
       "stable-overdue": 0,
       "stable-missing-metadata": 0
@@ -273,7 +273,7 @@
     "stable-blocked-total": 0,
     "review-governed-skills": 39,
     "review-overdue-skills": 0,
-    "review-due-soon-skills": 3,
+    "review-due-soon-skills": 0,
     "review-missing-metadata-skills": 0,
     "investment-backlog-items": 0,
     "investment-backlog-critical": 0,

@@ -11,6 +11,7 @@ const {
   copyRecursive,
   shouldSkip,
   SETTINGS_TEMPLATE,
+  finish,
 } = require('../bin/install');
 
 describe('deepMergeNew', () => {
@@ -148,5 +149,99 @@ describe('SETTINGS_TEMPLATE', () => {
     expect(SETTINGS_TEMPLATE).toHaveProperty('env');
     expect(SETTINGS_TEMPLATE).toHaveProperty('permissions');
     expect(SETTINGS_TEMPLATE).toHaveProperty('outputStyle');
+  });
+});
+
+describe('finish', () => {
+  test('non-critical pack report/bootstrap write failures do not throw', () => {
+    const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    const originalWriteFileSync = fs.writeFileSync;
+    const originalMkdirSync = fs.mkdirSync;
+    const originalExistsSync = fs.existsSync;
+
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-finish-'));
+    const projectRoot = path.join(tmpDir, 'repo');
+    const targetDir = path.join(tmpDir, '.codex');
+    const backupDir = path.join(targetDir, '.sage-backup');
+    const manifestPath = path.join(backupDir, 'manifest.json');
+    const lockPath = path.join(projectRoot, '.code-abyss', 'packs.lock.json');
+    const reportDir = path.join(projectRoot, '.code-abyss', 'reports');
+    const snippetDir = path.join(projectRoot, '.code-abyss', 'snippets');
+
+    fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
+    fs.mkdirSync(path.dirname(lockPath), { recursive: true });
+    originalWriteFileSync.call(fs, manifestPath, '{}\n');
+    originalWriteFileSync.call(fs, lockPath, `${JSON.stringify({
+      version: 1,
+      hosts: {
+        claude: { required: [], optional: [], optional_policy: 'auto', sources: {} },
+        codex: { required: ['gstack'], optional: [], optional_policy: 'auto', sources: {} },
+        gemini: { required: [], optional: [], optional_policy: 'auto', sources: {} }
+      }
+    }, null, 2)}\n`);
+
+    fs.writeFileSync = jest.fn((filePath, ...args) => {
+      const normalized = path.normalize(String(filePath));
+      if (normalized.startsWith(path.normalize(reportDir)) || normalized.startsWith(path.normalize(snippetDir))) {
+        const error = new Error(`EPERM: operation not permitted, open '${filePath}'`);
+        error.code = 'EPERM';
+        throw error;
+      }
+      return originalWriteFileSync.call(fs, filePath, ...args);
+    });
+    fs.mkdirSync = jest.fn((dirPath, ...args) => {
+      const normalized = path.normalize(String(dirPath));
+      if (normalized.startsWith(path.normalize(reportDir)) || normalized.startsWith(path.normalize(snippetDir))) {
+        const error = new Error(`EPERM: operation not permitted, mkdir '${dirPath}'`);
+        error.code = 'EPERM';
+        throw error;
+      }
+      return originalMkdirSync.call(fs, dirPath, ...args);
+    });
+    fs.existsSync = jest.fn((filePath) => originalExistsSync.call(fs, filePath));
+
+    try {
+      expect(() => finish({
+        targetDir,
+        manifestPath,
+        hostEvolution: {
+          action: 'diagnose-host-evolution',
+          status: 'ready',
+          artifact: 'personal-skill-system/benchmark/host-evolution.generated.json',
+          capabilities: {
+            'create-authoritative-skill': 'available',
+            'rewrite-generated-governance': 'available'
+          }
+        },
+        manifest: {
+          target: 'codex',
+          installed: [],
+          backups: [],
+          style: 'abyss-cultivator',
+          project_packs: ['gstack'],
+          optional_policy: 'auto',
+          pack_reports: [{ pack: 'abyss', host: 'codex', status: 'installed', source: 'bundled' }]
+        },
+        packPlan: {
+          root: projectRoot,
+          required: ['gstack'],
+          optional: [],
+          selected: ['gstack'],
+          optionalPolicy: 'auto',
+          sources: {}
+        }
+      })).not.toThrow();
+
+      const output = logSpy.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(output).toContain('report artifact skipped');
+      expect(output).toContain('bootstrap artifact skipped');
+      expect(output).toContain('安装完成');
+    } finally {
+      fs.writeFileSync = originalWriteFileSync;
+      fs.mkdirSync = originalMkdirSync;
+      fs.existsSync = originalExistsSync;
+      logSpy.mockRestore();
+      fs.rmSync(tmpDir, { recursive: true, force: true });
+    }
   });
 });

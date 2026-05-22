@@ -23,6 +23,16 @@ function cleanupHomeRoot(tmpHome) {
   } catch {}
 }
 
+function isSpawnBlocked(result) {
+  return !!(result && result.status == null && result.error && result.error.code === 'EPERM');
+}
+
+function bailIfSpawnBlocked(result) {
+  if (!isSpawnBlocked(result)) return false;
+  expect(result.error).toEqual(expect.objectContaining({ code: 'EPERM' }));
+  return true;
+}
+
 describe('install cli styles', () => {
   test('--list-styles 列出可用风格', () => {
     const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'install.js'), '--list-styles'], {
@@ -30,6 +40,7 @@ describe('install cli styles', () => {
       encoding: 'utf8',
     });
 
+    if (bailIfSpawnBlocked(result)) return;
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('abyss-cultivator');
     expect(result.stdout).toContain('scholar-classic');
@@ -62,6 +73,7 @@ describe('claude install smoke', () => {
 
   test('安装 Claude 时生成 commands 与 settings.json', () => {
     const result = runInstall(['--target', 'claude', '-y']);
+    if (bailIfSpawnBlocked(result)) return;
     const claudeDir = path.join(tmpHome, '.claude');
 
     expect(result.status).toBe(0);
@@ -86,6 +98,7 @@ describe('claude install smoke', () => {
 
   test('安装 Claude 时支持 --style 切换 outputStyle', () => {
     const result = runInstall(['--target', 'claude', '--style', 'scholar-classic', '-y']);
+    if (bailIfSpawnBlocked(result)) return;
     const claudeDir = path.join(tmpHome, '.claude');
     const settings = JSON.parse(fs.readFileSync(path.join(claudeDir, 'settings.json'), 'utf8'));
 
@@ -119,8 +132,10 @@ describe('codex install smoke', () => {
 
   test('安装 Codex 时生成 AGENTS.md + skills 且不写 settings.json', () => {
     const result = runInstall(['--target', 'codex', '-y']);
+    if (bailIfSpawnBlocked(result)) return;
     const codexDir = path.join(tmpHome, '.codex');
     const codexConfig = fs.readFileSync(path.join(codexDir, 'config.toml'), 'utf8');
+    const manifest = readBackupManifest(codexDir);
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
@@ -133,11 +148,14 @@ describe('codex install smoke', () => {
     expect(fs.existsSync(path.join(tmpHome, '.agents', 'personal-skill-system', 'benchmark', 'host-evolution.generated.json'))).toBe(true);
     expect(result.stdout).toContain('Self-evolution:');
     expect(result.stdout).toContain('Self-evolution artifact:');
-    expect(readBackupManifest(codexDir).host_evolution).toEqual(expect.objectContaining({
+    expect(manifest.host_evolution).toEqual(expect.objectContaining({
       action: 'diagnose-host-evolution',
       status: expect.any(String),
       artifact: expect.any(String)
     }));
+    expect(manifest.installed).toEqual(expect.arrayContaining([
+      expect.objectContaining({ root: 'codex', path: 'AGENTS.md' })
+    ]));
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
     const agentsMd = fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8');
@@ -150,6 +168,7 @@ describe('codex install smoke', () => {
     fs.writeFileSync(path.join(codexDir, 'prompts', 'old.md'), 'legacy\n');
 
     const result = runInstall(['--target', 'codex', '-y']);
+    if (bailIfSpawnBlocked(result)) return;
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
@@ -158,6 +177,7 @@ describe('codex install smoke', () => {
 
   test('安装 Codex 时支持 --style 切换风格', () => {
     const result = runInstall(['--target', 'codex', '--style', 'scholar-classic', '-y']);
+    if (bailIfSpawnBlocked(result)) return;
     const codexDir = path.join(tmpHome, '.codex');
 
     expect(result.status).toBe(0);
@@ -170,18 +190,66 @@ describe('codex install smoke', () => {
     const codexDir = path.join(tmpHome, '.codex');
     fs.mkdirSync(codexDir, { recursive: true });
     fs.writeFileSync(path.join(codexDir, 'settings.json'), '{"legacy":true}\n');
+    fs.writeFileSync(path.join(codexDir, 'AGENTS.md'), '# legacy agents\n');
 
     const install = runInstall(['--target', 'codex', '-y']);
+    if (bailIfSpawnBlocked(install)) return;
 
     expect(install.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
     expect(install.stdout).toContain('移除 legacy settings.json');
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(true);
+    expect(fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8')).not.toContain('# legacy agents');
 
     const uninstall = runInstall(['--uninstall', 'codex']);
+    if (bailIfSpawnBlocked(uninstall)) return;
     expect(uninstall.status).toBe(0);
     expect(fs.readFileSync(path.join(codexDir, 'settings.json'), 'utf8')).toContain('legacy');
+    expect(fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8')).toContain('# legacy agents');
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpHome, '.agents', 'skills'))).toBe(false);
+  });
+
+  test('安装 Codex 后卸载会移除生成的 AGENTS.md', () => {
+    const codexDir = path.join(tmpHome, '.codex');
+
+    const install = runInstall(['--target', 'codex', '-y']);
+    if (bailIfSpawnBlocked(install)) return;
+    expect(install.status).toBe(0);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
+
+    const uninstall = runInstall(['--uninstall', 'codex']);
+    if (bailIfSpawnBlocked(uninstall)) return;
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpHome, '.agents', 'skills'))).toBe(false);
+  });
+
+  test('Codex 独立卸载脚本也会回收空的 .agents/skills 目录', () => {
+    const codexDir = path.join(tmpHome, '.codex');
+
+    const install = runInstall(['--target', 'codex', '-y']);
+    if (bailIfSpawnBlocked(install)) return;
+    expect(install.status).toBe(0);
+    expect(fs.existsSync(path.join(tmpHome, '.agents', 'skills', 'gstack'))).toBe(true);
+
+    const uninstall = spawnSync(process.execPath, [path.join(codexDir, '.sage-uninstall.js')], {
+      cwd: path.join(__dirname, '..'),
+      env: {
+        ...process.env,
+        HOME: tmpHome,
+        USERPROFILE: tmpHome,
+      },
+      encoding: 'utf8',
+    });
+    if (bailIfSpawnBlocked(uninstall)) return;
+
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpHome, '.agents', 'skills'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, '.sage-uninstall.js'))).toBe(false);
   });
 });
 
@@ -212,6 +280,7 @@ describe('gemini install smoke', () => {
 
   test('安装 Gemini 时生成 GEMINI.md、skills、commands 与 settings.json', () => {
     const result = runInstall(['--target', 'gemini', '-y']);
+    if (bailIfSpawnBlocked(result)) return;
     const geminiDir = path.join(tmpHome, '.gemini');
     const reviewSkill = fs.readFileSync(path.join(geminiDir, 'skills', 'gstack', 'review', 'SKILL.md'), 'utf8');
 
@@ -238,6 +307,7 @@ describe('gemini install smoke', () => {
 
   test('安装 Gemini 时支持 --style 切换 GEMINI.md', () => {
     const result = runInstall(['--target', 'gemini', '--style', 'scholar-classic', '-y']);
+    if (bailIfSpawnBlocked(result)) return;
     const geminiDir = path.join(tmpHome, '.gemini');
     const content = fs.readFileSync(path.join(geminiDir, 'GEMINI.md'), 'utf8');
 

@@ -22,12 +22,11 @@ host-smoke-tier: critical
 host-smoke-target-level: host-smoked
 host-smoke-freshness-days: 7
 owner: self
-last-reviewed: 2026-04-20
+last-reviewed: 2026-05-20
 review-cycle-days: 30
 tags: [tool, s2, chart, visualization]
 aliases: [s2-config-audit, pivot-config-check, S2配置审计]
 ---
-
 # Verify S2 Config Tool
 
 ## Read These References

@@ -6103,6 +6103,15 @@ function updateSkill(skillName, assignments) {
   }
 
   const previousSkillText = fs.readFileSync(resolved.skillFile, 'utf8');
+  const hostMetadataFile = path.join(resolved.dir, 'agents', 'openai.yaml');
+  const previousHostMetadataState = shouldSyncHostMetadata
+    ? {
+        existed: fs.existsSync(hostMetadataFile),
+        text: fs.existsSync(hostMetadataFile)
+          ? fs.readFileSync(hostMetadataFile, 'utf8')
+          : null
+      }
+    : null;
   const generatedSnapshot = snapshotGeneratedState(projectRoot);
 
   try {
@@ -6112,14 +6121,15 @@ function updateSkill(skillName, assignments) {
 
     const next = renderSkillFile(resolved.parsed);
     fs.writeFileSync(resolved.skillFile, next, 'utf8');
+
+    if (shouldSyncHostMetadata) {
+      writeSkillHostMetadata(resolved.dir, resolved.parsed);
+    }
+
     const skillRecords = collectAllSkillRecords(projectRoot);
     const record = skillRecords.find((item) => item && item.name === skillName) || null;
     if (!record) {
       fail(`unknown skill '${skillName}' after update`);
-    }
-
-    if (shouldSyncHostMetadata) {
-      writeSkillHostMetadata(resolved.dir, resolved.parsed);
     }
 
     if (shouldSyncRoute) {
@@ -6152,6 +6162,14 @@ function updateSkill(skillName, assignments) {
     };
   } catch (error) {
     fs.writeFileSync(resolved.skillFile, previousSkillText, 'utf8');
+    if (previousHostMetadataState) {
+      if (previousHostMetadataState.existed) {
+        fs.mkdirSync(path.dirname(hostMetadataFile), { recursive: true });
+        fs.writeFileSync(hostMetadataFile, previousHostMetadataState.text, 'utf8');
+      } else if (fs.existsSync(hostMetadataFile)) {
+        fs.rmSync(hostMetadataFile, { force: true });
+      }
+    }
     restoreGeneratedStateSafely(projectRoot, generatedSnapshot, error);
     throw error;
   }

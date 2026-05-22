@@ -45,6 +45,13 @@ node bin/install.js --list-personas
 2. [../DESIGN.md](../DESIGN.md)
 3. [PACK_SYSTEM.md](./PACK_SYSTEM.md)
 4. [SKILL_AUTHORING.md](./SKILL_AUTHORING.md)
+5. [RELEASE_GUIDE.md](./RELEASE_GUIDE.md)
+
+## OpenCode 口径提醒
+
+- 不要直接对外宣称 `--target opencode`
+- 当前 OpenCode 支持口径是复用 `claude` / `codex` 安装产物
+- 只有在 target registry、installer CLI、README、smoke tests 都正式支持后，才能把 OpenCode 写成独立 target
 
 ## 你会经常碰到的目录
 

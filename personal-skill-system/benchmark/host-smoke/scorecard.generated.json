@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-19T14:08:04.608Z",
+  "generated-at": "2026-05-22T03:10:14.137Z",
   "source-runtime-proof": "registry/runtime-proof.generated.json",
   "runtime-run-dir": "benchmark/host-smoke/runtime-runs",
   "run-count": 22,
@@ -90,7 +90,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 187002171,
+        "ageMs": 406731700,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",
@@ -246,7 +246,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 110172809,
+        "ageMs": 329902338,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",
@@ -326,7 +326,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 194035736,
+        "ageMs": 413765265,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",
@@ -368,7 +368,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 24261875,
+        "ageMs": 243991404,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",
@@ -448,7 +448,7 @@
         "required": true,
         "fresh": true,
         "stale": false,
-        "ageMs": 182644340,
+        "ageMs": 402373869,
         "maxAgeMs": 604800000
       },
       "evidence-status": "passing",

@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-19T09:27:41.374Z",
+  "generated-at": "2026-05-20T12:12:51.021Z",
   "sources": {
     "family-registry": "registry/expert-source-families.generated.json",
     "experimental-pack": "packs/experimental/manifest.json"

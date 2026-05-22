@@ -94,4 +94,16 @@ describe('docs drift guard', () => {
     expect(ratingsDoc).toContain(`- top-level enough now: ${Number(skillCounts['top-level-enough-now'] || 0)}`);
     expect(ratingsDoc).toContain(expectedHostVerdict);
   });
+  test('OpenCode docs stay compatibility-based instead of adding a fake standalone target', () => {
+    const readme = fs.readFileSync(path.join(projectRoot, 'README.md'), 'utf8');
+    const onboarding = fs.readFileSync(path.join(projectRoot, 'docs', 'ONBOARDING.md'), 'utf8');
+    const releaseGuide = fs.readFileSync(path.join(projectRoot, 'docs', 'RELEASE_GUIDE.md'), 'utf8');
+
+    expect(readme).toContain('OpenCode does not have a standalone `--target opencode` yet.');
+    expect(readme).toContain('successful OpenCode-compatible installation');
+    expect(readme).toContain('[docs/RELEASE_GUIDE.md](docs/RELEASE_GUIDE.md)');
+    expect(readme).not.toContain('npx code-abyss --target opencode -y');
+    expect(onboarding).toContain('不要直接对外宣称 `--target opencode`');
+    expect(releaseGuide).toContain('do not publish `npx code-abyss --target opencode -y`');
+  });
 });

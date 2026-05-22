@@ -25,4 +25,7 @@ describe('target registry', () => {
     expect(formatTargetList('|')).toBe('claude|codex|gemini');
     expect(formatTargetList('、')).toBe('claude、codex、gemini');
   });
+  test('opencode is not a first-class install target yet', () => {
+    expect(isSupportedTarget('opencode')).toBe(false);
+  });
 });

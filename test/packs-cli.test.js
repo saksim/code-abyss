@@ -6,6 +6,16 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 const { rmSafe } = require('../bin/lib/utils');
 
+function isSpawnBlocked(result) {
+  return !!(result && result.status == null && result.error && result.error.code === 'EPERM');
+}
+
+function bailIfSpawnBlocked(result) {
+  if (!isSpawnBlocked(result)) return false;
+  expect(result.error).toEqual(expect.objectContaining({ code: 'EPERM' }));
+  return true;
+}
+
 describe('packs cli', () => {
   let tmpDir;
   let upstreamRepo;
@@ -87,6 +97,7 @@ describe('packs cli', () => {
 
   test('init 写入默认 packs.lock', () => {
     const result = run(['init']);
+    if (bailIfSpawnBlocked(result)) return;
     const lockPath = path.join(tmpDir, '.code-abyss', 'packs.lock.json');
     const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
 
@@ -98,8 +109,10 @@ describe('packs cli', () => {
   });
 
   test('update 可修改 optional policy 与 optional packs', () => {
-    run(['init']);
+    const init = run(['init']);
+    if (bailIfSpawnBlocked(init)) return;
     const result = run(['update', '--host', 'codex', '--remove', 'gstack', '--add-optional', 'gstack', '--optional-policy', 'off', '--set-source', 'gstack=local']);
+    if (bailIfSpawnBlocked(result)) return;
     const lock = JSON.parse(fs.readFileSync(path.join(tmpDir, '.code-abyss', 'packs.lock.json'), 'utf8'));
 
     expect(result.status).toBe(0);
@@ -111,6 +124,7 @@ describe('packs cli', () => {
 
   test('bootstrap 生成 packs.lock 与 README/CONTRIBUTING 片段', () => {
     const result = run(['bootstrap']);
+    if (bailIfSpawnBlocked(result)) return;
     const snippetDir = path.join(tmpDir, '.code-abyss', 'snippets');
 
     expect(result.status).toBe(0);
@@ -124,6 +138,7 @@ describe('packs cli', () => {
   test('bootstrap --apply-docs 自动写入 README/CONTRIBUTING', () => {
     fs.writeFileSync(path.join(tmpDir, 'README.md'), '# Demo\n');
     const result = run(['bootstrap', '--apply-docs']);
+    if (bailIfSpawnBlocked(result)) return;
 
     expect(result.status).toBe(0);
     expect(fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf8')).toContain('code-abyss:packs:readme:start');
@@ -141,14 +156,18 @@ describe('packs cli', () => {
     }, null, 2));
 
     const result = run(['check']);
+    if (bailIfSpawnBlocked(result)) return;
     expect(result.status).toBe(1);
     expect(result.stderr).toContain('未知 required pack');
   });
 
   test('diff 输出相对默认模板的变化', () => {
-    run(['init']);
-    run(['update', '--host', 'claude', '--remove', 'gstack', '--add-optional', 'gstack', '--optional-policy', 'prompt', '--set-source', 'gstack=local']);
+    const init = run(['init']);
+    if (bailIfSpawnBlocked(init)) return;
+    const update = run(['update', '--host', 'claude', '--remove', 'gstack', '--add-optional', 'gstack', '--optional-policy', 'prompt', '--set-source', 'gstack=local']);
+    if (bailIfSpawnBlocked(update)) return;
     const result = run(['diff']);
+    if (bailIfSpawnBlocked(result)) return;
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('[claude]');
@@ -158,6 +177,7 @@ describe('packs cli', () => {
 
   test('vendor-pull 拉取 pack 到 .code-abyss/vendor', () => {
     const result = run(['vendor-pull', 'gstack']);
+    if (bailIfSpawnBlocked(result)) return;
     const vendorDir = path.join(tmpDir, '.code-abyss', 'vendor', 'gstack');
 
     expect(result.status).toBe(0);
@@ -166,9 +186,12 @@ describe('packs cli', () => {
   });
 
   test('vendor-sync 同步 sources=local 的 pack', () => {
-    run(['init']);
-    run(['update', '--host', 'claude', '--remove', 'gstack', '--add-optional', 'gstack', '--set-source', 'gstack=local']);
+    const init = run(['init']);
+    if (bailIfSpawnBlocked(init)) return;
+    const update = run(['update', '--host', 'claude', '--remove', 'gstack', '--add-optional', 'gstack', '--set-source', 'gstack=local']);
+    if (bailIfSpawnBlocked(update)) return;
     const result = run(['vendor-sync']);
+    if (bailIfSpawnBlocked(result)) return;
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('gstack:');
@@ -176,30 +199,39 @@ describe('packs cli', () => {
   });
 
   test('vendor-sync --check 可作为漂移门禁', () => {
-    run(['init']);
-    run(['update', '--host', 'claude', '--remove', 'gstack', '--add-optional', 'gstack', '--set-source', 'gstack=local']);
+    const init = run(['init']);
+    if (bailIfSpawnBlocked(init)) return;
+    const update = run(['update', '--host', 'claude', '--remove', 'gstack', '--add-optional', 'gstack', '--set-source', 'gstack=local']);
+    if (bailIfSpawnBlocked(update)) return;
     const missing = run(['vendor-sync', '--check']);
+    if (bailIfSpawnBlocked(missing)) return;
     expect(missing.status).toBe(1);
 
-    run(['vendor-sync']);
+    const sync = run(['vendor-sync']);
+    if (bailIfSpawnBlocked(sync)) return;
     const aligned = run(['vendor-sync', '--check']);
+    if (bailIfSpawnBlocked(aligned)) return;
     expect(aligned.status).toBe(0);
     expect(aligned.stdout).toContain('所有 local source pack 都已 vendor sync');
   });
 
   test('vendor-status 输出 vendor 对齐状态', () => {
-    run(['vendor-pull', 'gstack']);
+    const pull = run(['vendor-pull', 'gstack']);
+    if (bailIfSpawnBlocked(pull)) return;
     const result = run(['vendor-status', 'gstack']);
+    if (bailIfSpawnBlocked(result)) return;
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('gstack: present clean aligned');
   });
 
   test('vendor-dirty 在 vendor 脏或漂移时非零退出', () => {
-    run(['vendor-pull', 'gstack']);
+    const pull = run(['vendor-pull', 'gstack']);
+    if (bailIfSpawnBlocked(pull)) return;
     fs.writeFileSync(path.join(tmpDir, '.code-abyss', 'vendor', 'gstack', 'DIRTY.txt'), 'dirty\n');
 
     const result = run(['vendor-dirty', 'gstack']);
+    if (bailIfSpawnBlocked(result)) return;
     expect(result.status).toBe(1);
     expect(result.stdout).toContain('dirty=true');
   });
@@ -213,6 +245,7 @@ describe('packs cli', () => {
     const latest = run(['report', 'latest', '--kind', 'pack-uninstall-gstack']);
     const summary = run(['report', 'summary']);
     const summaryJson = run(['report', 'summary', '--json']);
+    if (bailIfSpawnBlocked(list) || bailIfSpawnBlocked(latest) || bailIfSpawnBlocked(summary) || bailIfSpawnBlocked(summaryJson)) return;
 
     expect(list.status).toBe(0);
     expect(list.stdout).toContain('pack-uninstall-gstack-2026-04-12T00-00-00.000Z.json');
@@ -225,7 +258,8 @@ describe('packs cli', () => {
   });
 
   test('uninstall 按 pack 清理本地 runtime 并更新 lock/vendor', () => {
-    run(['bootstrap']);
+    const bootstrap = run(['bootstrap']);
+    if (bailIfSpawnBlocked(bootstrap)) return;
     const claudeSkillRoot = path.join(tmpDir, '.claude', 'skills', 'gstack');
     const codexSkillRoot = path.join(tmpDir, '.agents', 'skills', 'gstack');
     const geminiSkillRoot = path.join(tmpDir, '.gemini', 'skills', 'gstack');
@@ -240,9 +274,11 @@ describe('packs cli', () => {
     fs.mkdirSync(path.join(tmpDir, '.gemini', 'commands'), { recursive: true });
     fs.writeFileSync(path.join(tmpDir, '.claude', 'commands', 'review.md'), 'x');
     fs.writeFileSync(path.join(tmpDir, '.gemini', 'commands', 'review.toml'), 'x');
-    run(['vendor-pull', 'gstack']);
+    const pull = run(['vendor-pull', 'gstack']);
+    if (bailIfSpawnBlocked(pull)) return;
 
     const result = run(['uninstall', 'gstack', '--host', 'all', '--remove-lock', '--remove-vendor']);
+    if (bailIfSpawnBlocked(result)) return;
     const lock = JSON.parse(fs.readFileSync(path.join(tmpDir, '.code-abyss', 'packs.lock.json'), 'utf8'));
 
     expect(result.status).toBe(0);

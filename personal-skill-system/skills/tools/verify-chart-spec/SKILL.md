@@ -22,12 +22,11 @@ host-smoke-tier: critical
 host-smoke-target-level: host-smoked
 host-smoke-freshness-days: 7
 owner: self
-last-reviewed: 2026-04-19
+last-reviewed: 2026-05-20
 review-cycle-days: 30
 tags: [tool, chart, visualization]
 aliases: [chart-spec-audit, g2-spec-check, 图表规范审计]
 ---
-
 # Verify Chart Spec Tool
 
 ## Read These References

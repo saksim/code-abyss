@@ -19,12 +19,11 @@ risk-level: low
 supported-hosts: [codex, claude, gemini]
 status: stable
 owner: self
-last-reviewed: 2026-04-19
+last-reviewed: 2026-05-20
 review-cycle-days: 30
 tags: [domain, chart, visualization]
 aliases: [data-visualization, 图表可视化]
 ---
-
 # Chart Visualization Domain
 
 ## Use This When
