@@ -1,3 +1,0 @@
-display_name: "Data Engineering Domain"
-short_description: "Data pipelines, ETL, streaming, contracts, and data quality."
-default_prompt: "Use ~/.agents/skills/domains/data-engineering/SKILL.md as the primary instruction source before acting on data-engineering."

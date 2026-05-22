@@ -1,3 +1,0 @@
-display_name: "Orchestration Domain"
-short_description: "Coordination, decomposition, sequencing, ownership, and integration across multi-step work."
-default_prompt: "Use ~/.agents/skills/domains/orchestration/SKILL.md as the primary instruction source before acting on orchestration."

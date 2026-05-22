@@ -1,3 +1,0 @@
-display_name: "Verify Quality Tool"
-short_description: "Code-shape and maintainability scan for complexity, size, and quality smells."
-default_prompt: "Use ~/.agents/skills/tools/verify-quality/SKILL.md as the primary instruction source before acting on verify-quality."

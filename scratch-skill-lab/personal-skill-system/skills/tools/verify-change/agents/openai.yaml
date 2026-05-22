@@ -1,3 +1,0 @@
-display_name: "Verify Change Tool"
-short_description: "Diff-aware validation of changed files, likely module impact, and possible documentation drift."
-default_prompt: "Use ~/.agents/skills/tools/verify-change/SKILL.md as the primary instruction source before acting on verify-change."

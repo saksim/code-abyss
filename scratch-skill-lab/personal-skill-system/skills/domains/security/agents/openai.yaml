@@ -1,3 +1,0 @@
-display_name: "Security Domain"
-short_description: "Security, trust boundaries, vulnerability patterns, secrets handling, auth, and hardening."
-default_prompt: "Use ~/.agents/skills/domains/security/SKILL.md as the primary instruction source before acting on security."

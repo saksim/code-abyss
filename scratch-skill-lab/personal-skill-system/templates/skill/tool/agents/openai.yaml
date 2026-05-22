@@ -1,3 +1,0 @@
-display_name: "Tool Template"
-short_description: "Template scaffold for a scripted tool skill. Replace this with a description that says what the tool validates or generates and when to invoke it explicitly."
-default_prompt: "Use ~/.agents/skills/tools/tool-template/SKILL.md as the primary instruction source before acting on tool-template."

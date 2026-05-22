@@ -1,3 +1,0 @@
-display_name: "Bugfix Workflow"
-short_description: "Known-defect repair workflow focused on minimal safe change, regression prevention, and verification."
-default_prompt: "Use ~/.agents/skills/workflows/bugfix/SKILL.md as the primary instruction source before acting on bugfix."

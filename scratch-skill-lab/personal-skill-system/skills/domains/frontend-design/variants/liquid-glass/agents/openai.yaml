@@ -1,3 +1,0 @@
-display_name: "Liquid Glass Variant"
-short_description: "Liquid glass design variant for Apple-like translucent surfaces and depth-aware layering."
-default_prompt: "Use ~/.agents/skills/domains/frontend-design/variants/liquid-glass/SKILL.md as the primary instruction source before acting on liquid-glass."

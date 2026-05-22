@@ -1,3 +1,0 @@
-display_name: "Adapter Template"
-short_description: "Template scaffold for an adapter skill. Replace this with host-specific import notes, compatibility constraints, and capability hints for one runtime environment."
-default_prompt: "Use ~/.agents/skills/adapters/adapter-template/SKILL.md as the primary instruction source before acting on adapter-template."

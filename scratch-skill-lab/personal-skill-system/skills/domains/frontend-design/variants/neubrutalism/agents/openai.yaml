@@ -1,3 +1,0 @@
-display_name: "Neubrutalism Variant"
-short_description: "Neubrutalism design variant for bold color, thick borders, offset shadows, and intentionally blunt interfaces."
-default_prompt: "Use ~/.agents/skills/domains/frontend-design/variants/neubrutalism/SKILL.md as the primary instruction source before acting on neubrutalism."

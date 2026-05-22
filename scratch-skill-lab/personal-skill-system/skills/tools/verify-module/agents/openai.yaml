@@ -1,3 +1,0 @@
-display_name: "Verify Module Tool"
-short_description: "Module completeness and packaging validation for structure, key files, and importable shape."
-default_prompt: "Use ~/.agents/skills/tools/verify-module/SKILL.md as the primary instruction source before acting on verify-module."

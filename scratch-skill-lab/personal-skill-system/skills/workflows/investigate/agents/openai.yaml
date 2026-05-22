@@ -1,3 +1,0 @@
-display_name: "Investigate Workflow"
-short_description: "Evidence-first investigation workflow for unknown failures, unclear regressions, and root-cause discovery."
-default_prompt: "Use ~/.agents/skills/workflows/investigate/SKILL.md as the primary instruction source before acting on investigate."

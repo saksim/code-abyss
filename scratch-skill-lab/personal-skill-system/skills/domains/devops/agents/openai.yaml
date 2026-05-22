@@ -1,3 +1,0 @@
-display_name: "DevOps Domain"
-short_description: "CI/CD, release safety, observability, and operational readiness."
-default_prompt: "Use ~/.agents/skills/domains/devops/SKILL.md as the primary instruction source before acting on devops."

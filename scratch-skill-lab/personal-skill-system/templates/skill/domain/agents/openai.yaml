@@ -1,3 +1,0 @@
-display_name: "Domain Template"
-short_description: "Template scaffold for a domain skill. Replace this with a domain-specific description that says what the skill covers and when to use it."
-default_prompt: "Use ~/.agents/skills/domains/domain-template/SKILL.md as the primary instruction source before acting on domain-template."

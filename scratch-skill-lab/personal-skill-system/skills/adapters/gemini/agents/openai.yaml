@@ -1,3 +1,0 @@
-display_name: "Gemini Host Adapter"
-short_description: "Internal adapter surface for Gemini-specific runtime assumptions, import notes, and capability hints."
-default_prompt: "Use ~/.agents/skills/adapters/gemini/SKILL.md as the primary instruction source before acting on gemini-host."

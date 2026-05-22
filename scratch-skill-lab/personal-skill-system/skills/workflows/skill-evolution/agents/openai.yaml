@@ -1,3 +1,0 @@
-display_name: "Skill Evolution Workflow"
-short_description: "Improve a personal skill system itself: skill architecture, router behavior, trigger surfaces, reference layering, registry quality, portability, pack strategy, and self-hosting governance."
-default_prompt: "Use ~/.agents/skills/workflows/skill-evolution/SKILL.md as the primary instruction source before acting on skill-evolution."

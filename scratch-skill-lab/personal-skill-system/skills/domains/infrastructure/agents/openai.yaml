@@ -1,3 +1,0 @@
-display_name: "Infrastructure Domain"
-short_description: "Infrastructure and platform runtime knowledge: Kubernetes, Terraform, GitOps, identity, cluster controls, and deployment topology."
-default_prompt: "Use ~/.agents/skills/domains/infrastructure/SKILL.md as the primary instruction source before acting on infrastructure."

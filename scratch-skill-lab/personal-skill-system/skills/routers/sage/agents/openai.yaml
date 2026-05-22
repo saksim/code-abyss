@@ -1,3 +1,0 @@
-display_name: "Sage Router"
-short_description: "Root router for the personal skill system. Route requests into domains, workflows, tools, and guards based on intent, scope, risk, and execution depth."
-default_prompt: "Use ~/.agents/skills/routers/sage/SKILL.md as the primary instruction source before acting on sage."

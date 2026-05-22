@@ -1,3 +1,0 @@
-display_name: "Router Template"
-short_description: "Template scaffold for a router skill. Replace this with a routing-specific description that says what the router dispatches and when it should lead."
-default_prompt: "Use ~/.agents/skills/routers/router-template/SKILL.md as the primary instruction source before acting on router-template."
