@@ -7,5 +7,6 @@ TEST_REPORT.md
 __pycache__/
 **/__pycache__/
 *.pyc
+tmp-release-smoke/
 **/.codex-write-probe*
 **/.codex-dir-probe-*

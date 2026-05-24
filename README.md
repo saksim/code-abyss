@@ -11,6 +11,21 @@ It gives those CLIs a consistent setup for persona, output style, skills, and op
 - Install / uninstall flows with smoke coverage
 - Pack support for optional runtime extensions
 
+## Current release status
+
+The package is release-ready when these gates pass:
+
+```bash
+npm test
+npm run verify:skill-system
+npm run verify:skills
+npm run packs:check
+npm run packs:vendor:sync -- --check
+npm run verify:tarball-smoke
+```
+
+`verify:tarball-smoke` is the publish-level install proof. It packs a fresh npm tarball in a temporary staging directory, installs it into isolated Claude / Codex / Gemini homes, then uninstalls it and checks cleanup.
+
 ## Quick start
 
 List styles and personas:
@@ -49,6 +64,43 @@ npx code-abyss --uninstall claude
 npx code-abyss --uninstall codex
 npx code-abyss --uninstall gemini
 ```
+
+## How users should use it
+
+After installation, keep using your normal AI CLI. Code Abyss changes the host runtime files that those CLIs already read.
+
+| Host | Start using it from |
+| --- | --- |
+| Claude Code | Launch Claude Code normally; generated slash commands and skills are under `~/.claude/` |
+| Codex CLI | Launch Codex normally; instructions are in `~/.codex/instruction.md` and shared skills are under `~/.agents/` |
+| Gemini CLI | Launch Gemini normally; generated TOML commands and skills are under `~/.gemini/` |
+
+Common maintenance commands:
+
+```bash
+npx code-abyss --list-styles
+npx code-abyss --list-personas
+npx code-abyss --target codex --style scholar-classic --persona scholar -y
+npx code-abyss --uninstall codex
+```
+
+## What changed for users
+
+Code Abyss turns a manual prompt folder into a governed runtime bundle:
+
+- Users get one repeatable installer for Claude, Codex, and Gemini instead of hand-copying prompts into each tool.
+- Each host receives its native files: Claude gets `CLAUDE.md` and slash commands, Codex gets `AGENTS.md` / `instruction.md` / `config.toml`, Gemini gets `GEMINI.md` and TOML commands.
+- The personal skill system ships as an authoritative bundle with registry, route, runtime-proof, host-smoke, and pack governance metadata.
+- Install and uninstall are manifest-backed, so generated files can be removed without deleting unrelated user-owned files.
+- Optional packs can extend the runtime without changing the core skill source tree.
+
+## Boundaries
+
+- First-class install targets are `claude`, `codex`, and `gemini`.
+- OpenCode is compatibility-only today. Use the Claude path if OpenCode reads Claude-style files, or the Codex path if it reads AGENTS-style files.
+- The root `skills/` mirror is retired. The source of truth is `personal-skill-system/skills/`.
+- The installer does not guarantee API authentication. Users still need their host CLI login, environment key, or provider configuration.
+- Best-effort optional pack failures do not make the core install fail unless the core runtime files cannot be installed.
 
 ## Which target should I use?
 
@@ -104,6 +156,7 @@ npm test
 npm run verify:skill-system
 npm run verify:skills
 npm run packs:check
+npm run verify:tarball-smoke
 ```
 
 Useful local commands:
@@ -112,6 +165,9 @@ Useful local commands:
 node bin/install.js --help
 node bin/install.js --list-styles
 node bin/install.js --list-personas
+npm run verify:tarball-smoke
+npm run verify:tarball-smoke -- --tgz ./code-abyss-2.1.2.tgz
+node bin/release-smoke.js --pack
 npm run packs:diff
 npm run packs:report -- summary
 npm run packs:bootstrap -- --apply-docs

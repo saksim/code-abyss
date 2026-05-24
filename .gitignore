@@ -53,6 +53,8 @@ node_modules/
 .ace-tool/
 .code-abyss/reports/
 .npmrc
+tmp-release-smoke/
+tmp-npm-cache-release-smoke/
 tmp-npm-cache-*/
 tmp-npm-cache-pack-*/
 tmp-npm-cache-release/
