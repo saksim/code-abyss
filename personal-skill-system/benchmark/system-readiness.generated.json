@@ -1,6 +1,6 @@
 {
   "schema-version": 2,
-  "generated-at": "2026-05-20T12:12:51.151Z",
+  "generated-at": "2026-05-24T15:14:16.461Z",
   "sources": {
     "benchmark-summary": "benchmark/summary.generated.json",
     "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",

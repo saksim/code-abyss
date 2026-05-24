@@ -25,7 +25,10 @@ describe('package hygiene', () => {
 
     expect(gitIgnoreLines).toContain('**/.codex-write-probe*');
     expect(gitIgnoreLines).toContain('**/.codex-dir-probe-*');
+    expect(gitIgnoreLines).toContain('tmp-release-smoke/');
+    expect(gitIgnoreLines).toContain('tmp-npm-cache-release-smoke/');
     expect(npmIgnoreLines).toContain('**/.codex-write-probe*');
     expect(npmIgnoreLines).toContain('**/.codex-dir-probe-*');
+    expect(npmIgnoreLines).toContain('tmp-release-smoke/');
   });
 });

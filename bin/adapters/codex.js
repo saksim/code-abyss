@@ -478,7 +478,6 @@ async function postCodex({
   info,
   c
 }) {
-  const { confirm } = await import('@inquirer/prompts');
   const cfgPath = path.join(HOME, '.codex', 'config.toml');
   const exists = fs.existsSync(cfgPath);
 
@@ -506,6 +505,7 @@ async function postCodex({
     return;
   }
 
+  const { confirm } = await import('@inquirer/prompts');
   if (!exists) {
     warn('未检测到 ~/.codex/config.toml');
     const doWrite = await confirm({ message: '写入推荐 config.toml (含自定义 provider 模板)?', default: true });

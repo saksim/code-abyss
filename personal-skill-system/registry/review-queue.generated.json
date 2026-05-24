@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-20T12:12:50.912Z",
+  "generated-at": "2026-05-22T06:03:18.777Z",
   "source": "skills/**/SKILL.md",
   "thresholds": {
     "due-soon-days": 7
@@ -26,7 +26,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -40,7 +40,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -54,7 +54,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -68,7 +68,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -82,7 +82,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -96,7 +96,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -110,7 +110,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -124,7 +124,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -138,7 +138,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -152,7 +152,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -166,7 +166,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-01",
-      "days-until-due": 12,
+      "days-until-due": 10,
       "overdue-days": 0
     },
     {
@@ -180,7 +180,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-04",
-      "days-until-due": 15,
+      "days-until-due": 13,
       "overdue-days": 0
     },
     {
@@ -194,7 +194,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -208,7 +208,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -222,7 +222,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -236,7 +236,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -250,7 +250,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -264,7 +264,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -278,7 +278,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -292,7 +292,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 27,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -306,7 +306,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 28,
+      "days-until-due": 26,
       "overdue-days": 0
     },
     {
@@ -320,7 +320,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 28,
+      "days-until-due": 26,
       "overdue-days": 0
     },
     {
@@ -334,7 +334,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 28,
+      "days-until-due": 26,
       "overdue-days": 0
     },
     {
@@ -348,7 +348,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 28,
+      "days-until-due": 26,
       "overdue-days": 0
     },
     {
@@ -362,7 +362,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-18",
-      "days-until-due": 29,
+      "days-until-due": 27,
       "overdue-days": 0
     },
     {
@@ -376,7 +376,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-18",
-      "days-until-due": 29,
+      "days-until-due": 27,
       "overdue-days": 0
     },
     {
@@ -390,7 +390,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-19",
-      "days-until-due": 30,
+      "days-until-due": 28,
       "overdue-days": 0
     },
     {
@@ -404,7 +404,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-19",
-      "days-until-due": 30,
+      "days-until-due": 28,
       "overdue-days": 0
     },
     {
@@ -418,7 +418,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-19",
-      "days-until-due": 30,
+      "days-until-due": 28,
       "overdue-days": 0
     },
     {
@@ -432,7 +432,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-22",
-      "days-until-due": 33,
+      "days-until-due": 31,
       "overdue-days": 0
     },
     {
@@ -446,7 +446,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-22",
-      "days-until-due": 33,
+      "days-until-due": 31,
       "overdue-days": 0
     },
     {
@@ -460,7 +460,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-22",
-      "days-until-due": 33,
+      "days-until-due": 31,
       "overdue-days": 0
     },
     {
@@ -474,7 +474,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-23",
-      "days-until-due": 34,
+      "days-until-due": 32,
       "overdue-days": 0
     },
     {
@@ -488,7 +488,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-24",
-      "days-until-due": 35,
+      "days-until-due": 33,
       "overdue-days": 0
     },
     {
@@ -502,7 +502,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-29",
-      "days-until-due": 40,
+      "days-until-due": 38,
       "overdue-days": 0
     },
     {
@@ -516,7 +516,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 57,
+      "days-until-due": 55,
       "overdue-days": 0
     },
     {
@@ -530,7 +530,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 57,
+      "days-until-due": 55,
       "overdue-days": 0
     },
     {
@@ -544,7 +544,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 57,
+      "days-until-due": 55,
       "overdue-days": 0
     },
     {
@@ -558,7 +558,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 57,
+      "days-until-due": 55,
       "overdue-days": 0
     }
   ]

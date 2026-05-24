@@ -3,6 +3,7 @@
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const { spawnSync } = require('child_process');
 
 const { analyzeSkillSystem } = require('../personal-skill-system/skills/tools/lib/skill-system');
 const {
@@ -301,9 +302,36 @@ describe('skill system governance', () => {
     fs.cpSync(path.join(__dirname, '..', 'test'), path.join(repoRoot, 'test'), { recursive: true });
   }
 
+  function seedTopDeveloperRawFixture(repoRoot) {
+    const bundleRoot = path.join(repoRoot, 'personal-skill-system');
+    const integrationPath = path.join(bundleRoot, 'registry', 'top-developer-integration.generated.json');
+    const integration = JSON.parse(fs.readFileSync(integrationPath, 'utf8'));
+    const rawRoot = path.join(repoRoot, 'top_developer');
+    const sourceIndex = Array.isArray(integration['source-index']) ? integration['source-index'] : [];
+    const sourceSkills = [...new Set(sourceIndex
+      .map((entry) => String(entry && entry['source-skill'] || '').trim())
+      .filter(Boolean))]
+      .sort((left, right) => left.localeCompare(right));
+
+    fs.mkdirSync(rawRoot, { recursive: true });
+    for (const sourceSkill of sourceSkills) {
+      const sourceDir = path.join(rawRoot, sourceSkill);
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(path.join(sourceDir, 'SKILL.md'), [
+        '---',
+        `name: ${sourceSkill}`,
+        `description: raw expert source fixture for ${sourceSkill}`,
+        '---',
+        '',
+        `# ${sourceSkill}`,
+        ''
+      ].join('\n'));
+    }
+  }
+
   function copyBundleWithTopDeveloper(repoRoot) {
     copyBundleFixture(repoRoot);
-    fs.cpSync(path.join(__dirname, '..', 'top_developer'), path.join(repoRoot, 'top_developer'), { recursive: true });
+    seedTopDeveloperRawFixture(repoRoot);
   }
 
   beforeEach(() => {
@@ -349,6 +377,57 @@ describe('skill system governance', () => {
       item.file === 'skills/tools/verify-module/SKILL.md'
       && item.message.includes("status 'rogue' is not supported")
     )).toBe(true);
+  });
+
+  test('verify-skill-system exits non-zero when the report status is fail', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    const target = path.join(repoRoot, 'personal-skill-system');
+    copyBundleFixture(repoRoot);
+
+    const skillFile = path.join(target, 'skills', 'tools', 'verify-module', 'SKILL.md');
+    const skillText = fs.readFileSync(skillFile, 'utf8').replace('status: stable', 'status: rogue');
+    fs.writeFileSync(skillFile, skillText, 'utf8');
+
+    const result = spawnSync(process.execPath, [verifySkillSystemRunnerPath, '--target', target, '--json'], {
+      cwd: repoRoot,
+      encoding: 'utf8'
+    });
+
+    if (result.error) {
+      expect(result.error).toEqual(expect.objectContaining({ code: 'EPERM' }));
+      return;
+    }
+
+    expect(result.status).toBe(1);
+    const payload = JSON.parse(result.stdout);
+    expect(payload.status).toBe('fail');
+    expect(payload.findings.some((item) =>
+      item.file === 'skills/tools/verify-module/SKILL.md'
+      && item.message.includes("status 'rogue' is not supported")
+    )).toBe(true);
+  });
+
+  test('runtime emit marks fail reports with a non-zero process exit code', () => {
+    const runtime = require('../personal-skill-system/skills/tools/lib/runtime');
+    const originalExitCode = process.exitCode;
+    const writeSpy = jest.spyOn(process.stdout, 'write').mockImplementation(() => true);
+
+    try {
+      process.exitCode = 0;
+      runtime.emit({ status: 'fail', tool: 'verify-skill-system' }, { json: true });
+      expect(process.exitCode).toBe(1);
+
+      process.exitCode = 0;
+      runtime.emit({ status: 'block', tool: 'pre-merge-gate' }, { json: true });
+      expect(process.exitCode).toBe(1);
+
+      process.exitCode = 0;
+      runtime.emit({ status: 'warn', tool: 'verify-skill-system' }, { json: true });
+      expect(process.exitCode).toBe(0);
+    } finally {
+      process.exitCode = originalExitCode;
+      writeSpy.mockRestore();
+    }
   });
 
   test('skill kind governance stays centralized and internally consistent', () => {
@@ -5300,10 +5379,12 @@ describe('skill system governance', () => {
   });
 
   test('manage-skill blocks lifecycle transitions when required generated governance artifacts are not writable', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
     const commonModulePath = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'lib', 'skill-system-common.js');
     const originalCwd = process.cwd();
     try {
-      process.chdir(path.join(__dirname, '..'));
+      process.chdir(repoRoot);
       jest.resetModules();
       jest.doMock(commonModulePath, () => {
         const actual = jest.requireActual(commonModulePath);
@@ -5463,10 +5544,12 @@ describe('skill system governance', () => {
   });
 
   test('manage-skill diagnose-host-evolution reports live host constraints and recovery commands', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
     const commonModulePath = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'lib', 'skill-system-common.js');
     const originalCwd = process.cwd();
     try {
-      process.chdir(path.join(__dirname, '..'));
+      process.chdir(repoRoot);
       jest.resetModules();
       jest.doMock(commonModulePath, () => {
         const actual = jest.requireActual(commonModulePath);
@@ -5475,7 +5558,7 @@ describe('skill system governance', () => {
           collectGeneratedArtifactWriteability: jest.fn(() => ([
             {
               id: 'system-readiness',
-              path: path.join(__dirname, '..', 'personal-skill-system', 'benchmark', 'system-readiness.generated.json'),
+              path: path.join(repoRoot, 'personal-skill-system', 'benchmark', 'system-readiness.generated.json'),
               mode: 'rewrite-file',
               label: 'system readiness artifact',
               ok: false,
@@ -5494,8 +5577,8 @@ describe('skill system governance', () => {
           }),
           probeDirectoryCreateAccess: jest.fn(() => ({
             ok: false,
-            path: path.join(__dirname, '..', 'personal-skill-system', 'skills', 'domains', '__probe__'),
-            parent: path.join(__dirname, '..', 'personal-skill-system', 'skills', 'domains'),
+            path: path.join(repoRoot, 'personal-skill-system', 'skills', 'domains', '__probe__'),
+            parent: path.join(repoRoot, 'personal-skill-system', 'skills', 'domains'),
             code: 'EPERM'
           }))
         };
@@ -6019,10 +6102,12 @@ describe('skill system governance', () => {
   });
 
   test('sync-runtime-proof tolerates readiness write failure while still syncing runtime-proof and invalidations', () => {
+    const repoRoot = path.join(tmpDir, 'repo');
+    copyBundleFixture(repoRoot);
     const readinessModulePath = path.join(__dirname, '..', 'personal-skill-system', 'skills', 'tools', 'lib', 'skill-system-readiness.js');
     const originalCwd = process.cwd();
     try {
-      process.chdir(path.join(__dirname, '..'));
+      process.chdir(repoRoot);
       jest.resetModules();
       jest.doMock(readinessModulePath, () => {
         const actual = jest.requireActual(readinessModulePath);

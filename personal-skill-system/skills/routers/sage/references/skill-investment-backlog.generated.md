@@ -3,7 +3,7 @@
 Generated from `registry/skill-investment-backlog.generated.json`.
 Use this as the human-readable portfolio board for current-skill hardening, future-skill intake, lifecycle debt, and host-governance blockers.
 
-Generated at: 2026-05-22T03:10:14.280Z
+Generated at: 2026-05-24T15:14:16.217Z
 
 ## Stable Top-Tier Portfolio
 

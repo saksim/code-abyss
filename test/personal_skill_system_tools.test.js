@@ -41,6 +41,33 @@ describe('personal skill system tool runtime', () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
+  function seedTopDeveloperRawFixture(repoRoot) {
+    const bundleRoot = path.join(repoRoot, 'personal-skill-system');
+    const integrationPath = path.join(bundleRoot, 'registry', 'top-developer-integration.generated.json');
+    const integration = JSON.parse(fs.readFileSync(integrationPath, 'utf8'));
+    const rawRoot = path.join(repoRoot, 'top_developer');
+    const sourceIndex = Array.isArray(integration['source-index']) ? integration['source-index'] : [];
+    const sourceSkills = [...new Set(sourceIndex
+      .map((entry) => String(entry && entry['source-skill'] || '').trim())
+      .filter(Boolean))]
+      .sort((left, right) => left.localeCompare(right));
+
+    fs.mkdirSync(rawRoot, { recursive: true });
+    for (const sourceSkill of sourceSkills) {
+      const sourceDir = path.join(rawRoot, sourceSkill);
+      fs.mkdirSync(sourceDir, { recursive: true });
+      fs.writeFileSync(path.join(sourceDir, 'SKILL.md'), [
+        '---',
+        `name: ${sourceSkill}`,
+        `description: raw expert source fixture for ${sourceSkill}`,
+        '---',
+        '',
+        `# ${sourceSkill}`,
+        ''
+      ].join('\n'));
+    }
+  }
+
   test('generateDocs builds engineering-grade scaffold sections', () => {
     const report = generateDocs(tmpDir, { write: false });
 
@@ -2208,7 +2235,7 @@ describe('personal skill system tool runtime', () => {
   test('manage-skill show-investment-backlog surfaces unmapped raw expert sources as integration debt', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
-    fs.cpSync(path.join(__dirname, '..', 'top_developer'), path.join(repoRoot, 'top_developer'), { recursive: true });
+    seedTopDeveloperRawFixture(repoRoot);
 
     const extraSourceDir = path.join(repoRoot, 'top_developer', 'top-future-governance');
     fs.mkdirSync(extraSourceDir, { recursive: true });
@@ -2332,7 +2359,7 @@ describe('personal skill system tool runtime', () => {
   test('show-investment-backlog can filter a newly registered expert-source family', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
-    fs.cpSync(path.join(__dirname, '..', 'top_developer'), path.join(repoRoot, 'top_developer'), { recursive: true });
+    seedTopDeveloperRawFixture(repoRoot);
 
     const rawRoot = path.join(repoRoot, 'expert_research');
     fs.mkdirSync(path.join(rawRoot, 'research-gap-two'), { recursive: true });
@@ -2625,7 +2652,7 @@ describe('personal skill system tool runtime', () => {
   test('manage-skill refuses to archive the default expert-source family through shared governance policy', () => {
     const repoRoot = path.join(tmpDir, 'repo');
     fs.cpSync(path.join(__dirname, '..', 'personal-skill-system'), path.join(repoRoot, 'personal-skill-system'), { recursive: true });
-    fs.cpSync(path.join(__dirname, '..', 'top_developer'), path.join(repoRoot, 'top_developer'), { recursive: true });
+    seedTopDeveloperRawFixture(repoRoot);
 
     const originalCwd = process.cwd();
     try {

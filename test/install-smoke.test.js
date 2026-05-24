@@ -33,6 +33,52 @@ function bailIfSpawnBlocked(result) {
   return true;
 }
 
+function copyPublishableBundle(sourceRoot, destRoot) {
+  [
+    'bin',
+    'config',
+    'output-styles',
+    'packs',
+    'personal-skill-system',
+  ].forEach((entry) => {
+    fs.cpSync(path.join(sourceRoot, entry), path.join(destRoot, entry), { recursive: true });
+  });
+
+  [
+    'package.json',
+    'README.md',
+    'LICENSE',
+  ].forEach((entry) => {
+    fs.copyFileSync(path.join(sourceRoot, entry), path.join(destRoot, entry));
+  });
+}
+
+function runBundleInstall(bundleRoot, homeRoot, target, extraEnv = {}) {
+  return spawnSync(process.execPath, [path.join(bundleRoot, 'bin', 'install.js'), '--target', target, '-y'], {
+    cwd: bundleRoot,
+    env: {
+      ...process.env,
+      HOME: homeRoot,
+      USERPROFILE: homeRoot,
+      ...extraEnv,
+    },
+    encoding: 'utf8',
+  });
+}
+
+function runBundleUninstall(bundleRoot, homeRoot, target, extraEnv = {}) {
+  return spawnSync(process.execPath, [path.join(bundleRoot, 'bin', 'install.js'), '--uninstall', target], {
+    cwd: bundleRoot,
+    env: {
+      ...process.env,
+      HOME: homeRoot,
+      USERPROFILE: homeRoot,
+      ...extraEnv,
+    },
+    encoding: 'utf8',
+  });
+}
+
 describe('install cli styles', () => {
   test('--list-styles 列出可用风格', () => {
     const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'install.js'), '--list-styles'], {
@@ -105,6 +151,48 @@ describe('claude install smoke', () => {
     expect(result.status).toBe(0);
     expect(settings.outputStyle).toBe('scholar-classic');
   });
+  test('Claude uninstall removes generated commands directory', () => {
+    const claudeDir = path.join(tmpHome, '.claude');
+
+    const install = runInstall(['--target', 'claude', '-y']);
+    if (bailIfSpawnBlocked(install)) return;
+    expect(install.status).toBe(0);
+    expect(fs.existsSync(path.join(claudeDir, 'commands', 'review.md'))).toBe(true);
+
+    const uninstall = runInstall(['--uninstall', 'claude']);
+    if (bailIfSpawnBlocked(uninstall)) return;
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(claudeDir, 'commands'))).toBe(false);
+  });
+
+  test('Claude auto install works from a publishable bundle without node_modules', () => {
+    const repoRoot = path.join(__dirname, '..');
+    const bundleRoot = path.join(tmpHome, 'publishable-bundle');
+    const isolatedHome = path.join(tmpHome, 'isolated-home');
+    fs.mkdirSync(bundleRoot, { recursive: true });
+    fs.mkdirSync(isolatedHome, { recursive: true });
+    copyPublishableBundle(repoRoot, bundleRoot);
+
+    const install = runBundleInstall(bundleRoot, isolatedHome, 'claude', {
+      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+    });
+    if (bailIfSpawnBlocked(install)) return;
+
+    const claudeDir = path.join(isolatedHome, '.claude');
+    expect(install.status).toBe(0);
+    expect(fs.existsSync(path.join(claudeDir, 'settings.json'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'commands', 'review.md'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
+
+    const uninstall = runBundleUninstall(bundleRoot, isolatedHome, 'claude', {
+      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+    });
+    if (bailIfSpawnBlocked(uninstall)) return;
+
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(claudeDir, 'commands'))).toBe(false);
+    expect(fs.existsSync(path.join(claudeDir, 'personal-skill-system'))).toBe(false);
+  });
 });
 
 describe('codex install smoke', () => {
@@ -154,7 +242,8 @@ describe('codex install smoke', () => {
       artifact: expect.any(String)
     }));
     expect(manifest.installed).toEqual(expect.arrayContaining([
-      expect.objectContaining({ root: 'codex', path: 'AGENTS.md' })
+      expect.objectContaining({ root: 'codex', path: 'AGENTS.md' }),
+      expect.objectContaining({ root: 'codex', path: 'config.toml' })
     ]));
     expect(fs.existsSync(path.join(codexDir, 'settings.json'))).toBe(false);
     expect(fs.existsSync(path.join(codexDir, 'prompts'))).toBe(false);
@@ -188,9 +277,11 @@ describe('codex install smoke', () => {
 
   test('安装 Codex 时会迁移旧 settings.json，卸载后恢复', () => {
     const codexDir = path.join(tmpHome, '.codex');
+    const originalConfig = 'sandbox_mode = "workspace-write"\n';
     fs.mkdirSync(codexDir, { recursive: true });
     fs.writeFileSync(path.join(codexDir, 'settings.json'), '{"legacy":true}\n');
     fs.writeFileSync(path.join(codexDir, 'AGENTS.md'), '# legacy agents\n');
+    fs.writeFileSync(path.join(codexDir, 'config.toml'), originalConfig);
 
     const install = runInstall(['--target', 'codex', '-y']);
     if (bailIfSpawnBlocked(install)) return;
@@ -200,12 +291,14 @@ describe('codex install smoke', () => {
     expect(install.stdout).toContain('移除 legacy settings.json');
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(true);
     expect(fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8')).not.toContain('# legacy agents');
+    expect(fs.readFileSync(path.join(codexDir, 'config.toml'), 'utf8')).toContain('model_instructions_file = "./instruction.md"');
 
     const uninstall = runInstall(['--uninstall', 'codex']);
     if (bailIfSpawnBlocked(uninstall)) return;
     expect(uninstall.status).toBe(0);
     expect(fs.readFileSync(path.join(codexDir, 'settings.json'), 'utf8')).toContain('legacy');
     expect(fs.readFileSync(path.join(codexDir, 'AGENTS.md'), 'utf8')).toContain('# legacy agents');
+    expect(fs.readFileSync(path.join(codexDir, 'config.toml'), 'utf8')).toBe(originalConfig);
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(false);
     expect(fs.existsSync(path.join(tmpHome, '.agents', 'skills'))).toBe(false);
   });
@@ -222,6 +315,7 @@ describe('codex install smoke', () => {
     if (bailIfSpawnBlocked(uninstall)) return;
     expect(uninstall.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, 'config.toml'))).toBe(false);
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(false);
     expect(fs.existsSync(path.join(tmpHome, '.agents', 'skills'))).toBe(false);
   });
@@ -250,6 +344,32 @@ describe('codex install smoke', () => {
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(false);
     expect(fs.existsSync(path.join(tmpHome, '.agents', 'skills'))).toBe(false);
     expect(fs.existsSync(path.join(codexDir, '.sage-uninstall.js'))).toBe(false);
+  });
+
+  test('Codex auto install works from a publishable bundle without node_modules', () => {
+    const repoRoot = path.join(__dirname, '..');
+    const bundleRoot = path.join(tmpHome, 'publishable-bundle');
+    const isolatedHome = path.join(tmpHome, 'isolated-home');
+    fs.mkdirSync(bundleRoot, { recursive: true });
+    fs.mkdirSync(isolatedHome, { recursive: true });
+    copyPublishableBundle(repoRoot, bundleRoot);
+
+    const result = runBundleInstall(bundleRoot, isolatedHome, 'codex');
+    if (bailIfSpawnBlocked(result)) return;
+
+    const codexDir = path.join(isolatedHome, '.codex');
+    expect(result.status).toBe(0);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
+    expect(fs.existsSync(path.join(codexDir, 'config.toml'))).toBe(true);
+    expect(fs.existsSync(path.join(isolatedHome, '.agents', 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
+
+    const uninstall = runBundleUninstall(bundleRoot, isolatedHome, 'codex');
+    if (bailIfSpawnBlocked(uninstall)) return;
+
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(false);
+    expect(fs.existsSync(path.join(codexDir, 'config.toml'))).toBe(false);
+    expect(fs.existsSync(path.join(isolatedHome, '.agents', 'personal-skill-system'))).toBe(false);
   });
 });
 
@@ -313,5 +433,47 @@ describe('gemini install smoke', () => {
 
     expect(result.status).toBe(0);
     expect(content).toContain('# 墨渊书阁 · 输出之道');
+  });
+  test('Gemini uninstall removes generated commands directory', () => {
+    const geminiDir = path.join(tmpHome, '.gemini');
+
+    const install = runInstall(['--target', 'gemini', '-y']);
+    if (bailIfSpawnBlocked(install)) return;
+    expect(install.status).toBe(0);
+    expect(fs.existsSync(path.join(geminiDir, 'commands', 'review.toml'))).toBe(true);
+
+    const uninstall = runInstall(['--uninstall', 'gemini']);
+    if (bailIfSpawnBlocked(uninstall)) return;
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(geminiDir, 'commands'))).toBe(false);
+  });
+
+  test('Gemini auto install works from a publishable bundle without node_modules', () => {
+    const repoRoot = path.join(__dirname, '..');
+    const bundleRoot = path.join(tmpHome, 'publishable-bundle');
+    const isolatedHome = path.join(tmpHome, 'isolated-home');
+    fs.mkdirSync(bundleRoot, { recursive: true });
+    fs.mkdirSync(isolatedHome, { recursive: true });
+    copyPublishableBundle(repoRoot, bundleRoot);
+
+    const install = runBundleInstall(bundleRoot, isolatedHome, 'gemini', {
+      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+    });
+    if (bailIfSpawnBlocked(install)) return;
+
+    const geminiDir = path.join(isolatedHome, '.gemini');
+    expect(install.status).toBe(0);
+    expect(fs.existsSync(path.join(geminiDir, 'settings.json'))).toBe(true);
+    expect(fs.existsSync(path.join(geminiDir, 'commands', 'review.toml'))).toBe(true);
+    expect(fs.existsSync(path.join(geminiDir, 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
+
+    const uninstall = runBundleUninstall(bundleRoot, isolatedHome, 'gemini', {
+      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+    });
+    if (bailIfSpawnBlocked(uninstall)) return;
+
+    expect(uninstall.status).toBe(0);
+    expect(fs.existsSync(path.join(geminiDir, 'commands'))).toBe(false);
+    expect(fs.existsSync(path.join(geminiDir, 'personal-skill-system'))).toBe(false);
   });
 });

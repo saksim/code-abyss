@@ -44,6 +44,9 @@ function buildGeminiCommand(name, description, skillPath) {
 
 function backupPathIfExists(targetPath, backupPath, manifest, rootName, relPath, info) {
   if (!fs.existsSync(targetPath)) return false;
+  if ((manifest.installed || []).some((entry) => entry.root === rootName && entry.path === relPath)) {
+    return false;
+  }
   rmSafe(backupPath);
   copyRecursive(targetPath, backupPath);
   manifest.backups.push({ root: rootName, path: relPath });

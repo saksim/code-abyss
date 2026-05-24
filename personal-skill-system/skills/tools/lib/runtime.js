@@ -291,9 +291,18 @@ function classifyPath(relPath) {
 function emit(report, args) {
   if (args && args.json) {
     process.stdout.write(JSON.stringify(report, null, 2) + '\n');
+    applyReportExitCode(report);
     return;
   }
   printHumanReport(report);
+  applyReportExitCode(report);
+}
+
+function applyReportExitCode(report) {
+  const status = String(report && report.status || '').trim().toLowerCase();
+  if (status === 'fail' || status === 'block') {
+    process.exitCode = 1;
+  }
 }
 
 function safeMkdir(dir) {

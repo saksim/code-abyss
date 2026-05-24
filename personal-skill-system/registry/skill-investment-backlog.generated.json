@@ -1,6 +1,6 @@
 {
   "schema-version": 2,
-  "generated-at": "2026-05-22T03:10:14.280Z",
+  "generated-at": "2026-05-24T15:14:16.217Z",
   "sources": {
     "skill-opportunity-queue": "registry/skill-opportunity-queue.generated.json",
     "admission-ledger": "registry/admission-ledger.generated.json",

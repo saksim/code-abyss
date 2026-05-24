@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-20T12:12:51.021Z",
+  "generated-at": "2026-05-22T06:03:18.777Z",
   "sources": {
     "family-registry": "registry/expert-source-families.generated.json",
     "experimental-pack": "packs/experimental/manifest.json"
@@ -25,7 +25,7 @@
     "families-with-parse-errors": 0,
     "active-families-with-parse-errors": 0,
     "experimental-pack-parse-errors": 0,
-    "active-raw-source-skills": 8,
+    "active-raw-source-skills": 0,
     "active-integrated-source-skills": 8,
     "active-integrated-modules": 42,
     "active-unmapped-raw-sources": 0,
@@ -44,8 +44,8 @@
       "rawRoot": "../top_developer",
       "expectedPortable": true,
       "parseError": null,
-      "rawRootExists": true,
-      "rawSourceSkills": 8,
+      "rawRootExists": false,
+      "rawSourceSkills": 0,
       "integratedSourceSkills": 8,
       "integratedModules": 42,
       "unmappedRawSources": [],

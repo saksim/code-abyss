@@ -998,7 +998,16 @@ async function postClaude(ctx) {
 
 // ── Codex 后续 ──
 
-async function postCodex() {
+async function postCodex(ctx) {
+  const relPath = 'config.toml';
+  const cfgPath = path.join(resolveManagedRootDir('codex', 'codex'), relPath);
+  const backupDir = path.join(ctx.targetDir, '.sage-backup');
+
+  if (fs.existsSync(cfgPath)) {
+    backupManagedPathIfExists('codex', 'codex', backupDir, relPath, ctx.manifest);
+    persistInstallManifest(ctx);
+  }
+
   await postCodexFlow({
     autoYes,
     HOME,
@@ -1009,6 +1018,11 @@ async function postCodex() {
     info,
     c,
   });
+
+  if (fs.existsSync(cfgPath)) {
+    pushManifestEntry(ctx.manifest.installed, 'codex', relPath);
+    persistInstallManifest(ctx);
+  }
 }
 
 async function postGemini(ctx) {
@@ -1058,7 +1072,7 @@ async function main() {
     }
     const ctx = installCore(target, style, persona, packPlan);
     if (target === 'claude') await postClaude(ctx);
-    else if (target === 'codex') await postCodex();
+    else if (target === 'codex') await postCodex(ctx);
     else await postGemini(ctx);
     finish(ctx);
     return;
@@ -1100,7 +1114,7 @@ async function main() {
         info(`项目 packs: required=[${packPlan.required.join(', ')}] optional=[${packPlan.optional.join(', ')}] policy=${packPlan.optionalPolicy}`);
       }
       const ctx = installCore('codex', style, persona, packPlan);
-      await postCodex();
+      await postCodex(ctx);
       finish(ctx); break;
     }
     case 'install-gemini': {
@@ -1224,4 +1238,5 @@ module.exports = {
   generateGeminiCommandContent,
   installGeneratedCommands,
   installGeneratedGeminiCommands,
+  main,
 };
