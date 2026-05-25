@@ -91,6 +91,33 @@ describe('install cli styles', () => {
     expect(result.stdout).toContain('abyss-cultivator');
     expect(result.stdout).toContain('scholar-classic');
   });
+
+  test('--list-skills 列出可用 skill', () => {
+    const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'install.js'), '--list-skills'], {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf8',
+    });
+
+    if (bailIfSpawnBlocked(result)) return;
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Code Abyss skills');
+    expect(result.stdout).toContain('development');
+    expect(result.stdout).toContain('review');
+    expect(result.stdout).toContain('verify-security');
+  });
+
+  test('--explain-skill 输出具体用法', () => {
+    const result = spawnSync(process.execPath, [path.join(__dirname, '..', 'bin', 'install.js'), '--explain-skill', 'review'], {
+      cwd: path.join(__dirname, '..'),
+      encoding: 'utf8',
+    });
+
+    if (bailIfSpawnBlocked(result)) return;
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('Skill: review');
+    expect(result.stdout).toContain('Prompt template:');
+    expect(result.stdout).toContain('Use review for this change.');
+  });
 });
 
 describe('claude install smoke', () => {
@@ -129,6 +156,7 @@ describe('claude install smoke', () => {
     expect(fs.existsSync(path.join(claudeDir, 'commands'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'commands', 'gen-docs.md'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'commands', 'review.md'))).toBe(true);
+    expect(fs.existsSync(path.join(claudeDir, 'HOW_TO_USE_SKILLS.md'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'skills', 'gstack', 'review', 'SKILL.md'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, 'settings.json'))).toBe(true);
     expect(fs.existsSync(path.join(claudeDir, '.sage-uninstall.js'))).toBe(true);
@@ -227,6 +255,7 @@ describe('codex install smoke', () => {
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(codexDir, 'AGENTS.md'))).toBe(true);
+    expect(fs.existsSync(path.join(codexDir, 'HOW_TO_USE_SKILLS.md'))).toBe(true);
     expect(fs.existsSync(path.join(tmpHome, '.agents', 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'skills'))).toBe(true);
     expect(fs.existsSync(path.join(codexDir, 'bin', 'lib'))).toBe(true);
@@ -406,6 +435,7 @@ describe('gemini install smoke', () => {
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(geminiDir, 'GEMINI.md'))).toBe(true);
+    expect(fs.existsSync(path.join(geminiDir, 'HOW_TO_USE_SKILLS.md'))).toBe(true);
     expect(fs.existsSync(path.join(geminiDir, 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
     expect(fs.existsSync(path.join(geminiDir, 'skills'))).toBe(true);
     expect(fs.existsSync(path.join(geminiDir, 'commands', 'gen-docs.toml'))).toBe(true);

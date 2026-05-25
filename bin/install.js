@@ -47,6 +47,14 @@ const {
   renderCodexAgents,
   renderGeminiContext,
 } = require(path.join(__dirname, 'lib', 'style-registry.js'));
+const {
+  QUICKSTART_FILE_NAME,
+  getInstallPromptSamples,
+  getQuickstartInstallPath,
+  renderSkillCatalog,
+  renderSkillExplanation,
+  renderSkillQuickstart,
+} = require(path.join(__dirname, 'lib', 'skill-usage.js'));
 const { detectCcstatusline, installCcstatusline } = require(path.join(__dirname, 'lib', 'ccstatusline.js'));
 const { installGstackClaudePack } = require(path.join(__dirname, 'lib', 'gstack-claude.js'));
 const { installGstackGeminiPack } = require(path.join(__dirname, 'lib', 'gstack-gemini.js'));
@@ -281,6 +289,8 @@ let uninstallTarget = null;
 let autoYes = false;
 let listStylesOnly = false;
 let listPersonasOnly = false;
+let listSkillsOnly = false;
+let explainSkillName = null;
 let requestedStyleSlug = null;
 let requestedPersonaSlug = null;
 
@@ -291,6 +301,8 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--persona' && args[i + 1]) { requestedPersonaSlug = args[++i]; }
   else if (args[i] === '--list-styles') { listStylesOnly = true; }
   else if (args[i] === '--list-personas') { listPersonasOnly = true; }
+  else if (args[i] === '--list-skills') { listSkillsOnly = true; }
+  else if (args[i] === '--explain-skill' && args[i + 1]) { explainSkillName = args[++i]; }
   else if (args[i] === '--yes' || args[i] === '-y') { autoYes = true; }
   else if (args[i] === '--help' || args[i] === '-h') {
     banner();
@@ -303,12 +315,16 @@ ${c.b('选项:')}
   --persona ${c.cyn('<slug>')}             指定人格预设
   --list-styles               列出可用输出风格
   --list-personas             列出可用人格预设
+  --list-skills               列出可用 skill
+  --explain-skill ${c.cyn('<name>')}       解释某个 skill 怎么用
   --yes, -y                    全自动模式
   --help, -h                   显示帮助
 
 ${c.b('示例:')}
   npx code-abyss                        ${c.d('# 交互菜单')}
   npx code-abyss --list-styles           ${c.d('# 查看可用风格')}
+  npx code-abyss --list-skills           ${c.d('# 查看可用 skill')}
+  npx code-abyss --explain-skill review  ${c.d('# 查看 review 怎么用')}
   npx code-abyss --target claude -y      ${c.d('# 零配置一键安装')}
   npx code-abyss --target codex --style scholar-classic -y
                                    ${c.d('# 指定风格安装')}
@@ -661,6 +677,30 @@ function printPersonaCatalog() {
   console.log('');
 }
 
+function printSkillCatalog() {
+  banner();
+  divider('可用 Skills');
+  console.log(renderSkillCatalog(PKG_ROOT));
+  console.log('');
+}
+
+function printSkillExplanation(skillName) {
+  banner();
+  divider(`Skill: ${skillName}`);
+  console.log(renderSkillExplanation(PKG_ROOT, skillName));
+  console.log('');
+}
+
+function installSkillQuickstart(tgt, backupDir, manifest) {
+  const rootName = tgt === 'codex' ? 'codex' : tgt;
+  const relPath = QUICKSTART_FILE_NAME;
+  backupManagedPathIfExists(tgt, rootName, backupDir, relPath, manifest);
+  const destPath = path.join(resolveManagedRootDir(tgt, rootName), relPath);
+  fs.writeFileSync(destPath, renderSkillQuickstart(PKG_ROOT, tgt));
+  pushManifestEntry(manifest.installed, rootName, relPath);
+  ok(`${relPath} ${c.d('(skill quickstart)')}`);
+}
+
 async function resolveProjectPackPlan(targetName) {
   const projectPacks = resolveProjectPacks(process.cwd(), targetName);
   if (!projectPacks.path) {
@@ -808,6 +848,7 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
   if (tgt === 'claude') {
     const skillsSrc = AUTHORITATIVE_SKILLS_DIR;
     installGeneratedCommands(skillsSrc, targetDir, backupDir, manifest);
+    installSkillQuickstart(tgt, backupDir, manifest);
     if (packPlan.selected.includes('gstack')) {
       const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
       const result = installGstackClaudePack({
@@ -840,6 +881,7 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
     }
   } else if (tgt === 'codex') {
     // Codex 以 skills-first runtime 为主，同时保留 ~/.codex/AGENTS.md 作为 persona/style guidance。
+    installSkillQuickstart(tgt, backupDir, manifest);
     if (packPlan.selected.includes('gstack')) {
       const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
       const result = installGstackCodexPack({
@@ -874,6 +916,7 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
     const skillsSrc = AUTHORITATIVE_SKILLS_DIR;
     installGeneratedGeminiCommands(skillsSrc, targetDir, backupDir, manifest);
     installGeminiContext(targetDir, backupDir, manifest, selectedStyle);
+    installSkillQuickstart(tgt, backupDir, manifest);
     if (packPlan.selected.includes('gstack')) {
       const sourceMode = (packPlan.sources && packPlan.sources.gstack) || 'pinned';
       const result = installGstackGeminiPack({
@@ -1053,6 +1096,16 @@ async function main() {
     return;
   }
 
+  if (listSkillsOnly) {
+    printSkillCatalog();
+    return;
+  }
+
+  if (explainSkillName) {
+    printSkillExplanation(explainSkillName);
+    return;
+  }
+
   if (uninstallTarget) { runUninstall(uninstallTarget); return; }
 
   banner();
@@ -1220,7 +1273,14 @@ function finish(ctx) {
     console.log(`  ${c.b('Report:')}   ${reportPath}`);
   }
   console.log(`  ${c.b('文件:')}     ${ctx.manifest.installed.length} 个安装, ${ctx.manifest.backups.length} 个备份`);
+  console.log(`  ${c.b('上手文档:')} ${c.d(getQuickstartInstallPath(tgt))}`);
   console.log(`  ${c.b('卸载:')}     ${c.d(`npx code-abyss --uninstall ${tgt}`)}`);
+  console.log('');
+  console.log(`  ${c.b('现在直接这样开始:')}`);
+  getInstallPromptSamples().forEach((sample) => {
+    console.log(`  ${c.cyn(sample.title)}`);
+    sample.lines.forEach((line) => console.log(`    ${line}`));
+  });
   console.log('');
   console.log(c.mag(`  ⚚ 劫——破——了——！！！\n`));
 }
@@ -1238,5 +1298,8 @@ module.exports = {
   generateGeminiCommandContent,
   installGeneratedCommands,
   installGeneratedGeminiCommands,
+  printSkillCatalog,
+  printSkillExplanation,
+  installSkillQuickstart,
   main,
 };

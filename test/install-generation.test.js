@@ -9,6 +9,8 @@ const {
   generateCommandContent,
   generateGeminiCommandContent,
   installGeneratedCommands,
+  printSkillCatalog,
+  printSkillExplanation,
 } = require('../bin/install');
 
 describe('generateCommandContent', () => {
@@ -70,6 +72,35 @@ describe('generateCommandContent', () => {
     expect(content).toContain('description: "has \\"quotes\\" inside"');
   });
 
+});
+
+describe('skill discovery cli helpers', () => {
+  test('printSkillCatalog includes major skill groups', () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      printSkillCatalog();
+      const output = spy.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(output).toContain('Code Abyss skills');
+      expect(output).toContain('development');
+      expect(output).toContain('review');
+      expect(output).toContain('verify-security');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  test('printSkillExplanation renders a usable prompt template', () => {
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
+    try {
+      printSkillExplanation('review');
+      const output = spy.mock.calls.map((call) => call.join(' ')).join('\n');
+      expect(output).toContain('review');
+      expect(output).toContain('Prompt template:');
+      expect(output).toContain('Use review for this task.');
+    } finally {
+      spy.mockRestore();
+    }
+  });
 });
 
 describe('installGeneratedCommands', () => {

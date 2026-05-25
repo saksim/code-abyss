@@ -28,11 +28,13 @@ npm run verify:tarball-smoke
 
 ## Quick start
 
-List styles and personas:
+Discover the install surface first:
 
 ```bash
 npx code-abyss --list-styles
 npx code-abyss --list-personas
+npx code-abyss --list-skills
+npx code-abyss --explain-skill review
 ```
 
 Interactive install:
@@ -75,24 +77,94 @@ After installation, keep using your normal AI CLI. Code Abyss changes the host r
 | Codex CLI | Launch Codex normally; instructions are in `~/.codex/instruction.md` and shared skills are under `~/.agents/` |
 | Gemini CLI | Launch Gemini normally; generated TOML commands and skills are under `~/.gemini/` |
 
+Each install now writes `HOW_TO_USE_SKILLS.md` into the host runtime root so users have a first-run guide next to the installed files.
+
+The practical rule is:
+
+1. pick one primary skill
+2. state the goal
+3. state the constraints
+4. state the deliverable
+5. include an exact validation command
+
+Examples:
+
+```text
+Use development for this task.
+Goal: add rate limiting to the login endpoint
+Context: src/auth/
+Constraints: minimal change; keep current API shape
+Deliverable: code + tests
+Validation: npm test -- auth
+```
+
+```text
+Use bugfix for this task.
+Issue: payment callback signature verification regressed
+Expected: valid callbacks pass and invalid ones fail
+Constraints: root cause first; minimal patch
+Deliverable: fix + regression test
+Validation: pytest tests/payments/test_callback.py
+```
+
+```text
+Use review for this change.
+Scope: current PR
+Requirements: findings first; order by severity
+Output: concrete risks with file paths
+Validation: name missing tests or checks
+```
+
 Common maintenance commands:
 
 ```bash
 npx code-abyss --list-styles
 npx code-abyss --list-personas
+npx code-abyss --list-skills
+npx code-abyss --explain-skill development
 npx code-abyss --target codex --style scholar-classic --persona scholar -y
 npx code-abyss --uninstall codex
 ```
 
-## What changed for users
+## What skills can do
 
-Code Abyss turns a manual prompt folder into a governed runtime bundle:
+The skill system is easier to explain if you group it into four layers:
 
-- Users get one repeatable installer for Claude, Codex, and Gemini instead of hand-copying prompts into each tool.
-- Each host receives its native files: Claude gets `CLAUDE.md` and slash commands, Codex gets `AGENTS.md` / `instruction.md` / `config.toml`, Gemini gets `GEMINI.md` and TOML commands.
-- The personal skill system ships as an authoritative bundle with registry, route, runtime-proof, host-smoke, and pack governance metadata.
-- Install and uninstall are manifest-backed, so generated files can be removed without deleting unrelated user-owned files.
-- Optional packs can extend the runtime without changing the core skill source tree.
+- `domain` skills: the main expertise entry points, such as `development`, `architecture`, `security`, `frontend-design`
+- `workflow` skills: how to run the task, such as `bugfix`, `investigate`, `review`, `ship`
+- `tool` skills: deterministic checks, such as `verify-change`, `verify-quality`, `verify-security`
+- `guard` skills: release gates, such as `pre-commit-gate`, `pre-merge-gate`
+
+In practice, most users only need to remember a small starter set:
+
+- `development`: implement or refactor code
+- `bugfix`: repair a known bug with a minimal patch
+- `investigate`: find root cause before editing
+- `review`: review a change with findings first
+- `architecture`: make API, boundary, queue, cache, or migration decisions
+- `verify-change`: inspect the current diff for risk and doc drift
+- `verify-quality`: run a deterministic code quality pass
+- `verify-security`: run a deterministic security pass
+
+## Installed vs not installed
+
+| User task | Without Code Abyss | With Code Abyss |
+| --- | --- | --- |
+| Ask the model to implement a feature | You describe the task ad hoc and hope the host prompt stack is good enough | You can explicitly route to `development` and use one stable prompt shape |
+| Ask for a bug fix | There is no shared “fix with root cause first” workflow surface | You can explicitly route to `bugfix` |
+| Ask for a review | Review style depends on whatever the current host prompt happens to say | You can explicitly route to `review` and get a findings-first workflow |
+| Run a deterministic check | Usually manual; no shared built-in verification verbs | You can call `verify-change`, `verify-quality`, `verify-security` |
+| Explain the setup to another user | Mostly tribal knowledge and copied prompts | Users get `HOW_TO_USE_SKILLS.md`, `--list-skills`, and `--explain-skill <name>` |
+| Install across multiple hosts | Separate manual setup per host | One installer writes host-native runtime files for Claude, Codex, and Gemini |
+| Remove the setup safely | Manual cleanup risks deleting the wrong files | Install and uninstall are manifest-backed |
+
+Operationally, Code Abyss also gives you:
+
+- one repeatable installer instead of host-by-host prompt copying
+- a generated first-run guide in the runtime root
+- a stable skill naming surface across Claude, Codex, and Gemini
+- authoritative registry, route, runtime-proof, host-smoke, and pack governance metadata
+- optional packs without changing the core skill source tree
 
 ## Boundaries
 
@@ -165,6 +237,8 @@ Useful local commands:
 node bin/install.js --help
 node bin/install.js --list-styles
 node bin/install.js --list-personas
+node bin/install.js --list-skills
+node bin/install.js --explain-skill review
 npm run verify:tarball-smoke
 npm run verify:tarball-smoke -- --tgz ./code-abyss-2.1.2.tgz
 node bin/release-smoke.js --pack
