@@ -286,6 +286,18 @@
       "expect": "ai"
     },
     {
+      "name": "topint-ai-openai-api-build-guidance",
+      "query": "Design an OpenAI API LLM integration with model selection, eval strategy, and agent tool-calling guardrails.",
+      "expect": "ai",
+      "expect-no-fallback": true
+    },
+    {
+      "name": "topint-development-python-engineering-depth",
+      "query": "Refactor this Python service code with type hints, pytest coverage, async boundaries, and packaging hygiene.",
+      "expect": "development",
+      "expect-no-fallback": true
+    },
+    {
       "name": "m4-001-data-engineering-route",
       "query": "Design an ETL and Kafka streaming pipeline with dbt models and data quality contracts.",
       "expect": "data-engineering"
@@ -340,6 +352,18 @@
       "name": "m4-001-verify-skill-system-route",
       "query": "Run verify-skill-system on the personal skill bundle and audit registry and route-map health.",
       "expect": "verify-skill-system",
+      "expect-no-fallback": true
+    },
+    {
+      "name": "topint-imagegen-project-bound-hero-asset",
+      "query": "Generate a project-bound hero image for a ceramic mug product mockup with transparent background.",
+      "expect": "imagegen",
+      "expect-no-fallback": true
+    },
+    {
+      "name": "topint-plugin-creator-codex-scaffold",
+      "query": "Create a Codex plugin scaffold with .codex-plugin plugin.json and marketplace.json.",
+      "expect": "plugin-creator",
       "expect-no-fallback": true
     },
     {
@@ -585,6 +609,20 @@
       "name": "placeholder-route-chart-visualization",
       "query": "Run chart-visualization for this chart request.",
       "expect": "chart-visualization",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-plugin-creator",
+      "query": "Run plugin-creator for this create plugin request.",
+      "expect": "plugin-creator",
+      "expect-no-fallback": true,
+      "governed": true
+    },
+    {
+      "name": "placeholder-route-imagegen",
+      "query": "Run imagegen for this image generation request.",
+      "expect": "imagegen",
       "expect-no-fallback": true,
       "governed": true
     }

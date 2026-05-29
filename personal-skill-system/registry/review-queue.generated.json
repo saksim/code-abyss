@@ -1,15 +1,15 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-22T06:03:18.777Z",
+  "generated-at": "2026-05-29T05:47:10.058Z",
   "source": "skills/**/SKILL.md",
   "thresholds": {
     "due-soon-days": 7
   },
   "summary": {
-    "governed-skills": 39,
+    "governed-skills": 41,
     "overdue": 0,
-    "due-soon": 0,
-    "scheduled": 39,
+    "due-soon": 12,
+    "scheduled": 29,
     "missing-metadata": 0,
     "stable-overdue": 0,
     "stable-missing-metadata": 0
@@ -23,10 +23,10 @@
       "file": "skills/workflows/bugfix/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -37,10 +37,10 @@
       "file": "skills/tools/gen-docs/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -51,10 +51,10 @@
       "file": "skills/domains/infrastructure/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -65,10 +65,10 @@
       "file": "skills/workflows/investigate/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -79,10 +79,10 @@
       "file": "skills/workflows/multi-agent/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -93,10 +93,10 @@
       "file": "skills/domains/orchestration/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -107,10 +107,10 @@
       "file": "skills/workflows/review/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -121,10 +121,10 @@
       "file": "skills/domains/security/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -135,10 +135,10 @@
       "file": "skills/workflows/ship/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -149,10 +149,10 @@
       "file": "skills/tools/verify-change/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -163,10 +163,10 @@
       "file": "skills/tools/verify-module/SKILL.md",
       "last-reviewed": "2026-04-17",
       "review-cycle-days": 45,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-01",
-      "days-until-due": 10,
+      "days-until-due": 3,
       "overdue-days": 0
     },
     {
@@ -177,10 +177,10 @@
       "file": "skills/tools/manage-skill/SKILL.md",
       "last-reviewed": "2026-05-05",
       "review-cycle-days": 30,
-      "review-status": "scheduled",
-      "priority": "normal",
+      "review-status": "due-soon",
+      "priority": "high",
       "next-review-due": "2026-06-04",
-      "days-until-due": 13,
+      "days-until-due": 6,
       "overdue-days": 0
     },
     {
@@ -194,7 +194,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -208,7 +208,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -222,7 +222,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -236,7 +236,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -250,7 +250,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -264,7 +264,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -278,7 +278,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -292,7 +292,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-16",
-      "days-until-due": 25,
+      "days-until-due": 18,
       "overdue-days": 0
     },
     {
@@ -306,7 +306,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 26,
+      "days-until-due": 19,
       "overdue-days": 0
     },
     {
@@ -320,7 +320,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 26,
+      "days-until-due": 19,
       "overdue-days": 0
     },
     {
@@ -334,7 +334,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 26,
+      "days-until-due": 19,
       "overdue-days": 0
     },
     {
@@ -348,7 +348,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-17",
-      "days-until-due": 26,
+      "days-until-due": 19,
       "overdue-days": 0
     },
     {
@@ -362,7 +362,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-18",
-      "days-until-due": 27,
+      "days-until-due": 20,
       "overdue-days": 0
     },
     {
@@ -376,7 +376,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-18",
-      "days-until-due": 27,
+      "days-until-due": 20,
       "overdue-days": 0
     },
     {
@@ -390,7 +390,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-19",
-      "days-until-due": 28,
+      "days-until-due": 21,
       "overdue-days": 0
     },
     {
@@ -404,7 +404,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-19",
-      "days-until-due": 28,
+      "days-until-due": 21,
       "overdue-days": 0
     },
     {
@@ -418,7 +418,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-19",
-      "days-until-due": 28,
+      "days-until-due": 21,
       "overdue-days": 0
     },
     {
@@ -432,7 +432,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-22",
-      "days-until-due": 31,
+      "days-until-due": 24,
       "overdue-days": 0
     },
     {
@@ -446,7 +446,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-22",
-      "days-until-due": 31,
+      "days-until-due": 24,
       "overdue-days": 0
     },
     {
@@ -460,7 +460,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-22",
-      "days-until-due": 31,
+      "days-until-due": 24,
       "overdue-days": 0
     },
     {
@@ -474,7 +474,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-23",
-      "days-until-due": 32,
+      "days-until-due": 25,
       "overdue-days": 0
     },
     {
@@ -488,7 +488,35 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-24",
-      "days-until-due": 33,
+      "days-until-due": 26,
+      "overdue-days": 0
+    },
+    {
+      "skill": "imagegen",
+      "kind": "tool",
+      "status": "experimental",
+      "owner": "self",
+      "file": "skills/tools/imagegen/SKILL.md",
+      "last-reviewed": "2026-05-29",
+      "review-cycle-days": 30,
+      "review-status": "scheduled",
+      "priority": "normal",
+      "next-review-due": "2026-06-28",
+      "days-until-due": 30,
+      "overdue-days": 0
+    },
+    {
+      "skill": "plugin-creator",
+      "kind": "tool",
+      "status": "experimental",
+      "owner": "self",
+      "file": "skills/tools/plugin-creator/SKILL.md",
+      "last-reviewed": "2026-05-29",
+      "review-cycle-days": 30,
+      "review-status": "scheduled",
+      "priority": "normal",
+      "next-review-due": "2026-06-28",
+      "days-until-due": 30,
       "overdue-days": 0
     },
     {
@@ -502,7 +530,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-06-29",
-      "days-until-due": 38,
+      "days-until-due": 31,
       "overdue-days": 0
     },
     {
@@ -516,7 +544,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 55,
+      "days-until-due": 48,
       "overdue-days": 0
     },
     {
@@ -530,7 +558,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 55,
+      "days-until-due": 48,
       "overdue-days": 0
     },
     {
@@ -544,7 +572,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 55,
+      "days-until-due": 48,
       "overdue-days": 0
     },
     {
@@ -558,7 +586,7 @@
       "review-status": "scheduled",
       "priority": "normal",
       "next-review-due": "2026-07-16",
-      "days-until-due": 55,
+      "days-until-due": 48,
       "overdue-days": 0
     }
   ]

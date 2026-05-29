@@ -64,3 +64,5 @@ Prefer deepening an existing clean route before creating a new overlapping sibli
   Read when deciding what should be routed directly, what should stay as depth references, and when a new skill would be worse than deepening an existing one.
 - `references/portability-and-governance.md`
   Read when the hard part is self-contained packaging, generated metadata, pack boundaries, validation gates, or future-skill lifecycle governance.
+- `references/external-skill-integration.md`
+  Read when importing, merging, rejecting, or pack-routing outside SKILL sources into the governed bundle.

@@ -1,0 +1,24 @@
+{
+  "schema-version": 1,
+  "freshness": {
+    "max-age": 14,
+    "unit": "days"
+  },
+  "commands": [
+    {
+      "cwd": "skill-dir",
+      "argv": [
+        "node",
+        "scripts/run.js",
+        "--name",
+        "sample-plugin",
+        "--dry-run",
+        "--json"
+      ],
+      "expect": {
+        "tool": "plugin-creator"
+      },
+      "timeout-ms": 10000
+    }
+  ]
+}

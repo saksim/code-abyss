@@ -1,7 +1,7 @@
 {
   "name": "code-abyss",
   "version": "2.1.2",
-  "description": "为 Claude Code / Codex CLI 注入邪修人格、4种可切换输出风格与 56 篇攻防工程秘典",
+  "description": "为 Claude Code / Codex CLI / Gemini CLI 提供统一 installer、persona、style 与 governed skill runtime",
   "keywords": [
     "claude",
     "claude-code",

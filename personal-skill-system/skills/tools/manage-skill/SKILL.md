@@ -199,3 +199,5 @@ Return:
   Read when you need concrete command examples for create, update, archive, show, and delete.
 - `references/skill-admission-rubric.md`
   Read when deciding whether a new request deserves a brand-new skill, should deepen an existing route, or should stay as capability depth behind a current skill.
+- `references/external-skill-absorption.md`
+  Read when importing, strengthening, or mirroring skills from another runtime so the change goes through admission, pack, adapter, or merge governance instead of bulk copying.

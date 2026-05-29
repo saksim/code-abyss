@@ -1,6 +1,6 @@
 {
   "schema-version": 1,
-  "generated-at": "2026-05-24T15:14:16.632Z",
+  "generated-at": "2026-05-29T05:47:10.058Z",
   "sources": {
     "system-readiness": "benchmark/system-readiness.generated.json",
     "skill-investment-backlog": "registry/skill-investment-backlog.generated.json",
@@ -39,8 +39,8 @@
     ]
   },
   "readiness": {
-    "status": "ready",
-    "generated-at": "2026-05-24T15:14:16.461Z",
+    "status": "attention",
+    "generated-at": "2026-05-29T05:47:10.058Z",
     "host-writeability": {
       "status": "ready",
       "total": 36,

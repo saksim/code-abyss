@@ -146,6 +146,8 @@ In practice, most users only need to remember a small starter set:
 - `verify-quality`: run a deterministic code quality pass
 - `verify-security`: run a deterministic security pass
 
+Optional gstack pack skills add browser, QA, design, canary, and deploy-runtime workflows without becoming core skill source. See [docs/GSTACK_CAPABILITY_MAP.md](docs/GSTACK_CAPABILITY_MAP.md) for when to use gstack pack skills versus core Code Abyss skills.
+
 ## Installed vs not installed
 
 | User task | Without Code Abyss | With Code Abyss |
@@ -254,6 +256,7 @@ npm run packs:bootstrap -- --apply-docs
 | [docs/ONBOARDING.md](docs/ONBOARDING.md) | First-time maintainer onboarding |
 | [DESIGN.md](DESIGN.md) | Architecture and runtime model |
 | [docs/PACK_SYSTEM.md](docs/PACK_SYSTEM.md) | Pack lock, vendor, and bootstrap behavior |
+| [docs/GSTACK_CAPABILITY_MAP.md](docs/GSTACK_CAPABILITY_MAP.md) | gstack pack capabilities and core-vs-pack selection |
 | [docs/SKILL_AUTHORING.md](docs/SKILL_AUTHORING.md) | Skill authoring and governance |
 | [docs/RELEASE_GUIDE.md](docs/RELEASE_GUIDE.md) | npm release flow and public support wording |
 

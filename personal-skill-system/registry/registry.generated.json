@@ -3,14 +3,14 @@
   "generated-at": "2026-05-13T11:29:32.582Z",
   "source": "managed-via-manage-skill",
   "summary": {
-    "skills": 39,
+    "skills": 41,
     "module-groups": 20,
     "capability-modules": 106,
     "kinds": {
       "router": 1,
       "domain": 17,
       "workflow": 7,
-      "tool": 9,
+      "tool": 11,
       "guard": 2,
       "adapter": 3
     }
@@ -97,6 +97,11 @@
       "path": "skills/domains/host-governance/SKILL.md"
     },
     {
+      "name": "imagegen",
+      "kind": "tool",
+      "path": "skills/tools/imagegen/SKILL.md"
+    },
+    {
       "name": "infrastructure",
       "kind": "domain",
       "path": "skills/domains/infrastructure/SKILL.md"
@@ -135,6 +140,11 @@
       "name": "orchestration",
       "kind": "domain",
       "path": "skills/domains/orchestration/SKILL.md"
+    },
+    {
+      "name": "plugin-creator",
+      "kind": "tool",
+      "path": "skills/tools/plugin-creator/SKILL.md"
     },
     {
       "name": "pre-commit-gate",

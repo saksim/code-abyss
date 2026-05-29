@@ -91,3 +91,5 @@ If no skill is clearly dominant, ask at most one clarification question.
   Read when you need a compact map of major skills and their responsibilities.
 - `references/skill-catalog.generated.md`
   Read for the generated registry-backed skill inventory that stays in sync with the authoritative tree.
+- `references/pack-owned-capability-routing.md`
+  Read when a request could use either a core governed skill or an installed pack capability such as gstack.

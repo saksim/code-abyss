@@ -1,3 +1,3 @@
 display_name: "AI Domain"
-short_description: "AI and agent systems knowledge: prompt design, evaluation, tool use, RAG, context engineering, and guardrails."
+short_description: "AI and agent systems knowledge: prompt design, evaluation, tool use, RAG, context engineering, OpenAI API integration, model selection, and guardrails."
 default_prompt: "Use ~/.agents/skills/domains/ai/SKILL.md as the primary instruction source before acting on ai."

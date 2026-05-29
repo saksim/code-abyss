@@ -1,0 +1,3 @@
+display_name: "Image Generation Tool"
+short_description: "Plan and govern raster image generation or image editing work: prompt shaping, generated bitmap assets, project-bound asset persistence, transparent-background workflows, and host capability checks."
+default_prompt: "Use ~/.agents/skills/tools/imagegen/SKILL.md as the primary instruction source before acting on imagegen."

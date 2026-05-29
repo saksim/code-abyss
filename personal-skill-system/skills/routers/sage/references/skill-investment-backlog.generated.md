@@ -3,7 +3,7 @@
 Generated from `registry/skill-investment-backlog.generated.json`.
 Use this as the human-readable portfolio board for current-skill hardening, future-skill intake, lifecycle debt, and host-governance blockers.
 
-Generated at: 2026-05-24T15:14:16.217Z
+Generated at: 2026-05-29T05:47:10.058Z
 
 ## Stable Top-Tier Portfolio
 
@@ -29,14 +29,44 @@ Generated at: 2026-05-24T15:14:16.217Z
 
 ## Summary
 
-- total items: 0
+- total items: 2
 - critical: 0
-- high: 0
+- high: 2
 - normal: 0
+
+### Categories
+
+- `top-tier-hardening`: 2
+
+### Sources
+
+- `authoritative-skills`: 2 -> skills/**/SKILL.md
 
 ## Active Items
 
-No backlog items.
+### Decide whether active skill 'imagegen' should be hardened to stable or intentionally retired.
+
+- id: `lifecycle-hardening-imagegen`
+- priority: `high`
+- status: `open`
+- category: `top-tier-hardening`
+- source: `authoritative-skills`
+- skill: `imagegen`
+- kind: `tool`
+- reasons: `active skill is still 'experimental' and has not been promoted into the canonical stable/top-tier surface`
+- follow-up: `node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier imagegen`, `node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check imagegen "promote this active skill into the governed stable surface if it is honestly ready"`, `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show imagegen`, `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-lifecycle-governance --skill imagegen`
+
+### Decide whether active skill 'plugin-creator' should be hardened to stable or intentionally retired.
+
+- id: `lifecycle-hardening-plugin-creator`
+- priority: `high`
+- status: `open`
+- category: `top-tier-hardening`
+- source: `authoritative-skills`
+- skill: `plugin-creator`
+- kind: `tool`
+- reasons: `active skill is still 'experimental' and has not been promoted into the canonical stable/top-tier surface`
+- follow-up: `node personal-skill-system/skills/tools/manage-skill/scripts/run.js assess-top-tier plugin-creator`, `node personal-skill-system/skills/tools/manage-skill/scripts/run.js evolution-check plugin-creator "promote this active skill into the governed stable surface if it is honestly ready"`, `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show plugin-creator`, `node personal-skill-system/skills/tools/manage-skill/scripts/run.js show-lifecycle-governance --skill plugin-creator`
 
 ## Operating Notes
 

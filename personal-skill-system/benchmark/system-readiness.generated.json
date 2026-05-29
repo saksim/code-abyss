@@ -1,6 +1,6 @@
 {
   "schema-version": 2,
-  "generated-at": "2026-05-24T15:14:16.461Z",
+  "generated-at": "2026-05-29T05:47:10.058Z",
   "sources": {
     "benchmark-summary": "benchmark/summary.generated.json",
     "host-smoke-scorecard": "benchmark/host-smoke/scorecard.generated.json",
@@ -12,7 +12,7 @@
     "pending-scaffolds": "registry/pending-scaffolds.generated.json",
     "skill-investment-backlog": "registry/skill-investment-backlog.generated.json"
   },
-  "status": "ready",
+  "status": "attention",
   "signals": {
     "benchmark": {
       "status": "ready",
@@ -27,15 +27,15 @@
     },
     "runtime-proof": {
       "status": "ready",
-      "live_scripted_skills": 11,
-      "runtime_proof_entries": 11
+      "live_scripted_skills": 13,
+      "runtime_proof_entries": 13
     },
     "host-smoke": {
       "status": "ready",
-      "host_smoke_capable_skills": 11,
+      "host_smoke_capable_skills": 13,
       "satisfied": 5,
-      "passing": 11,
-      "missing": 0,
+      "passing": 5,
+      "missing": 8,
       "failing": 0,
       "stale": 0,
       "contract_drift": 0,
@@ -43,10 +43,10 @@
         "tiers": {
           "critical": 5,
           "standard": 6,
-          "experimental": 0
+          "experimental": 2
         },
         "statuses": {
-          "ready": 11,
+          "ready": 13,
           "attention": 0,
           "blocked": 0
         }
@@ -85,20 +85,20 @@
       "stable-blocked-total": 0
     },
     "review-cadence": {
-      "status": "ready",
-      "governed-skills": 39,
+      "status": "attention",
+      "governed-skills": 41,
       "overdue": 0,
-      "due-soon": 0,
-      "scheduled": 39,
+      "due-soon": 12,
+      "scheduled": 29,
       "missing-metadata": 0,
       "stable-overdue": 0,
       "stable-missing-metadata": 0
     },
     "investment-backlog": {
-      "status": "ready",
-      "total": 0,
+      "status": "attention",
+      "total": 2,
       "critical": 0,
-      "high": 0,
+      "high": 2,
       "normal": 0
     },
     "expert-source-families": {
@@ -131,7 +131,18 @@
       "level": "declared-and-tested",
       "target-level": "declared-and-tested",
       "requires-freshness": false,
-      "evidence-status": "passing",
+      "evidence-status": "missing",
+      "governance-status": "not-host-smoked"
+    },
+    {
+      "skill": "imagegen",
+      "kind": "tool",
+      "tier": "experimental",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked"
     },
     {
@@ -147,6 +158,17 @@
       "governance-status": "satisfied"
     },
     {
+      "skill": "plugin-creator",
+      "kind": "tool",
+      "tier": "experimental",
+      "status": "ready",
+      "level": "declared-and-tested",
+      "target-level": "declared-and-tested",
+      "requires-freshness": false,
+      "evidence-status": "missing",
+      "governance-status": "not-host-smoked"
+    },
+    {
       "skill": "pre-commit-gate",
       "kind": "guard",
       "tier": "standard",
@@ -154,7 +176,7 @@
       "level": "declared-and-tested",
       "target-level": "declared-and-tested",
       "requires-freshness": false,
-      "evidence-status": "passing",
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked"
     },
     {
@@ -165,7 +187,7 @@
       "level": "declared-and-tested",
       "target-level": "declared-and-tested",
       "requires-freshness": false,
-      "evidence-status": "passing",
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked"
     },
     {
@@ -176,7 +198,7 @@
       "level": "declared-and-tested",
       "target-level": "declared-and-tested",
       "requires-freshness": false,
-      "evidence-status": "passing",
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked"
     },
     {
@@ -199,7 +221,7 @@
       "level": "declared-and-tested",
       "target-level": "declared-and-tested",
       "requires-freshness": false,
-      "evidence-status": "passing",
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked"
     },
     {
@@ -234,7 +256,7 @@
       "level": "declared-and-tested",
       "target-level": "declared-and-tested",
       "requires-freshness": false,
-      "evidence-status": "passing",
+      "evidence-status": "missing",
       "governance-status": "not-host-smoked"
     },
     {
@@ -251,11 +273,11 @@
     }
   ],
   "summary": {
-    "live-scripted-skills": 11,
+    "live-scripted-skills": 13,
     "stable-user-invocable-skills": 35,
     "route-evidence-covered-skills": 35,
-    "runtime-proof-entries": 11,
-    "host-smoke-capable-skills": 11,
+    "runtime-proof-entries": 13,
+    "host-smoke-capable-skills": 13,
     "stable-top-tier-blocked-skills": 0,
     "stable-top-tier-ready-skills": 39,
     "stable-top-tier-critical-skills": 0,
@@ -271,13 +293,13 @@
     "stable-host-smoke-blocked": 0,
     "stable-module-depth-blocked": 0,
     "stable-blocked-total": 0,
-    "review-governed-skills": 39,
+    "review-governed-skills": 41,
     "review-overdue-skills": 0,
-    "review-due-soon-skills": 0,
+    "review-due-soon-skills": 12,
     "review-missing-metadata-skills": 0,
-    "investment-backlog-items": 0,
+    "investment-backlog-items": 2,
     "investment-backlog-critical": 0,
-    "investment-backlog-high": 0,
+    "investment-backlog-high": 2,
     "active-expert-source-families": 1,
     "active-expert-source-unmapped-raw-sources": 0,
     "host-writeability-blocked-artifacts": 0

@@ -35,6 +35,7 @@
 | --- | --- | --- |
 | [ONBOARDING.md](./ONBOARDING.md) | 第一天要跑什么命令、看哪些目录 | 新接手者 |
 | [PACK_SYSTEM.md](./PACK_SYSTEM.md) | pack 是怎么解析、同步、vendor、report 的 | 维护安装和扩展的人 |
+| [GSTACK_CAPABILITY_MAP.md](./GSTACK_CAPABILITY_MAP.md) | gstack pack 能力地图和 core-vs-pack 选择规则 | 使用或维护 gstack runtime 的人 |
 | [PACK_MANIFEST_SCHEMA.md](./PACK_MANIFEST_SCHEMA.md) | pack manifest 应该怎么写 | 新增第三方 pack 的人 |
 | [PACKS_LOCK_SCHEMA.md](./PACKS_LOCK_SCHEMA.md) | 项目级 pack 启用策略怎么声明 | 维护仓库级 pack 策略的人 |
 | [SKILL_AUTHORING.md](./SKILL_AUTHORING.md) | `SKILL.md` frontmatter 与脚本规则是什么 | 维护 skill 的人 |

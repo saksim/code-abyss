@@ -69,3 +69,5 @@ aliases: [code-review, 代码评审]
   Read when the review needs stronger recurrence prevention and defect-governance thinking.
 - `references/top-developer-overlays.md`
   Read when you want the compact expert index that routes into the split review modules.
+- `references/top-qa-evidence-rules.md`
+  Read when QA-oriented external skill material or release-risk review needs to be converted into concrete evidence requirements.

@@ -2612,7 +2612,7 @@ describe('skill system governance', () => {
       expect(payload.action).toBe('sync-scaffold-lineage');
       expect(payload.scope).toBe('all');
       expect(payload.synced.length).toBe(beforeMissing.length);
-      expect(payload.unchanged).toEqual(['host-governance', 'reliability-governance']);
+      expect(payload.unchanged).toEqual(['host-governance', 'reliability-governance', 'imagegen', 'plugin-creator']);
 
       const after = analyzeSkillSystem(target);
       expect(after.findings.some((item) => item.message.includes('missing scaffold lineage metadata'))).toBe(false);
@@ -3924,6 +3924,7 @@ describe('skill system governance', () => {
     copyBundleFixture(repoRoot);
 
     const runtimeProofPath = path.join(target, 'registry', 'runtime-proof.generated.json');
+    fs.rmSync(path.join(target, 'benchmark', 'host-smoke', 'runtime-runs'), { recursive: true, force: true });
     const runtimeProof = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
     const manageSkillProof = runtimeProof.proofs.find((item) => item.skill === 'manage-skill');
     manageSkillProof.level = 'declared-only';
@@ -4041,6 +4042,7 @@ describe('skill system governance', () => {
     const runtimeProof = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
     const verifyQualityProof = runtimeProof.proofs.find((item) => item.skill === 'verify-quality');
     verifyQualityProof.level = 'host-smoked';
+    verifyQualityProof['host-smoke'].freshness = { 'max-age': 0, unit: 'days' };
     fs.writeFileSync(runtimeProofPath, `${JSON.stringify(runtimeProof, null, 2)}\n`, 'utf8');
     expect(verifyQualityProof.level).toBe('host-smoked');
 
@@ -4048,7 +4050,7 @@ describe('skill system governance', () => {
 
     const refreshedRuntimeProof = JSON.parse(fs.readFileSync(runtimeProofPath, 'utf8'));
     const refreshedVerifyQualityProof = refreshedRuntimeProof.proofs.find((item) => item.skill === 'verify-quality');
-    expect(refreshedVerifyQualityProof.level).toBe('host-smoked');
+    expect(refreshedVerifyQualityProof.level).toBe('declared-and-tested');
   });
 
   test('system readiness surfaces host writeability as an explicit readiness signal', () => {

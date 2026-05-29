@@ -150,7 +150,9 @@
     ],
     "strong-uplift-but-not-top-yet": [
       "gen-docs",
+      "imagegen",
       "manage-skill",
+      "plugin-creator",
       "pre-commit-gate",
       "pre-merge-gate",
       "verify-change",
@@ -164,9 +166,9 @@
     "useful-overlay-not-top-level-alone": [],
     "counts": {
       "top-level-enough-now": 25,
-      "strong-uplift-but-not-top-yet": 11,
+      "strong-uplift-but-not-top-yet": 13,
       "useful-overlay-not-top-level-alone": 0,
-      "total-skills-rated": 36,
+      "total-skills-rated": 38,
       "stable-overdue": 0,
       "stable-missing-metadata": 0,
       "stable-expert-source-blocked": 0,

@@ -4,12 +4,12 @@ name: development
 scaffold-origin: domain-template
 scaffold-version: 1
 title: Development Domain
-description: Implementation, refactoring, debugging, and test strategy for code changes. Use when the task is mainly about writing or modifying code rather than high-level architecture or explicit audit work.
+description: Implementation, refactoring, debugging, Python engineering depth, and test strategy for code changes. Use when the task is mainly about writing or modifying code rather than high-level architecture or explicit audit work.
 kind: domain
 visibility: public
 user-invocable: true
 trigger-mode: [auto, manual]
-trigger-keywords: [coding, development, code, refactor, implement, 开发, 编码, 代码实现, 重构, 实现, software development, write code, 编程开发, 写代码]
+trigger-keywords: [coding, development, code, refactor, implement, python, pytest, type hints, 开发, 编码, 代码实现, 重构, 实现, software development, write code, 编程开发, 写代码]
 negative-keywords: [penetration test, 渗透测试, visual design, 视觉设计]
 priority: 70
 runtime: knowledge
@@ -52,6 +52,8 @@ aliases: [coding, 开发]
   Read when the real decision is async versus threads versus processes versus workers.
 - `references/expert-python-memory-and-runtime.md`
   Read when memory behavior, object lifetime, or runtime pressure dominate the problem.
+- `references/python-engineering-depth.md`
+  Read when Python work needs an end-to-end implementation checklist across boundaries, typing, packaging, tests, concurrency, observability, and maintainability.
 - `references/expert-query-shape-and-orm.md`
   Read when ORM, query shape, or N+1 behavior are the real boundary failures.
 - `references/expert-transactions-pagination-and-write-paths.md`

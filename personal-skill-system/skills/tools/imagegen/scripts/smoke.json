@@ -1,0 +1,24 @@
+{
+  "schema-version": 1,
+  "freshness": {
+    "max-age": 14,
+    "unit": "days"
+  },
+  "commands": [
+    {
+      "cwd": "skill-dir",
+      "argv": [
+        "node",
+        "scripts/run.js",
+        "--prompt",
+        "ceramic mug hero image",
+        "--project-bound",
+        "--json"
+      ],
+      "expect": {
+        "tool": "imagegen"
+      },
+      "timeout-ms": 10000
+    }
+  ]
+}

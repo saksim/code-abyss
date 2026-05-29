@@ -1,23 +1,66 @@
 {
   "schema-version": 2,
-  "generated-at": "2026-05-15T08:54:05.979Z",
+  "generated-at": "2026-05-29T02:51:40.621Z",
   "source": "managed-via-manage-skill",
   "summary": {
-    "total": 5,
+    "total": 8,
     "active": 0,
     "open": 0,
     "planned": 0,
     "in-progress": 0,
     "blocked": 0,
     "deferred": 0,
-    "implemented": 2,
+    "implemented": 4,
     "cancelled": 1,
     "resolved": 0,
-    "advised-reuse": 2,
+    "advised-reuse": 3,
     "advised-upgrade": 0,
     "advised-noop": 0
   },
   "entries": [
+    {
+      "request-id": "20260529-we-need-a-codex-plugin-creator-capability-for-sc",
+      "request": "we need a Codex plugin creator capability for scaffolding .codex-plugin plugin manifests, optional plugin folders, and marketplace entries with Codex-specific host boundaries",
+      "suggested-kind": "tool",
+      "inferred-intent-tags": [],
+      "decision": {
+        "action": "create-new-skill",
+        "suggested_kind": "tool"
+      },
+      "status": "implemented",
+      "recorded-at": "2026-05-29T02:50:21.574Z",
+      "created-skill": "plugin-creator",
+      "note": "created through governed manage-skill flow",
+      "resolved-at": "2026-05-29T02:51:40.621Z"
+    },
+    {
+      "request-id": "20260529-we-need-an-image-generation-and-editing-capabili",
+      "request": "we need an image generation and editing capability for raster assets, project-bound generated images, transparent-background workflows, prompt shaping, and host-aware asset persistence",
+      "suggested-kind": "tool",
+      "inferred-intent-tags": [],
+      "decision": {
+        "action": "create-new-skill",
+        "suggested_kind": "tool"
+      },
+      "status": "implemented",
+      "recorded-at": "2026-05-29T02:50:21.500Z",
+      "created-skill": "imagegen",
+      "note": "created through governed manage-skill flow",
+      "resolved-at": "2026-05-29T02:51:40.607Z"
+    },
+    {
+      "request-id": "20260529-we-need-an-openai-official-docs-and-api-guidance",
+      "request": "we need an OpenAI official docs and API guidance skill for current OpenAI product documentation, model selection, API migration, prompt-upgrade guidance, and citation-backed answers using official OpenAI sources",
+      "suggested-kind": "domain",
+      "inferred-intent-tags": [],
+      "decision": {
+        "action": "reuse-existing-skill",
+        "target_skill": "architecture",
+        "target_kind": "domain"
+      },
+      "status": "advised-reuse",
+      "recorded-at": "2026-05-29T02:50:21.474Z"
+    },
     {
       "request-id": "20260510-test-future-host-create-probe",
       "request": "test future host create probe",

@@ -1,0 +1,73 @@
+{
+  "schema-version": 1,
+  "run-id": "host-smoke-20260529T054523647Z-codex",
+  "executed-at": "2026-05-29T05:45:23.647Z",
+  "host": "codex",
+  "source-runtime-proof": "registry/runtime-proof.generated.json",
+  "selection": {
+    "scope": "single",
+    "skills": [
+      "verify-chart-spec"
+    ]
+  },
+  "results": [
+    {
+      "skill": "verify-chart-spec",
+      "kind": "tool",
+      "level-before": "declared-and-tested",
+      "status": "pass",
+      "manifest": "skills/tools/verify-chart-spec/scripts/smoke.json",
+      "contract": {
+        "manifest": "skills/tools/verify-chart-spec/scripts/smoke.json",
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--target",
+              ".",
+              "--json"
+            ],
+            "expect": {
+              "tool": "verify-chart-spec"
+            },
+            "timeout-ms": 10000
+          }
+        ],
+        "freshness": {
+          "max-age": 7,
+          "unit": "days"
+        }
+      },
+      "command-count": 1,
+      "passed-commands": 1,
+      "commands": [
+        {
+          "cwd": "skill-dir",
+          "argv": [
+            "node",
+            "scripts/run.js",
+            "--target",
+            ".",
+            "--json"
+          ],
+          "expect": {
+            "tool": "verify-chart-spec"
+          },
+          "timeout-ms": 10000,
+          "status": "pass",
+          "exit-code": 0,
+          "signal": null,
+          "duration-ms": 12,
+          "json-parse-ok": true,
+          "observed": {
+            "tool": "verify-chart-spec"
+          },
+          "mismatches": [],
+          "stdout-preview": "{\n  \"tool\": \"verify-chart-spec\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\code-abyss\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-chart-spec\",\n  \"summary\": \"Scanned 0 chart-related files and found 0 heuristic chart-spec findings across 0 files.\",\n  \"findings\": [],\n  \"hotspots\": [],\n  \"stats\": {\n    \"scannedFiles\": 0,\n    \"findings\": 0,\n    \"filesWithFindings\": 0\n  },\n  \"nextSteps\": [\n    \""
+        }
+      ]
+    }
+  ]
+}

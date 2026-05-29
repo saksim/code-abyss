@@ -40,7 +40,9 @@ Edit the registry, then regenerate this file through `manage-skill`.
 ## Tools
 
 - `gen-docs` -> `skills/tools/gen-docs/SKILL.md`
+- `imagegen` -> `skills/tools/imagegen/SKILL.md`
 - `manage-skill` -> `skills/tools/manage-skill/SKILL.md`
+- `plugin-creator` -> `skills/tools/plugin-creator/SKILL.md`
 - `verify-change` -> `skills/tools/verify-change/SKILL.md`
 - `verify-chart-spec` -> `skills/tools/verify-chart-spec/SKILL.md`
 - `verify-module` -> `skills/tools/verify-module/SKILL.md`

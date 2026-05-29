@@ -4,12 +4,12 @@ name: ai
 scaffold-origin: domain-template
 scaffold-version: 1
 title: AI Domain
-description: AI and agent systems knowledge: prompt design, evaluation, tool use, RAG, context engineering, and guardrails. Use when the task is about LLMs, prompts, agents, retrieval, or model behavior.
+description: AI and agent systems knowledge: prompt design, evaluation, tool use, RAG, context engineering, OpenAI API integration, model selection, and guardrails. Use when the task is about LLMs, prompts, agents, retrieval, OpenAI API work, or model behavior.
 kind: domain
 visibility: public
 user-invocable: true
 trigger-mode: [auto, manual]
-trigger-keywords: [ai, llm, prompt, rag, agent, eval, 人工智能, 大模型, 提示词, 检索增强, 智能体, 评测, model application, agent system, 模型应用, 智能体系统]
+trigger-keywords: [ai, llm, prompt, rag, agent, eval, openai, openai api, model selection, tool calling, 人工智能, 大模型, 提示词, 检索增强, 智能体, 评测, model application, agent system, 模型应用, 智能体系统]
 negative-keywords: [cluster sizing, 集群容量规划]
 priority: 66
 runtime: knowledge
@@ -43,6 +43,8 @@ aliases: [llm, 大模型]
   Read when the task is prompt shaping, output structure, benchmark design, or eval criteria.
 - `references/agent-tooling-and-guardrails.md`
   Read when the issue is tool use, delegation, trust boundaries, or agent operating limits.
+- `references/openai-api-build-guidance.md`
+  Read when the task involves OpenAI API integration, model selection, tool calling, official-doc verification, or API migration guidance.
 - `references/rag-and-context-engineering.md`
   Read when the task is retrieval, context packing, grounding, or document use strategy.
 - `references/expert-task-framing-and-evals.md`

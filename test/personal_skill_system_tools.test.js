@@ -68,6 +68,84 @@ describe('personal skill system tool runtime', () => {
     }
   }
 
+  test('imagegen emits a host-aware project-bound plan', () => {
+    const imagegen = require('../personal-skill-system/skills/tools/imagegen/scripts/run.js');
+    const payload = imagegen.buildPlan(imagegen.parseArgs([
+      '--prompt', 'ceramic mug hero image',
+      '--project-bound',
+      '--transparent',
+      '--host', 'codex',
+      '--json'
+    ]));
+
+    expect(payload.tool).toBe('imagegen');
+    expect(payload.mode).toBe('generate');
+    expect(payload.host).toBe('codex');
+    expect(payload.execution).toEqual(expect.objectContaining({
+      performs_generation: false,
+      requires_host_image_capability: true
+    }));
+    expect(payload.asset_policy).toEqual(expect.objectContaining({
+      project_bound: true,
+      output_path: 'assets/generated/ceramic-mug-hero-image.png'
+    }));
+    expect(payload.prompt_spec.transparent_background).toBe(true);
+    expect(payload.warnings).toEqual(expect.arrayContaining([
+      'transparent output requires native alpha support or a validated background-removal workflow'
+    ]));
+  });
+
+  test('plugin-creator dry-runs without filesystem mutation', () => {
+    const pluginCreator = require('../personal-skill-system/skills/tools/plugin-creator/scripts/run.js');
+    const plannedRoot = path.join(tmpDir, 'planned-plugins');
+    const payload = pluginCreator.createPlugin(pluginCreator.parseArgs([
+      '--name', 'Sample Plugin',
+      '--path', plannedRoot,
+      '--dry-run',
+      '--json'
+    ]));
+
+    expect(payload.tool).toBe('plugin-creator');
+    expect(payload.plugin).toBe('sample-plugin');
+    expect(payload.dry_run).toBe(true);
+    expect(payload.planned.map((item) => item.type)).toEqual(expect.arrayContaining(['directory', 'file']));
+    expect(fs.existsSync(plannedRoot)).toBe(false);
+  });
+
+  test('plugin-creator creates codex plugin scaffold and marketplace entry', () => {
+    const pluginCreator = require('../personal-skill-system/skills/tools/plugin-creator/scripts/run.js');
+    const pluginRoot = path.join(tmpDir, 'plugins');
+    const marketplacePath = path.join(tmpDir, '.agents', 'plugins', 'marketplace.json');
+    const payload = pluginCreator.createPlugin(pluginCreator.parseArgs([
+      '--name', 'Sample Plugin',
+      '--path', pluginRoot,
+      '--with-skills',
+      '--with-scripts',
+      '--with-marketplace',
+      '--marketplace-path', marketplacePath,
+      '--json'
+    ]));
+    const pluginPath = path.join(pluginRoot, 'sample-plugin');
+    const manifestPath = path.join(pluginPath, '.codex-plugin', 'plugin.json');
+
+    expect(payload.tool).toBe('plugin-creator');
+    expect(payload.plugin).toBe('sample-plugin');
+    expect(fs.existsSync(manifestPath)).toBe(true);
+    expect(fs.existsSync(path.join(pluginPath, 'skills'))).toBe(true);
+    expect(fs.existsSync(path.join(pluginPath, 'scripts'))).toBe(true);
+
+    const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+    const marketplace = JSON.parse(fs.readFileSync(marketplacePath, 'utf8'));
+    expect(manifest.name).toBe('sample-plugin');
+    expect(marketplace.plugins).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        name: 'sample-plugin',
+        category: 'Productivity'
+      })
+    ]));
+    expect(payload.warnings).toContain('plugin-creator is Codex-specific unless another host explicitly supports the same plugin contract');
+  });
+
   test('generateDocs builds engineering-grade scaffold sections', () => {
     const report = generateDocs(tmpDir, { write: false });
 
@@ -250,7 +328,8 @@ describe('personal skill system tool runtime', () => {
 
     const skillFile = path.join(target, 'skills', 'domains', 'ai', 'SKILL.md');
     const original = fs.readFileSync(skillFile, 'utf8');
-    const weakened = original.replace('trigger-keywords: [ai, llm, prompt, rag, agent, eval, 人工智能, 大模型, 提示词, 检索增强, 智能体, 评测, model application, agent system, 模型应用, 智能体系统]', 'trigger-keywords: [ai-signal]');
+    const weakened = original.replace(/^trigger-keywords: \[[^\r\n]*\]/m, 'trigger-keywords: [ai-signal]');
+    expect(weakened).toContain('trigger-keywords: [ai-signal]');
     fs.writeFileSync(skillFile, weakened, 'utf8');
 
     const fixturesPath = path.join(target, 'registry', 'route-fixtures.generated.json');
@@ -3313,9 +3392,11 @@ describe('personal skill system tool runtime', () => {
       jest.resetModules();
       const manageSkill = require(manageSkillModulePath);
 
-      const payload = manageSkill.main(['run-host-smoke', 'verify-quality', '--host', 'codex']);
+      const payload = manageSkill.main(['run-host-smoke', 'verify-quality', '--host', 'codex', '--promote-host-smoked']);
       expect(payload.action).toBe('run-host-smoke');
       expect(payload.status).toBe('pass');
+      expect(payload.requested_host_smoked_promotion).toBe(true);
+      expect(payload.promoted_skills).toEqual(['verify-quality']);
       expect(payload.results).toEqual([
         {
           skill: 'verify-quality',
@@ -3348,6 +3429,7 @@ describe('personal skill system tool runtime', () => {
       expect(scorecard['schema-version']).toBe(1);
       expect(scorecard.summary['host-smoke-capable-skills']).toBeGreaterThanOrEqual(1);
       const verifyQuality = scorecard.skills.find((item) => item.skill === 'verify-quality');
+      expect(verifyQuality.level).toBe('host-smoked');
       expect(verifyQuality['evidence-status']).toBe('passing');
       expect(verifyQuality['governance-status']).toBe('satisfied');
     } finally {

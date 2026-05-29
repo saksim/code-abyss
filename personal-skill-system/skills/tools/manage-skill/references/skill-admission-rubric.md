@@ -9,6 +9,18 @@ Use this rubric before creating a new skill.
 3. if two live skills are close, fix the boundary before adding surface area
 4. create a new skill only when the request is real and structurally distinct
 
+## External skill intake
+
+When the proposed capability comes from another SKILL tree, CLI host, pack, or prompt corpus:
+
+1. classify it as core-depth, new boundary, pack-owned runtime, host adapter, raw expert source, or reject
+2. run `admission-check` before creating a public route
+3. merge portable depth into the current owner when the route already exists
+4. keep daemon/browser/runtime-heavy behavior in `packs/`
+5. require non-placeholder route evidence and runtime proof before any `stable` claim
+
+Use `references/external-skill-absorption.md` for the detailed playbook.
+
 ## Recommendation modes
 
 ### Reuse existing skill

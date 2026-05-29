@@ -1158,6 +1158,81 @@
       }
     },
     {
+      "skill": "imagegen",
+      "kind": "tool",
+      "priority": 82,
+      "namespace": "tool",
+      "supported-hosts": [
+        "claude",
+        "codex",
+        "gemini"
+      ],
+      "activation": {
+        "intent-tags": [
+          "validate"
+        ],
+        "trigger-keywords": [
+          "bitmap asset",
+          "generated image",
+          "hero image",
+          "image edit",
+          "image generation",
+          "imagegen",
+          "product mockup",
+          "raster asset",
+          "sprite asset",
+          "transparent background"
+        ],
+        "negative-keywords": [
+          "css illustration",
+          "html canvas",
+          "repo-native graphic",
+          "svg icon",
+          "vector icon"
+        ],
+        "requires-explicit-invocation": false
+      },
+      "conflicts-with": [],
+      "auto-chain": [],
+      "aliases": [
+        "bitmap-generator",
+        "image-generation",
+        "raster-assets"
+      ],
+      "rationale": {
+        "primary-intent": "host-aware raster image generation planning and asset persistence",
+        "why-this-route": "imagegen owns requests that need AI-created or AI-edited bitmap assets, especially when output persistence and host image capability boundaries matter.",
+        "wins-when": [
+          "generated image",
+          "hero image",
+          "product mockup",
+          "transparent background",
+          "raster asset",
+          "sprite asset"
+        ],
+        "avoid-when": [
+          "svg icon",
+          "vector icon",
+          "css illustration",
+          "html canvas",
+          "repo-native graphic"
+        ],
+        "boundary-notes": "Use imagegen for bitmap generation/edit planning and project-bound asset policy. Prefer frontend-design or development when the request is for code-native SVG, CSS, canvas, or UI component work."
+      },
+      "confidence": {
+        "minimum-score": 65,
+        "strong-score": 80,
+        "very-strong-score": 93,
+        "requires-fallback-below-minimum": true
+      },
+      "fallback": {
+        "mode": "ask-one-question",
+        "clarify-question": "Should this request use imagegen for a raster asset, or a code-native graphic/vector workflow?",
+        "default-action": "route-to-imagegen-only-when-raster-generation-is-confirmed",
+        "safe-skill": "frontend-design"
+      }
+    },
+    {
       "skill": "security",
       "kind": "domain",
       "priority": 82,
@@ -1239,6 +1314,73 @@
         "clarify-question": "Should this route use security or devops as the primary skill for this request?",
         "default-action": "route-to-highest-score-after-clarification",
         "safe-skill": "devops"
+      }
+    },
+    {
+      "skill": "plugin-creator",
+      "kind": "tool",
+      "priority": 81,
+      "namespace": "tool",
+      "supported-hosts": [
+        "codex"
+      ],
+      "activation": {
+        "intent-tags": [
+          "validate"
+        ],
+        "trigger-keywords": [
+          ".codex-plugin",
+          "codex plugin",
+          "create plugin",
+          "marketplace.json",
+          "plugin scaffold",
+          "plugin-creator",
+          "plugin.json"
+        ],
+        "negative-keywords": [
+          "browser extension",
+          "generic plugin architecture",
+          "npm plugin",
+          "vscode extension"
+        ],
+        "requires-explicit-invocation": false
+      },
+      "conflicts-with": [],
+      "auto-chain": [],
+      "aliases": [
+        "codex-plugin-creator",
+        "plugin-scaffold"
+      ],
+      "rationale": {
+        "primary-intent": "Codex plugin scaffold planning and manifest generation",
+        "why-this-route": "plugin-creator owns Codex plugin scaffold requests that mention .codex-plugin, plugin.json, marketplace.json, or plugin runtime folders.",
+        "wins-when": [
+          "create plugin",
+          "codex plugin",
+          ".codex-plugin",
+          "plugin.json",
+          "marketplace.json",
+          "plugin scaffold"
+        ],
+        "avoid-when": [
+          "browser extension",
+          "generic plugin architecture",
+          "npm plugin",
+          "vscode extension"
+        ],
+        "boundary-notes": "Use plugin-creator for Codex plugin file layout and marketplace metadata. Prefer architecture or development for generic plugin architecture, npm packages, browser extensions, or editor extension design."
+      },
+      "confidence": {
+        "minimum-score": 65,
+        "strong-score": 80,
+        "very-strong-score": 93,
+        "requires-fallback-below-minimum": true
+      },
+      "fallback": {
+        "mode": "ask-one-question",
+        "clarify-question": "Should this request create a Codex plugin scaffold, or design a generic plugin architecture?",
+        "default-action": "route-to-plugin-creator-only-for-codex-plugin-scaffolds",
+        "safe-skill": "architecture"
       }
     },
     {
@@ -2125,8 +2267,11 @@
           "coding",
           "development",
           "implement",
+          "pytest",
+          "python",
           "refactor",
           "software development",
+          "type hints",
           "write code"
         ],
         "negative-keywords": [
@@ -2385,8 +2530,12 @@
           "eval",
           "llm",
           "model application",
+          "model selection",
+          "openai",
+          "openai api",
           "prompt",
-          "rag"
+          "rag",
+          "tool calling"
         ],
         "negative-keywords": [
           "集群容量规划",

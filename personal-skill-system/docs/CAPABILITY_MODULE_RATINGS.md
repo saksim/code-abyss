@@ -14,7 +14,7 @@ This file rates **capability modules**, not whole skills.
 ## Skill-Level Cross-Check
 
 - top-level enough now: 25
-- strong uplift, but not top yet: 11
+- strong uplift, but not top yet: 13
 - useful overlay, not top-level alone: 0
 
 Current host skills are split across the top-level, strong-uplift, and overlay buckets under the weak-model-uplift standard.
@@ -28,7 +28,7 @@ Current host skills are split across the top-level, strong-uplift, and overlay b
 ## Current Verdict
 
 - all 106 registered capability modules are TOP-ready
-- 25 of 36 registered host skills are top-level enough right now
+- 25 of 38 registered host skills are top-level enough right now
 - next work shifts from catching up to drift control and periodic recalibration
 
 ## Next Batch
@@ -151,6 +151,14 @@ Current host skills are split across the top-level, strong-uplift, and overlay b
 ## Thin
 
 - `(none in this snapshot)`
+
+
+
+
+
+
+
+
 
 
 

@@ -38,6 +38,46 @@
       }
     },
     {
+      "skill": "imagegen",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --prompt \"ceramic mug hero image\" --project-bound --json` returns a structured image-generation plan with `tool=imagegen`.",
+        "`node scripts/run.js --prompt \"app icon on transparent background\" --transparent --json` marks transparent output as a host-sensitive workflow and does not claim to generate the asset locally."
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::imagegen emits a host-aware project-bound plan"
+      ],
+      "host-smoke-policy": {
+        "tier": "experimental",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/imagegen/scripts/smoke.json",
+        "freshness": {
+          "max-age": 14,
+          "unit": "days"
+        },
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--prompt",
+              "ceramic mug hero image",
+              "--project-bound",
+              "--json"
+            ],
+            "expect": {
+              "tool": "imagegen"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
       "skill": "manage-skill",
       "kind": "tool",
       "level": "host-smoked",
@@ -126,6 +166,47 @@
             "expect": {
               "action": "show",
               "skill": "manage-skill"
+            },
+            "timeout-ms": 10000
+          }
+        ]
+      }
+    },
+    {
+      "skill": "plugin-creator",
+      "kind": "tool",
+      "level": "declared-and-tested",
+      "contracts": [
+        "`node scripts/run.js --name sample-plugin --dry-run --json` returns a structured plan with `tool=plugin-creator` and no filesystem mutation.",
+        "`node scripts/run.js --name sample-plugin --path <tmp> --with-marketplace --json` creates a plugin manifest and marketplace entry in the selected target tree."
+      ],
+      "evidence-tests": [
+        "test/personal_skill_system_tools.test.js::plugin-creator dry-runs without filesystem mutation",
+        "test/personal_skill_system_tools.test.js::plugin-creator creates codex plugin scaffold and marketplace entry"
+      ],
+      "host-smoke-policy": {
+        "tier": "experimental",
+        "target-level": "declared-and-tested"
+      },
+      "host-smoke": {
+        "manifest": "skills/tools/plugin-creator/scripts/smoke.json",
+        "freshness": {
+          "max-age": 14,
+          "unit": "days"
+        },
+        "commands": [
+          {
+            "cwd": "skill-dir",
+            "argv": [
+              "node",
+              "scripts/run.js",
+              "--name",
+              "sample-plugin",
+              "--dry-run",
+              "--json"
+            ],
+            "expect": {
+              "tool": "plugin-creator"
             },
             "timeout-ms": 10000
           }
