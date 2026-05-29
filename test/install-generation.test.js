@@ -96,7 +96,7 @@ describe('skill discovery cli helpers', () => {
       const output = spy.mock.calls.map((call) => call.join(' ')).join('\n');
       expect(output).toContain('review');
       expect(output).toContain('Prompt template:');
-      expect(output).toContain('Use review for this task.');
+      expect(output).toContain('Use review for this change.');
     } finally {
       spy.mockRestore();
     }

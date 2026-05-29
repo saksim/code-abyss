@@ -206,6 +206,13 @@ function buildPromptTemplate(skill) {
     ].join('\n');
   }
 
+  if (skill.name === 'review') {
+    return INSTALL_PROMPT_SAMPLES
+      .find((sample) => sample.title === 'Review a change')
+      .lines
+      .join('\n');
+  }
+
   return [
     `Use ${skill.name} for this task.`,
     'Goal: <one sentence outcome>',
