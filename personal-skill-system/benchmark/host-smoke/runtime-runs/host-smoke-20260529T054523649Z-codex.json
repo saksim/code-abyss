@@ -65,7 +65,7 @@
             "tool": "verify-s2-config"
           },
           "mismatches": [],
-          "stdout-preview": "{\n  \"tool\": \"verify-s2-config\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\code-abyss\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-s2-config\",\n  \"summary\": \"Scanned 0 S2-related files and found 0 heuristic S2 config findings.\",\n  \"findings\": [],\n  \"hotspots\": [],\n  \"stats\": {\n    \"scannedFiles\": 0,\n    \"findings\": 0\n  },\n  \"nextSteps\": [\n    \"fix error-level field-shape and SheetComponent pr"
+          "stdout-preview": "{\n  \"tool\": \"verify-s2-config\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\personal-skill-system\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-s2-config\",\n  \"summary\": \"Scanned 0 S2-related files and found 0 heuristic S2 config findings.\",\n  \"findings\": [],\n  \"hotspots\": [],\n  \"stats\": {\n    \"scannedFiles\": 0,\n    \"findings\": 0\n  },\n  \"nextSteps\": [\n    \"fix error-level field-shape and SheetComponent pr"
         }
       ]
     }

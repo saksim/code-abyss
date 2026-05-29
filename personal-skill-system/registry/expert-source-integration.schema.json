@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://code-abyss.local/personal-skill-system/expert-source-integration.schema.json",
+  "$id": "https://personal-skill-system.local/personal-skill-system/expert-source-integration.schema.json",
   "title": "Portable Personal Skill Expert-Source Integration Schema",
   "type": "object",
   "additionalProperties": false,

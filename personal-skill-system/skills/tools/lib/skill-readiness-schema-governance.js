@@ -34,7 +34,7 @@ const {
 } = require('./skill-host-governance');
 
 const READINESS_SCHEMA_SOURCE = 'generated-from-skill-governance';
-const READINESS_SCHEMA_ID_BASE = 'https://code-abyss.local/personal-skill-system/benchmark';
+const READINESS_SCHEMA_ID_BASE = 'https://personal-skill-system.local/personal-skill-system/benchmark';
 
 const READINESS_SCHEMA_DEFINITIONS = Object.freeze({
   'system-readiness-schema': {

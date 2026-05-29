@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://code-abyss.local/personal-skill-system/review-queue.schema.json",
+  "$id": "https://personal-skill-system.local/personal-skill-system/review-queue.schema.json",
   "title": "Portable Personal Skill Review Queue Schema",
   "type": "object",
   "additionalProperties": false,

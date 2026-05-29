@@ -3557,7 +3557,7 @@ describe('personal skill system tool runtime', () => {
       jest.resetModules();
       const manageSkill = require(manageSkillModulePath);
 
-      const exportRoot = path.join(repoRoot, '.code-abyss', 'derived-governance-exports');
+      const exportRoot = path.join(repoRoot, '.personal-skill-system', 'derived-governance-exports');
       const firstExport = path.join(exportRoot, 'older-export');
       const latestExport = path.join(exportRoot, 'latest-export');
 
@@ -3572,7 +3572,7 @@ describe('personal skill system tool runtime', () => {
       const payload = manageSkill.main(['apply-derived-governance-export', '--latest']);
       expect(payload.action).toBe('apply-derived-governance-export');
       expect(payload.selection).toBe('latest-matching-export');
-      expect(payload.source).toBe('.code-abyss/derived-governance-exports/latest-export');
+      expect(payload.source).toBe('.personal-skill-system/derived-governance-exports/latest-export');
       expect(payload.synced).toEqual(expect.arrayContaining([
         expect.objectContaining({
           artifact: 'system-readiness',

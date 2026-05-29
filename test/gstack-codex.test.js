@@ -67,7 +67,7 @@ describe('gstack codex integration', () => {
       manifest,
       env: {
         ...process.env,
-        CODE_ABYSS_GSTACK_SOURCE: fixtureRoot,
+        PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: fixtureRoot,
       },
     });
 
@@ -104,9 +104,9 @@ describe('gstack codex integration', () => {
   test('resolveGstackSource 在 local 缺失时可回退到 pinned cache', () => {
     const tmpHome = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-gstack-fallback-home-'));
     const config = getGstackConfig();
-    const cacheDir = path.join(tmpHome, '.code-abyss', 'vendor', `gstack-${config.upstream.commit.slice(0, 12)}`);
+    const cacheDir = path.join(tmpHome, '.personal-skill-system', 'vendor', `gstack-${config.upstream.commit.slice(0, 12)}`);
     fs.mkdirSync(cacheDir, { recursive: true });
-    fs.writeFileSync(path.join(cacheDir, '.code-abyss-source-version'), `${config.upstream.commit}\n`);
+    fs.writeFileSync(path.join(cacheDir, '.personal-skill-system-source-version'), `${config.upstream.commit}\n`);
 
     const resolved = resolveGstackSource({
       HOME: tmpHome,

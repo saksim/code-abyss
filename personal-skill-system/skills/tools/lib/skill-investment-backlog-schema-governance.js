@@ -17,7 +17,7 @@ const {
 } = require('./skill-top-tier-governance');
 
 const SKILL_INVESTMENT_BACKLOG_SCHEMA_SOURCE = 'generated-from-skill-governance';
-const SKILL_INVESTMENT_BACKLOG_SCHEMA_ID = 'https://code-abyss.local/personal-skill-system/skill-investment-backlog.schema.json';
+const SKILL_INVESTMENT_BACKLOG_SCHEMA_ID = 'https://personal-skill-system.local/personal-skill-system/skill-investment-backlog.schema.json';
 const SKILL_INVESTMENT_BACKLOG_CATEGORIES = Object.freeze([
   'future-skill-opportunity',
   'new-skill-admission',

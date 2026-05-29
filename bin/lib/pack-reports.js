@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 function ensureReportsDir(projectRoot) {
-  const dir = path.join(projectRoot, '.code-abyss', 'reports');
+  const dir = path.join(projectRoot, '.personal-skill-system', 'reports');
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }

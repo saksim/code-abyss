@@ -4,7 +4,7 @@
   "model": "glm-5.1",
   "date": "2026-04-22",
   "source_doc": "personal-skill-system/docs/glm-5.1-project-diagnosis.md",
-  "scope": "code-abyss repo-level distribution and skill-system maturity",
+  "scope": "personal-skill-system repo-level distribution and skill-system maturity",
   "verdict": "Directionally correct for the repo-level distributed product; incomplete because the stronger 33-skill personal-skill-system exists but is not yet the distributed source of truth.",
   "confirmed_findings": [
     {

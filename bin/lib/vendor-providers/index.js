@@ -48,7 +48,7 @@ function loadProvidersFromDir(dirPath) {
 function getDynamicProviderDirs(projectRoot) {
   if (!projectRoot) return [];
   return [
-    path.join(projectRoot, '.code-abyss', 'vendor-providers'),
+    path.join(projectRoot, '.personal-skill-system', 'vendor-providers'),
     path.join(projectRoot, 'vendor-providers'),
   ];
 }

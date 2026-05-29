@@ -65,7 +65,7 @@
             "tool": "verify-quality"
           },
           "mismatches": [],
-          "stdout-preview": "{\n  \"tool\": \"verify-quality\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\code-abyss\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-quality\",\n  \"summary\": \"Scanned 7 files for structural quality heuristics.\",\n  \"issues\": [],\n  \"hotspots\": [],\n  \"nextSteps\": [\n    \"inspect warnings first\",\n    \"split oversized files if they represent multiple concerns\",\n    \"convert fragile TODOs into tracked wo"
+          "stdout-preview": "{\n  \"tool\": \"verify-quality\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\personal-skill-system\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-quality\",\n  \"summary\": \"Scanned 7 files for structural quality heuristics.\",\n  \"issues\": [],\n  \"hotspots\": [],\n  \"nextSteps\": [\n    \"inspect warnings first\",\n    \"split oversized files if they represent multiple concerns\",\n    \"convert fragile TODOs into tracked wo"
         }
       ]
     }

@@ -26,7 +26,7 @@ function getGstackConfig(hostName = 'codex', projectRoot = PROJECT_ROOT) {
   }
   return {
     upstream: manifest.upstream,
-    sourceOverrideEnv: hostConfig.sourceOverrideEnv || 'CODE_ABYSS_GSTACK_SOURCE',
+    sourceOverrideEnv: hostConfig.sourceOverrideEnv || 'PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE',
     skipSkills: new Set(hostConfig.skipSkills || []),
     runtimeDirs: hostConfig.runtimeDirs || [],
     runtimeFiles: hostConfig.runtimeFiles || [],
@@ -150,7 +150,7 @@ function resolveLocalGstackSource(projectRoot, env, sourceOverrideEnv) {
   if (!projectRoot) return null;
 
   const candidates = [
-    path.join(projectRoot, '.code-abyss', 'vendor', 'gstack'),
+    path.join(projectRoot, '.personal-skill-system', 'vendor', 'gstack'),
     path.join(projectRoot, 'vendor', 'gstack'),
   ];
 
@@ -200,8 +200,8 @@ function ensurePinnedGstackSource({ HOME, env = process.env, warn = () => {} }) 
   const override = env[config.sourceOverrideEnv];
   if (override) return override;
 
-  const cacheDir = path.join(HOME, '.code-abyss', 'vendor', `gstack-${config.upstream.commit.slice(0, 12)}`);
-  const versionFile = path.join(cacheDir, '.code-abyss-source-version');
+  const cacheDir = path.join(HOME, '.personal-skill-system', 'vendor', `gstack-${config.upstream.commit.slice(0, 12)}`);
+  const versionFile = path.join(cacheDir, '.personal-skill-system-source-version');
 
   try {
     if (!fs.existsSync(cacheDir) || !fs.existsSync(versionFile) || fs.readFileSync(versionFile, 'utf8').trim() !== config.upstream.commit) {
@@ -237,7 +237,7 @@ function resolveGstackSource({
           return { sourceRoot: pinnedRoot, mode: 'pinned', reason: 'fallback-local-to-pinned' };
         }
       }
-      warn('gstack source=local，但未找到本地源（.code-abyss/vendor/gstack 或 env override）');
+      warn('gstack source=local，但未找到本地源（.personal-skill-system/vendor/gstack 或 env override）');
       return { sourceRoot: null, mode: 'local', reason: 'missing-local-source' };
     }
     return { sourceRoot: localRoot, mode: 'local', reason: null };

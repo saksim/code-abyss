@@ -164,9 +164,9 @@ describe('finish', () => {
     const targetDir = path.join(tmpDir, '.codex');
     const backupDir = path.join(targetDir, '.sage-backup');
     const manifestPath = path.join(backupDir, 'manifest.json');
-    const lockPath = path.join(projectRoot, '.code-abyss', 'packs.lock.json');
-    const reportDir = path.join(projectRoot, '.code-abyss', 'reports');
-    const snippetDir = path.join(projectRoot, '.code-abyss', 'snippets');
+    const lockPath = path.join(projectRoot, '.personal-skill-system', 'packs.lock.json');
+    const reportDir = path.join(projectRoot, '.personal-skill-system', 'reports');
+    const snippetDir = path.join(projectRoot, '.personal-skill-system', 'snippets');
 
     fs.mkdirSync(path.dirname(manifestPath), { recursive: true });
     fs.mkdirSync(path.dirname(lockPath), { recursive: true });

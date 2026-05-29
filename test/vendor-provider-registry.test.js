@@ -15,7 +15,7 @@ describe('vendor provider registry', () => {
 
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'abyss-provider-registry-'));
-    const providerDir = path.join(tmpDir, '.code-abyss', 'vendor-providers');
+    const providerDir = path.join(tmpDir, '.personal-skill-system', 'vendor-providers');
     fs.mkdirSync(providerDir, { recursive: true });
     fs.writeFileSync(path.join(providerDir, 'custom.js'), `
 module.exports = {

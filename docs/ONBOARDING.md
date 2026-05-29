@@ -1,11 +1,11 @@
 # 新维护者上手指南
 
-> 适用对象：第一次接手 Code Abyss 的维护者  
+> 适用对象：第一次接手 Personal Skill System 的维护者  
 > 目标：30 分钟内建立“能跑、能找、能改、能验”的基本能力
 
 ## 先知道这是什么
 
-Code Abyss 不是普通的 Markdown 配置仓库。它是一个安装器项目，负责把 persona、output styles、skills、packs 安装到多个 AI CLI 运行时目录。
+Personal Skill System 不是普通的 Markdown 配置仓库。它是一个安装器项目，负责把 persona、output styles、skills、packs 安装到多个 AI CLI 运行时目录。
 
 你接手后要维护的通常不是某一份文档，而是下面这条链：
 
@@ -62,7 +62,7 @@ node bin/install.js --list-personas
 | `bin/lib/skill-registry.js` | 查 skill 元数据如何被收集与校验 |
 | `bin/lib/style-registry.js` | 查 style / persona registry 与 runtime guidance |
 | `packs/*/manifest.json` | 查某个 pack 的 host 安装契约 |
-| `.code-abyss/packs.lock.json` | 查当前项目启用了哪些 pack |
+| `.personal-skill-system/packs.lock.json` | 查当前项目启用了哪些 pack |
 | `personal-skill-system/skills/**/SKILL.md` | 查 skill 的权威元数据（source） |
 | `test/install-smoke.test.js` | 查安装行为的事实回归 |
 | `test/docs-drift.test.js` | 查哪些文档口径已经被防漂移约束 |
@@ -79,7 +79,7 @@ node bin/install.js --list-personas
 ### PowerShell
 
 ```powershell
-$tmp = Join-Path $env:TEMP "code-abyss-home"
+$tmp = Join-Path $env:TEMP "personal-skill-system-home"
 New-Item -ItemType Directory -Force $tmp | Out-Null
 $env:HOME = $tmp
 $env:USERPROFILE = $tmp
@@ -121,7 +121,7 @@ npm test -- --runInBand test/style-registry.test.js
 ### 改 pack 行为
 
 1. 改 `packs/*/manifest.json`
-2. 需要时改 `.code-abyss/packs.lock.json`
+2. 需要时改 `.personal-skill-system/packs.lock.json`
 3. 跑：
 
 ```bash

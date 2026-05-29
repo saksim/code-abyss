@@ -43,7 +43,7 @@ describe('gstack claude integration', () => {
       manifest,
       env: {
         ...process.env,
-        CODE_ABYSS_GSTACK_SOURCE: fixtureRoot,
+        PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: fixtureRoot,
       },
     });
 

@@ -2,11 +2,11 @@
 
 ## 文档目的
 
-这份文档解释 Code Abyss 的系统设计、事实源、安装模型与关键取舍。它不是 changelog，也不是营销介绍，而是给维护者建立稳定心智模型用的。
+这份文档解释 Personal Skill System 的系统设计、事实源、安装模型与关键取舍。它不是 changelog，也不是营销介绍，而是给维护者建立稳定心智模型用的。
 
 ## 一句话架构
 
-Code Abyss 把 persona、style、skill、pack 四类配置分层管理，再通过统一安装器装配到不同 AI CLI 的运行时目录。
+Personal Skill System 把 persona、style、skill、pack 四类配置分层管理，再通过统一安装器装配到不同 AI CLI 的运行时目录。
 
 ## 系统目标
 
@@ -22,7 +22,7 @@ Code Abyss 把 persona、style、skill、pack 四类配置分层管理，再通�
 | Persona | `config/personas/*` + `config/personas/index.json` | 基础角色设定 |
 | Output Style | `output-styles/*` + `output-styles/index.json` | 表达风格与目标适配 |
 | Skills Source | `personal-skill-system/skills/**/SKILL.md` + `scripts/*.js` | 权威 skill source、脚本型 tool、命令生成输入 |
-| Packs | `packs/*/manifest.json` + `.code-abyss/packs.lock.json` | 核心运行时与第三方扩展 runtime |
+| Packs | `packs/*/manifest.json` + `.personal-skill-system/packs.lock.json` | 核心运行时与第三方扩展 runtime |
 | Installer | `bin/install.js` + `bin/adapters/*` | 实际安装、备份、清理、后处理 |
 
 ## 关键运行时形态
@@ -76,7 +76,7 @@ Codex 当前是 `skills-only` / `skills-first` 形态：能力入口以 skills r
 ### Pack 元数据
 
 - pack manifest：`packs/*/manifest.json`
-- project pack policy：`.code-abyss/packs.lock.json`
+- project pack policy：`.personal-skill-system/packs.lock.json`
 
 manifest 描述 pack 自身能装什么；lock 描述当前项目想装什么。
 
@@ -115,7 +115,7 @@ manifest 描述 pack 自身能装什么；lock 描述当前项目想装什么。
 
 ### 5. 同步 project packs
 
-安装器会读取最近的 `.code-abyss/packs.lock.json`，决定是否装入外部 pack，例如 gstack。
+安装器会读取最近的 `.personal-skill-system/packs.lock.json`，决定是否装入外部 pack，例如 gstack。
 
 ### 6. 备份与清理
 

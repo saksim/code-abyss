@@ -18,7 +18,7 @@
   "hosts": {
     "claude": {
       "autoInstall": true,
-      "sourceOverrideEnv": "CODE_ABYSS_GSTACK_SOURCE",
+      "sourceOverrideEnv": "PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE",
       "runtimeDirs": [
         "bin",
         "browse",
@@ -55,7 +55,7 @@
     },
     "codex": {
       "autoInstall": true,
-      "sourceOverrideEnv": "CODE_ABYSS_GSTACK_SOURCE",
+      "sourceOverrideEnv": "PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE",
       "skipSkills": [
         "codex"
       ],
@@ -97,7 +97,7 @@
     },
     "gemini": {
       "autoInstall": true,
-      "sourceOverrideEnv": "CODE_ABYSS_GSTACK_SOURCE",
+      "sourceOverrideEnv": "PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE",
       "runtimeDirs": [
         "bin",
         "browse",

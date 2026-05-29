@@ -1,5 +1,5 @@
 {
-  "name": "code-abyss",
+  "name": "personal-skill-system",
   "version": "2.1.2",
   "description": "为 Claude Code / Codex CLI / Gemini CLI 提供统一 installer、persona、style 与 governed skill runtime",
   "keywords": [
@@ -15,14 +15,14 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/telagod/code-abyss.git"
+    "url": "git+https://github.com/telagod/personal-skill-system.git"
   },
-  "homepage": "https://github.com/telagod/code-abyss#readme",
+  "homepage": "https://github.com/telagod/personal-skill-system#readme",
   "bugs": {
-    "url": "https://github.com/telagod/code-abyss/issues"
+    "url": "https://github.com/telagod/personal-skill-system/issues"
   },
   "bin": {
-    "code-abyss": "bin/install.js"
+    "personal-skill-system": "bin/install.js"
   },
   "files": [
     "bin/",

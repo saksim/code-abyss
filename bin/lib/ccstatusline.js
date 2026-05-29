@@ -33,7 +33,7 @@ function deployCcstatuslineConfig(errors, { HOME, PKG_ROOT, ok }) {
   }
 
   fs.copyFileSync(bundledConfig, targetConfig);
-  ok('ccstatusline/settings.json 已部署 (Code Abyss 多行美化预设)');
+  ok('ccstatusline/settings.json 已部署 (Personal Skill System 多行美化预设)');
 }
 
 async function installCcstatusline(ctx, deps) {

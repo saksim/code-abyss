@@ -39,7 +39,7 @@ For Codex/system skills:
 - `imagegen`: admit before creating; host image tooling and asset persistence must be explicit.
 - `plugin-creator`: admit before creating; Codex-specific plugin behavior belongs in a Codex adapter or tool.
 - `skill-creator`: merge into `skill-evolution` and `manage-skill`; do not duplicate the authoring route.
-- `skill-installer`: prefer Code Abyss installer and pack documentation over a duplicate installer skill.
+- `skill-installer`: prefer Personal Skill System installer and pack documentation over a duplicate installer skill.
 
 ## Pack Rules
 

@@ -13,7 +13,7 @@ function renderReadmeSnippet(lock) {
   const lines = [
     '## AI Pack Bootstrap',
     '',
-    'This repository declares Code Abyss packs in `.code-abyss/packs.lock.json`.',
+    'This repository declares Personal Skill System packs in `.personal-skill-system/packs.lock.json`.',
     '',
   ];
 
@@ -22,7 +22,7 @@ function renderReadmeSnippet(lock) {
     lines.push(`- ${host}: required=[${cfg.required.join(', ') || 'none'}], optional=[${cfg.optional.join(', ') || 'none'}], optional_policy=${cfg.optional_policy}`);
   });
 
-  const installCommands = listTargetNames().map((host) => `npx code-abyss --target ${host} -y`);
+  const installCommands = listTargetNames().map((host) => `npx personal-skill-system --target ${host} -y`);
   lines.push(
     '',
     'Recommended install:',
@@ -40,11 +40,11 @@ function renderContributingSnippet(lock) {
   return [
     '## AI Tooling',
     '',
-    'This repository uses `.code-abyss/packs.lock.json` to declare AI packs.',
+    'This repository uses `.personal-skill-system/packs.lock.json` to declare AI packs.',
     '',
     '- Update the lock with `npm run packs:update -- [flags]`.',
     '- Validate it with `npm run packs:check`.',
-    `- Re-run \`npx code-abyss --target ${targetNames.join('|')} -y\` after pack changes.`,
+    `- Re-run \`npx personal-skill-system --target ${targetNames.join('|')} -y\` after pack changes.`,
     '',
     `Current host policies: ${targetNames.map((host) => `${host}=${lock.hosts[host].optional_policy}`).join(', ')}`,
     '',
@@ -52,7 +52,7 @@ function renderContributingSnippet(lock) {
 }
 
 function writeBootstrapSnippets(projectRoot, lock) {
-  const snippetDir = path.join(projectRoot, '.code-abyss', 'snippets');
+  const snippetDir = path.join(projectRoot, '.personal-skill-system', 'snippets');
   fs.mkdirSync(snippetDir, { recursive: true });
   fs.writeFileSync(path.join(snippetDir, 'README.packs.md'), `${renderReadmeSnippet(lock)}\n`);
   fs.writeFileSync(path.join(snippetDir, 'CONTRIBUTING.packs.md'), `${renderContributingSnippet(lock)}\n`);

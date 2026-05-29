@@ -34,7 +34,7 @@ function hashDirectory(rootDir) {
 
   function walk(currentDir, relBase = '') {
     fs.readdirSync(currentDir, { withFileTypes: true })
-      .filter((entry) => entry.name !== '.git' && entry.name !== '.code-abyss-vendor.json')
+      .filter((entry) => entry.name !== '.git' && entry.name !== '.personal-skill-system-vendor.json')
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach((entry) => {
         const full = path.join(currentDir, entry.name);
@@ -68,7 +68,7 @@ function extractArchive(archivePath, destDir) {
 }
 
 function writeVendorMetadata(vendorDir, metadata) {
-  fs.writeFileSync(path.join(vendorDir, '.code-abyss-vendor.json'), `${JSON.stringify(metadata, null, 2)}\n`);
+  fs.writeFileSync(path.join(vendorDir, '.personal-skill-system-vendor.json'), `${JSON.stringify(metadata, null, 2)}\n`);
 }
 
 module.exports = {

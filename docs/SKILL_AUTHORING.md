@@ -8,7 +8,7 @@ Do not author or revive repo-root `skills/`.
 
 Volatile governed token sets and matrices now live in the generated reference:
 
-- [`personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md`](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md)
+- [`personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md`](/D:/Download/gaming/new_program/personal-skill-system/personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md)
 
 ## What This Document Covers
 
@@ -18,7 +18,7 @@ It describes the real contracts enforced by the repository today, not a loose wr
 
 ## Single Charter
 
-Treat [`personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md`](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md) as the canonical charter.
+Treat [`personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md`](/D:/Download/gaming/new_program/personal-skill-system/personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md) as the canonical charter.
 
 This file is the execution guide for satisfying that charter inside this repository.
 
@@ -584,7 +584,7 @@ Delete only after archive is unnecessary and generated surfaces can be safely up
 
 ## Related Documents
 
-- [DESIGN.md](/D:/Download/gaming/new_program/code-abyss/DESIGN.md)
-- [README.md](/D:/Download/gaming/new_program/code-abyss/README.md)
-- [TOP_TIER_SKILL_STANDARD.md](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md)
-- [SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md](/D:/Download/gaming/new_program/code-abyss/personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md)
+- [DESIGN.md](/D:/Download/gaming/new_program/personal-skill-system/DESIGN.md)
+- [README.md](/D:/Download/gaming/new_program/personal-skill-system/README.md)
+- [TOP_TIER_SKILL_STANDARD.md](/D:/Download/gaming/new_program/personal-skill-system/personal-skill-system/docs/TOP_TIER_SKILL_STANDARD.md)
+- [SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md](/D:/Download/gaming/new_program/personal-skill-system/personal-skill-system/docs/SKILL_AUTHORING_GOVERNANCE_REFERENCE.generated.md)

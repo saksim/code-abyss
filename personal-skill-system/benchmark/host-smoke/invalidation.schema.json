@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://code-abyss.local/personal-skill-system/benchmark/host-smoke/invalidation.schema.json",
+  "$id": "https://personal-skill-system.local/personal-skill-system/benchmark/host-smoke/invalidation.schema.json",
   "title": "Runtime Host Smoke Invalidation Ledger",
   "type": "object",
   "additionalProperties": false,

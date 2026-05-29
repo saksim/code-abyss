@@ -65,7 +65,7 @@
             "tool": "verify-chart-spec"
           },
           "mismatches": [],
-          "stdout-preview": "{\n  \"tool\": \"verify-chart-spec\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\code-abyss\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-chart-spec\",\n  \"summary\": \"Scanned 0 chart-related files and found 0 heuristic chart-spec findings across 0 files.\",\n  \"findings\": [],\n  \"hotspots\": [],\n  \"stats\": {\n    \"scannedFiles\": 0,\n    \"findings\": 0,\n    \"filesWithFindings\": 0\n  },\n  \"nextSteps\": [\n    \""
+          "stdout-preview": "{\n  \"tool\": \"verify-chart-spec\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\personal-skill-system\\\\personal-skill-system\\\\skills\\\\tools\\\\verify-chart-spec\",\n  \"summary\": \"Scanned 0 chart-related files and found 0 heuristic chart-spec findings across 0 files.\",\n  \"findings\": [],\n  \"hotspots\": [],\n  \"stats\": {\n    \"scannedFiles\": 0,\n    \"findings\": 0,\n    \"filesWithFindings\": 0\n  },\n  \"nextSteps\": [\n    \""
         }
       ]
     }

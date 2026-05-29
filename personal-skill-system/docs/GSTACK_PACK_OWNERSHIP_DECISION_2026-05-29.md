@@ -9,7 +9,7 @@ gstack remains pack-owned. Do not copy gstack skills into `personal-skill-system
 The project should integrate gstack by:
 
 - keeping `packs/gstack/manifest.json` as the installation and lifecycle contract
-- using `.code-abyss/packs.lock.json` to decide whether gstack is required for each host
+- using `.personal-skill-system/packs.lock.json` to decide whether gstack is required for each host
 - documenting the user-visible capability map
 - adding router guidance for core-vs-pack selection
 - absorbing only small, reusable judgement rules into existing core references
@@ -19,7 +19,7 @@ The project should integrate gstack by:
 | Surface | Current state |
 |---|---|
 | Pack manifest | `packs/gstack/manifest.json` exists and pins upstream gstack. |
-| Lock policy | `.code-abyss/packs.lock.json` requires gstack for `claude`, `codex`, and `gemini`. |
+| Lock policy | `.personal-skill-system/packs.lock.json` requires gstack for `claude`, `codex`, and `gemini`. |
 | Host install model | Manifest includes host-specific runtime dirs, files, rewrites, and uninstall rules. |
 | Runtime nature | Browser QA, design review, benchmark, canary, and deployment workflows depend on external runtime behavior. |
 

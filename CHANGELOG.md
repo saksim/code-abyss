@@ -243,7 +243,7 @@ All notable changes to this project will be documented in this file.
 ### Verification
 - Jest: **8 suites / 120 tests passed**
 - Targeted regression: `npm test -- --runInBand test/install.test.js test/codex.test.js`
-- Package smoke: `npm pack` + `npx --package ./code-abyss-1.8.0.tgz code-abyss --target codex -y` + uninstall pass
+- Package smoke: `npm pack` + `npx --package ./personal-skill-system-1.8.0.tgz personal-skill-system --target codex -y` + uninstall pass
 
 ## [1.7.7] - 2026-02-27
 

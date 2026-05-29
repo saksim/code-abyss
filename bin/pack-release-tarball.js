@@ -10,7 +10,7 @@ const PROJECT_ROOT = path.join(__dirname, '..');
 
 function findLatestTarball(directory) {
   const matches = fs.readdirSync(directory)
-    .filter((name) => /^code-abyss-.*\.tgz$/.test(name))
+    .filter((name) => /^personal-skill-system-.*\.tgz$/.test(name))
     .map((name) => ({
       name,
       fullPath: path.join(directory, name),
@@ -19,7 +19,7 @@ function findLatestTarball(directory) {
     .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
   if (matches.length === 0) {
-    throw new Error(`no code-abyss tarball found in ${directory}`);
+    throw new Error(`no personal-skill-system tarball found in ${directory}`);
   }
 
   return matches[0].fullPath;
@@ -58,7 +58,7 @@ async function packReleaseTarball(options = {}) {
   const projectRoot = options.projectRoot || PROJECT_ROOT;
   const npmExecPath = resolveNpmExecPath(options.npmExecPath);
   const libnpmpack = loadLibNpmPack(npmExecPath);
-  const baseDir = options.baseDir || fs.mkdtempSync(path.join(os.tmpdir(), 'code-abyss-release-pack-'));
+  const baseDir = options.baseDir || fs.mkdtempSync(path.join(os.tmpdir(), 'personal-skill-system-release-pack-'));
   const outDir = options.outDir || path.join(baseDir, 'out');
   const cacheDir = options.cacheDir || path.join(baseDir, 'cache');
 

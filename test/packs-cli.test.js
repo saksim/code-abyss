@@ -98,7 +98,7 @@ describe('packs cli', () => {
   test('init 写入默认 packs.lock', () => {
     const result = run(['init']);
     if (bailIfSpawnBlocked(result)) return;
-    const lockPath = path.join(tmpDir, '.code-abyss', 'packs.lock.json');
+    const lockPath = path.join(tmpDir, '.personal-skill-system', 'packs.lock.json');
     const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
 
     expect(result.status).toBe(0);
@@ -113,7 +113,7 @@ describe('packs cli', () => {
     if (bailIfSpawnBlocked(init)) return;
     const result = run(['update', '--host', 'codex', '--remove', 'gstack', '--add-optional', 'gstack', '--optional-policy', 'off', '--set-source', 'gstack=local']);
     if (bailIfSpawnBlocked(result)) return;
-    const lock = JSON.parse(fs.readFileSync(path.join(tmpDir, '.code-abyss', 'packs.lock.json'), 'utf8'));
+    const lock = JSON.parse(fs.readFileSync(path.join(tmpDir, '.personal-skill-system', 'packs.lock.json'), 'utf8'));
 
     expect(result.status).toBe(0);
     expect(lock.hosts.codex.required).toEqual([]);
@@ -125,13 +125,13 @@ describe('packs cli', () => {
   test('bootstrap 生成 packs.lock 与 README/CONTRIBUTING 片段', () => {
     const result = run(['bootstrap']);
     if (bailIfSpawnBlocked(result)) return;
-    const snippetDir = path.join(tmpDir, '.code-abyss', 'snippets');
+    const snippetDir = path.join(tmpDir, '.personal-skill-system', 'snippets');
 
     expect(result.status).toBe(0);
-    expect(fs.existsSync(path.join(tmpDir, '.code-abyss', 'packs.lock.json'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.personal-skill-system', 'packs.lock.json'))).toBe(true);
     expect(fs.readFileSync(path.join(snippetDir, 'README.packs.md'), 'utf8')).toContain('AI Pack Bootstrap');
-    expect(fs.readFileSync(path.join(snippetDir, 'README.packs.md'), 'utf8')).toContain('npx code-abyss --target gemini -y');
-    expect(fs.readFileSync(path.join(snippetDir, 'CONTRIBUTING.packs.md'), 'utf8')).toContain('This repository uses `.code-abyss/packs.lock.json`');
+    expect(fs.readFileSync(path.join(snippetDir, 'README.packs.md'), 'utf8')).toContain('npx personal-skill-system --target gemini -y');
+    expect(fs.readFileSync(path.join(snippetDir, 'CONTRIBUTING.packs.md'), 'utf8')).toContain('This repository uses `.personal-skill-system/packs.lock.json`');
     expect(fs.readFileSync(path.join(snippetDir, 'CONTRIBUTING.packs.md'), 'utf8')).toContain('gemini=auto');
   });
 
@@ -141,13 +141,13 @@ describe('packs cli', () => {
     if (bailIfSpawnBlocked(result)) return;
 
     expect(result.status).toBe(0);
-    expect(fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf8')).toContain('code-abyss:packs:readme:start');
-    expect(fs.readFileSync(path.join(tmpDir, 'CONTRIBUTING.md'), 'utf8')).toContain('code-abyss:packs:contributing:start');
+    expect(fs.readFileSync(path.join(tmpDir, 'README.md'), 'utf8')).toContain('personal-skill-system:packs:readme:start');
+    expect(fs.readFileSync(path.join(tmpDir, 'CONTRIBUTING.md'), 'utf8')).toContain('personal-skill-system:packs:contributing:start');
   });
 
   test('check 校验未知 pack 失败', () => {
-    fs.mkdirSync(path.join(tmpDir, '.code-abyss'), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, '.code-abyss', 'packs.lock.json'), JSON.stringify({
+    fs.mkdirSync(path.join(tmpDir, '.personal-skill-system'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.personal-skill-system', 'packs.lock.json'), JSON.stringify({
       version: 1,
       hosts: {
         claude: { required: ['unknown'], optional: [], optional_policy: 'auto' },
@@ -175,14 +175,14 @@ describe('packs cli', () => {
     expect(result.stdout).toContain('source: gstack: pinned -> local');
   });
 
-  test('vendor-pull 拉取 pack 到 .code-abyss/vendor', () => {
+  test('vendor-pull 拉取 pack 到 .personal-skill-system/vendor', () => {
     const result = run(['vendor-pull', 'gstack']);
     if (bailIfSpawnBlocked(result)) return;
-    const vendorDir = path.join(tmpDir, '.code-abyss', 'vendor', 'gstack');
+    const vendorDir = path.join(tmpDir, '.personal-skill-system', 'vendor', 'gstack');
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(path.join(vendorDir, 'README.md'))).toBe(true);
-    expect(fs.existsSync(path.join(vendorDir, '.code-abyss-vendor.json'))).toBe(true);
+    expect(fs.existsSync(path.join(vendorDir, '.personal-skill-system-vendor.json'))).toBe(true);
   });
 
   test('vendor-sync 同步 sources=local 的 pack', () => {
@@ -195,7 +195,7 @@ describe('packs cli', () => {
 
     expect(result.status).toBe(0);
     expect(result.stdout).toContain('gstack:');
-    expect(fs.existsSync(path.join(tmpDir, '.code-abyss', 'vendor', 'gstack', 'README.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.personal-skill-system', 'vendor', 'gstack', 'README.md'))).toBe(true);
   });
 
   test('vendor-sync --check 可作为漂移门禁', () => {
@@ -228,7 +228,7 @@ describe('packs cli', () => {
   test('vendor-dirty 在 vendor 脏或漂移时非零退出', () => {
     const pull = run(['vendor-pull', 'gstack']);
     if (bailIfSpawnBlocked(pull)) return;
-    fs.writeFileSync(path.join(tmpDir, '.code-abyss', 'vendor', 'gstack', 'DIRTY.txt'), 'dirty\n');
+    fs.writeFileSync(path.join(tmpDir, '.personal-skill-system', 'vendor', 'gstack', 'DIRTY.txt'), 'dirty\n');
 
     const result = run(['vendor-dirty', 'gstack']);
     if (bailIfSpawnBlocked(result)) return;
@@ -237,9 +237,9 @@ describe('packs cli', () => {
   });
 
   test('report list/latest 可查看 report artifacts', () => {
-    fs.mkdirSync(path.join(tmpDir, '.code-abyss', 'reports'), { recursive: true });
-    fs.writeFileSync(path.join(tmpDir, '.code-abyss', 'reports', 'pack-uninstall-gstack-2026-04-12T00-00-00.000Z.json'), JSON.stringify({ kind: 'uninstall', ok: true }, null, 2));
-    fs.writeFileSync(path.join(tmpDir, '.code-abyss', 'reports', 'install-codex-2026-04-12T00-00-01.000Z.json'), JSON.stringify({ kind: 'install', ok: true }, null, 2));
+    fs.mkdirSync(path.join(tmpDir, '.personal-skill-system', 'reports'), { recursive: true });
+    fs.writeFileSync(path.join(tmpDir, '.personal-skill-system', 'reports', 'pack-uninstall-gstack-2026-04-12T00-00-00.000Z.json'), JSON.stringify({ kind: 'uninstall', ok: true }, null, 2));
+    fs.writeFileSync(path.join(tmpDir, '.personal-skill-system', 'reports', 'install-codex-2026-04-12T00-00-01.000Z.json'), JSON.stringify({ kind: 'install', ok: true }, null, 2));
 
     const list = run(['report', 'list']);
     const latest = run(['report', 'latest', '--kind', 'pack-uninstall-gstack']);
@@ -279,18 +279,18 @@ describe('packs cli', () => {
 
     const result = run(['uninstall', 'gstack', '--host', 'all', '--remove-lock', '--remove-vendor']);
     if (bailIfSpawnBlocked(result)) return;
-    const lock = JSON.parse(fs.readFileSync(path.join(tmpDir, '.code-abyss', 'packs.lock.json'), 'utf8'));
+    const lock = JSON.parse(fs.readFileSync(path.join(tmpDir, '.personal-skill-system', 'packs.lock.json'), 'utf8'));
 
     expect(result.status).toBe(0);
     expect(fs.existsSync(claudeSkillRoot)).toBe(false);
     expect(fs.existsSync(codexSkillRoot)).toBe(false);
     expect(fs.existsSync(geminiSkillRoot)).toBe(false);
     expect(fs.existsSync(path.join(tmpDir, '.gemini', 'commands', 'review.toml'))).toBe(false);
-    expect(fs.existsSync(path.join(tmpDir, '.code-abyss', 'vendor', 'gstack'))).toBe(false);
+    expect(fs.existsSync(path.join(tmpDir, '.personal-skill-system', 'vendor', 'gstack'))).toBe(false);
     expect(lock.hosts.claude.required).toEqual([]);
     expect(lock.hosts.codex.required).toEqual([]);
     expect(lock.hosts.gemini.required).toEqual([]);
-    expect(fs.existsSync(path.join(tmpDir, '.code-abyss', 'reports'))).toBe(true);
-    expect(fs.readdirSync(path.join(tmpDir, '.code-abyss', 'reports')).some((name) => name.startsWith('pack-uninstall-gstack-'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.personal-skill-system', 'reports'))).toBe(true);
+    expect(fs.readdirSync(path.join(tmpDir, '.personal-skill-system', 'reports')).some((name) => name.startsWith('pack-uninstall-gstack-'))).toBe(true);
   });
 });

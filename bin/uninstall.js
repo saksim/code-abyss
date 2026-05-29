@@ -77,7 +77,7 @@ try {
 
 const targetName = manifest.target || path.basename(targetDir).replace(/^\./, '');
 
-console.log(`\n🗑️  卸载 Code Abyss v${manifest.version}...\n`);
+console.log(`\n🗑️  卸载 Personal Skill System v${manifest.version}...\n`);
 
 (manifest.installed || []).forEach((entry) => {
   const normalized = normalizeManifestEntry(entry, targetName);

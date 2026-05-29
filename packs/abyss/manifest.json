@@ -1,8 +1,8 @@
 {
   "name": "abyss",
-  "description": "Core Code Abyss pack: persona config, output styles, skills, and shared runtime libs.",
+  "description": "Core Personal Skill System pack: persona config, output styles, skills, and shared runtime libs.",
   "reporting": {
-    "label": "Code Abyss core",
+    "label": "Personal Skill System core",
     "artifactPrefix": "abyss-core"
   },
   "hosts": {

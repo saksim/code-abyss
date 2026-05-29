@@ -1,6 +1,6 @@
 ## AI Pack Bootstrap
 
-This repository declares Code Abyss packs in `.code-abyss/packs.lock.json`.
+This repository declares Personal Skill System packs in `.personal-skill-system/packs.lock.json`.
 
 - claude: required=[gstack], optional=[none], optional_policy=auto
 - codex: required=[gstack], optional=[none], optional_policy=auto
@@ -9,8 +9,8 @@ This repository declares Code Abyss packs in `.code-abyss/packs.lock.json`.
 Recommended install:
 
 ```bash
-npx code-abyss --target claude -y
-npx code-abyss --target codex -y
-npx code-abyss --target gemini -y
+npx personal-skill-system --target claude -y
+npx personal-skill-system --target codex -y
+npx personal-skill-system --target gemini -y
 ```
 

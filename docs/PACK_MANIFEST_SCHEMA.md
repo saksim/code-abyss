@@ -152,7 +152,7 @@
 
 额外 provider 可通过以下目录扩展：
 
-- `.code-abyss/vendor-providers/`
+- `.personal-skill-system/vendor-providers/`
 - `vendor-providers/`
 
 provider module 需要导出：
@@ -164,7 +164,7 @@ provider module 需要导出：
 
 ## Reporting 合约
 
-pack 相关操作会向 `.code-abyss/reports/` 写入 JSON artifact。
+pack 相关操作会向 `.personal-skill-system/reports/` 写入 JSON artifact。
 
 - 主安装流程会把 pack 结果写进 install report 的 `pack_reports`
 - `packs uninstall <pack>` 会写独立 uninstall report

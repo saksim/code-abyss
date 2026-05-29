@@ -1,5 +1,5 @@
 # Release Guide
-> Audience: first-time maintainers publishing Code Abyss
+> Audience: first-time maintainers publishing Personal Skill System
 > Goal: ship from 0 to 1 with a clear public support statement
 
 ## Ship decision
@@ -31,7 +31,7 @@ That means:
 1. If the `claude` install path succeeds, you can claim Claude-compatible OpenCode setups are supported.
 2. If the `codex` install path succeeds, you can claim Codex / AGENTS-compatible OpenCode setups are supported.
 3. If an OpenCode setup reads one of those layouts, or both, it counts as a successful compatible installation.
-4. Until code, CLI help, target registry, and smoke coverage add first-class support, do not publish `npx code-abyss --target opencode -y`.
+4. Until code, CLI help, target registry, and smoke coverage add first-class support, do not publish `npx personal-skill-system --target opencode -y`.
 
 ## 1. Pre-release setup
 
@@ -71,7 +71,7 @@ npm pack --json --cache <temp-cache-dir>
 If your tarball was written somewhere else, pass it explicitly:
 
 ```bash
-npm run verify:tarball-smoke -- --tgz <path-to/code-abyss-x.y.z.tgz>
+npm run verify:tarball-smoke -- --tgz <path-to/personal-skill-system-x.y.z.tgz>
 ```
 
 Do not publish if any required gate fails.
@@ -81,7 +81,7 @@ Do not publish if any required gate fails.
 Before publishing, remove local probe output that is not part of the package:
 
 ```bash
-Get-ChildItem -LiteralPath . -Filter 'code-abyss-*.tgz' | Remove-Item -Force
+Get-ChildItem -LiteralPath . -Filter 'personal-skill-system-*.tgz' | Remove-Item -Force
 Remove-Item -LiteralPath tmp-release-smoke,tmp-npm-cache-release-smoke,tmp-release-smoke-inline-probe,tmp-npm-cache-inline-probe,tmp-delete-probe -Recurse -Force -ErrorAction SilentlyContinue
 ```
 
@@ -130,22 +130,22 @@ Do not rely only on CI. Re-test from a user angle after npm publishes the packag
 Claude:
 
 ```bash
-npx code-abyss --target claude -y
-npx code-abyss --uninstall claude
+npx personal-skill-system --target claude -y
+npx personal-skill-system --uninstall claude
 ```
 
 Codex:
 
 ```bash
-npx code-abyss --target codex -y
-npx code-abyss --uninstall codex
+npx personal-skill-system --target codex -y
+npx personal-skill-system --uninstall codex
 ```
 
 Gemini:
 
 ```bash
-npx code-abyss --target gemini -y
-npx code-abyss --uninstall gemini
+npx personal-skill-system --target gemini -y
+npx personal-skill-system --uninstall gemini
 ```
 
 ## 7. User-facing install instructions
@@ -153,30 +153,30 @@ npx code-abyss --uninstall gemini
 Public install commands:
 
 ```bash
-npx code-abyss --target claude -y
-npx code-abyss --target codex -y
-npx code-abyss --target gemini -y
+npx personal-skill-system --target claude -y
+npx personal-skill-system --target codex -y
+npx personal-skill-system --target gemini -y
 ```
 
 Interactive install:
 
 ```bash
-npx code-abyss
+npx personal-skill-system
 ```
 
 List available presets:
 
 ```bash
-npx code-abyss --list-styles
-npx code-abyss --list-personas
+npx personal-skill-system --list-styles
+npx personal-skill-system --list-personas
 ```
 
 Uninstall:
 
 ```bash
-npx code-abyss --uninstall claude
-npx code-abyss --uninstall codex
-npx code-abyss --uninstall gemini
+npx personal-skill-system --uninstall claude
+npx personal-skill-system --uninstall codex
+npx personal-skill-system --uninstall gemini
 ```
 
 ## 8. User-facing use instructions
@@ -190,7 +190,7 @@ After install, users keep using their normal host CLI:
 Useful reconfigure example:
 
 ```bash
-npx code-abyss --target codex --style scholar-classic --persona scholar -y
+npx personal-skill-system --target codex --style scholar-classic --persona scholar -y
 ```
 
 ## 9. What this release gives users
@@ -219,13 +219,13 @@ Different improvement:
 
 Allowed wording:
 
-- If OpenCode reads Claude-style runtime files, run `npx code-abyss --target claude -y`
-- If OpenCode reads Codex / AGENTS-style runtime files, run `npx code-abyss --target codex -y`
+- If OpenCode reads Claude-style runtime files, run `npx personal-skill-system --target claude -y`
+- If OpenCode reads Codex / AGENTS-style runtime files, run `npx personal-skill-system --target codex -y`
 - If OpenCode reads both layouts, run both commands
 
 Not allowed wording:
 
-- `npx code-abyss --target opencode -y`
+- `npx personal-skill-system --target opencode -y`
 
 ## 11. What to record after publishing
 

@@ -13,7 +13,7 @@ function parseArgs(argv) {
     transparent: false,
     projectBound: false,
     output: null,
-    host: process.env.CODE_ABYSS_HOST || process.env.AI_HOST || 'unknown',
+    host: process.env.PERSONAL_SKILL_SYSTEM_HOST || process.env.AI_HOST || 'unknown',
     json: false
   };
 

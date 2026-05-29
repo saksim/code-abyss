@@ -203,21 +203,21 @@ Even after the recent improvements, execution depth still does not fully match t
 **婵炴垶鎼╅崢浠嬪几?*
 
 婵炴垶鎸搁鍡涱敃婵傚憡鍤愰柕澹嫬鐓曠紓鍌欑贰閸欏繒妲愬┑鍥ь嚤婵☆垰鎼敮銉╂煙閸偅灏紒杈ㄥ灦濞艰鈻庢惔锝嗘闂佸搫鍊稿ú锝呪枎閵忋倖鏅?
-- [analyzers.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/lib/analyzers.js)
-- [runtime.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/lib/runtime.js)
-- [verify-change run.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/verify-change/scripts/run.js)
-- [verify-quality run.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/verify-quality/scripts/run.js)
-- [verify-security run.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/verify-security/scripts/run.js)
+- [analyzers.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/lib/analyzers.js)
+- [runtime.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/lib/runtime.js)
+- [verify-change run.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/verify-change/scripts/run.js)
+- [verify-quality run.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/verify-quality/scripts/run.js)
+- [verify-security run.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/verify-security/scripts/run.js)
 
 **English**
 
 If the next iteration continues from here, start with:
 
-- [analyzers.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/lib/analyzers.js)
-- [runtime.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/lib/runtime.js)
-- [verify-change run.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/verify-change/scripts/run.js)
-- [verify-quality run.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/verify-quality/scripts/run.js)
-- [verify-security run.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/verify-security/scripts/run.js)
+- [analyzers.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/lib/analyzers.js)
+- [runtime.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/lib/runtime.js)
+- [verify-change run.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/verify-change/scripts/run.js)
+- [verify-quality run.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/verify-quality/scripts/run.js)
+- [verify-security run.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/verify-security/scripts/run.js)
 
 ## 6. Suggested Verification Commands / 閻庣偣鍊濈紓姘额敊閸涱喖绶炵€广儱顦卞畷锝夋煕濞戞瑥鐏婇柟?
 ```bash
@@ -268,11 +268,11 @@ If the goal is to move closer to the original tool strength, the next iteration 
 
 ### 8.3 Next Practical Entry Points
 
-- [CAPABILITY_MODULE_RATINGS.md](/D:/download/gaming/new_program/code-abyss/personal-skill-system/docs/CAPABILITY_MODULE_RATINGS.md)
-- [capability-ratings.generated.json](/D:/download/gaming/new_program/code-abyss/personal-skill-system/registry/capability-ratings.generated.json)
-- [README.md](/D:/download/gaming/new_program/code-abyss/personal-skill-system/docs/README.md)
-- [ITERATION_HANDOFF.md](/D:/download/gaming/new_program/code-abyss/personal-skill-system/docs/ITERATION_HANDOFF.md)
-- [verify-skill-system run.js](/D:/download/gaming/new_program/code-abyss/personal-skill-system/skills/tools/verify-skill-system/scripts/run.js)
+- [CAPABILITY_MODULE_RATINGS.md](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/docs/CAPABILITY_MODULE_RATINGS.md)
+- [capability-ratings.generated.json](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/registry/capability-ratings.generated.json)
+- [README.md](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/docs/README.md)
+- [ITERATION_HANDOFF.md](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/docs/ITERATION_HANDOFF.md)
+- [verify-skill-system run.js](/D:/download/gaming/new_program/personal-skill-system/personal-skill-system/skills/tools/verify-skill-system/scripts/run.js)
 
 ### 8.4 Final Closure Snapshot
 

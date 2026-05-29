@@ -58,7 +58,7 @@ their lifecycle status changes.
 | Item | Reason |
 |---|---|
 | Bulk-copying external SKILL trees into core | Violates the single-source and progressive-disclosure rules. |
-| `skill-installer` as a duplicate core skill | Code Abyss already owns install, uninstall, pack, and vendor workflows. |
+| `skill-installer` as a duplicate core skill | Personal Skill System already owns install, uninstall, pack, and vendor workflows. |
 | gstack skills as copied core workflows | Browser QA, design review, benchmark, canary, and deployment flows are external runtime capabilities and stay pack-owned. |
 
 ## Readiness Notes

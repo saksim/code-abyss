@@ -102,19 +102,9 @@ function formatHealthStatus(status) {
 
 function banner() {
   console.log(c.mag(`
-   ██████╗ ██████╗ ██████╗ ███████╗
-  ██╔════╝██╔═══██╗██╔══██╗██╔════╝
-  ██║     ██║   ██║██║  ██║█████╗
-  ██║     ██║   ██║██║  ██║██╔══╝
-  ╚██████╗╚██████╔╝██████╔╝███████╗
-   ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝
-   █████╗ ██████╗ ██╗   ██╗███████╗███████╗
-  ██╔══██╗██╔══██╗╚██╗ ██╔╝██╔════╝██╔════╝
-  ███████║██████╔╝ ╚████╔╝ ███████╗███████╗
-  ██╔══██║██╔══██╗  ╚██╔╝  ╚════██║╚════██║
-  ██║  ██║██████╔╝   ██║   ███████║███████║
-  ╚═╝  ╚═╝╚═════╝    ╚═╝   ╚══════╝╚══════╝`));
-  console.log(c.d(`  ☠ 邪修红尘仙 · 宿命深渊  v${VERSION}\n`));
+  PERSONAL SKILL SYSTEM`));
+  console.log(c.d(`  governed skill runtime for Claude Code / Codex CLI / Gemini CLI  v${VERSION}`));
+  console.log(c.d('  ☠ 邪修红尘仙 · 宿命深渊\n'));
 }
 
 function divider(title) {
@@ -306,7 +296,7 @@ for (let i = 0; i < args.length; i++) {
   else if (args[i] === '--yes' || args[i] === '-y') { autoYes = true; }
   else if (args[i] === '--help' || args[i] === '-h') {
     banner();
-    console.log(`${c.b('用法:')}  npx code-abyss [选项]
+    console.log(`${c.b('用法:')}  npx personal-skill-system [选项]
 
 ${c.b('选项:')}
   --target ${c.cyn(`<${formatTargetList('|')}>`)}      安装目标
@@ -321,14 +311,14 @@ ${c.b('选项:')}
   --help, -h                   显示帮助
 
 ${c.b('示例:')}
-  npx code-abyss                        ${c.d('# 交互菜单')}
-  npx code-abyss --list-styles           ${c.d('# 查看可用风格')}
-  npx code-abyss --list-skills           ${c.d('# 查看可用 skill')}
-  npx code-abyss --explain-skill review  ${c.d('# 查看 review 怎么用')}
-  npx code-abyss --target claude -y      ${c.d('# 零配置一键安装')}
-  npx code-abyss --target codex --style scholar-classic -y
+  npx personal-skill-system                        ${c.d('# 交互菜单')}
+  npx personal-skill-system --list-styles           ${c.d('# 查看可用风格')}
+  npx personal-skill-system --list-skills           ${c.d('# 查看可用 skill')}
+  npx personal-skill-system --explain-skill review  ${c.d('# 查看 review 怎么用')}
+  npx personal-skill-system --target claude -y      ${c.d('# 零配置一键安装')}
+  npx personal-skill-system --target codex --style scholar-classic -y
                                    ${c.d('# 指定风格安装')}
-  npx code-abyss --uninstall claude      ${c.d('# 直接卸载')}
+  npx personal-skill-system --uninstall claude      ${c.d('# 直接卸载')}
 `);
     process.exit(0);
   }
@@ -338,7 +328,7 @@ ${c.b('示例:')}
 
 function runUninstall(tgt) {
   if (!isSupportedTarget(tgt)) {
-    fail(formatActionableError(`--uninstall 必须是 ${listTargetNames().join('、')}`, 'Try: npx code-abyss --uninstall claude'));
+    fail(formatActionableError(`--uninstall 必须是 ${listTargetNames().join('、')}`, 'Try: npx personal-skill-system --uninstall claude'));
     process.exit(1);
   }
   const targetDir = resolveManagedRootDir(tgt);
@@ -348,10 +338,10 @@ function runUninstall(tgt) {
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   if (manifest.manifest_version && manifest.manifest_version > 2) {
-    fail(`manifest 版本 ${manifest.manifest_version} 不兼容，请升级 code-abyss 后再卸载`);
+    fail(`manifest 版本 ${manifest.manifest_version} 不兼容，请升级 personal-skill-system 后再卸载`);
     process.exit(1);
   }
-  divider(`卸载 Code Abyss v${manifest.version}`);
+  divider(`卸载 Personal Skill System v${manifest.version}`);
   if (Array.isArray(manifest.pack_reports) && manifest.pack_reports.length > 0) {
     console.log(`  ${c.b('Packs:')}`);
     manifest.pack_reports.forEach((report) => {
@@ -818,7 +808,7 @@ function installCore(tgt, selectedStyle, selectedPersona, packPlan) {
     const destPath = path.join(destRoot, dest);
     if (!fs.existsSync(srcPath)) {
       if (src === 'skills') {
-        fail(`核心文件缺失: ${srcPath}\n    请尝试: npm cache clean --force && npx code-abyss`);
+        fail(`核心文件缺失: ${srcPath}\n    请尝试: npm cache clean --force && npx personal-skill-system`);
         process.exit(1);
       }
       warn(`跳过: ${src}`); return;
@@ -1274,7 +1264,7 @@ function finish(ctx) {
   }
   console.log(`  ${c.b('文件:')}     ${ctx.manifest.installed.length} 个安装, ${ctx.manifest.backups.length} 个备份`);
   console.log(`  ${c.b('上手文档:')} ${c.d(getQuickstartInstallPath(tgt))}`);
-  console.log(`  ${c.b('卸载:')}     ${c.d(`npx code-abyss --uninstall ${tgt}`)}`);
+  console.log(`  ${c.b('卸载:')}     ${c.d(`npx personal-skill-system --uninstall ${tgt}`)}`);
   console.log('');
   console.log(`  ${c.b('现在直接这样开始:')}`);
   getInstallPromptSamples().forEach((sample) => {

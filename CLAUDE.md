@@ -4,7 +4,7 @@
 
 ## 项目概览
 
-Code Abyss 是一个多目标 AI CLI 安装器，负责把 persona、output styles、skills 与 optional packs 安装到：
+Personal Skill System 是一个多目标 AI CLI 安装器，负责把 persona、output styles、skills 与 optional packs 安装到：
 
 - `Claude Code`
 - `Codex CLI`
@@ -28,7 +28,7 @@ Code Abyss 是一个多目标 AI CLI 安装器，负责把 persona、output styl
 - `output-styles/index.json`
 - `config/personas/index.json`
 - `packs/*/manifest.json`
-- `.code-abyss/packs.lock.json`
+- `.personal-skill-system/packs.lock.json`
 
 ### 回归测试
 
@@ -77,7 +77,7 @@ npm run packs:report -- summary
 ### 改 pack
 
 - `packs/*/manifest.json` 描述 pack 契约
-- `.code-abyss/packs.lock.json` 描述项目级启用策略
+- `.personal-skill-system/packs.lock.json` 描述项目级启用策略
 - `bin/packs.js` 管 bootstrap、vendor、report、uninstall
 - 改完至少跑 `npm run packs:check`
 

@@ -5,12 +5,12 @@ const path = require('path');
 
 const MARKERS = {
   readme: {
-    start: '<!-- code-abyss:packs:readme:start -->',
-    end: '<!-- code-abyss:packs:readme:end -->',
+    start: '<!-- personal-skill-system:packs:readme:start -->',
+    end: '<!-- personal-skill-system:packs:readme:end -->',
   },
   contributing: {
-    start: '<!-- code-abyss:packs:contributing:start -->',
-    end: '<!-- code-abyss:packs:contributing:end -->',
+    start: '<!-- personal-skill-system:packs:contributing:start -->',
+    end: '<!-- personal-skill-system:packs:contributing:end -->',
   },
 };
 

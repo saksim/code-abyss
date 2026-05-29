@@ -5648,7 +5648,7 @@ describe('skill system governance', () => {
       jest.resetModules();
       const manageSkill = require(manageSkillModulePath);
 
-      const exportDir = path.join(repoRoot, '.code-abyss', 'derived-governance-exports', 'ready-export');
+      const exportDir = path.join(repoRoot, '.personal-skill-system', 'derived-governance-exports', 'ready-export');
       manageSkill.main(['export-derived-governance', '--output-dir', exportDir]);
 
       const payload = manageSkill.main(['diagnose-host-evolution']);
@@ -5656,8 +5656,8 @@ describe('skill system governance', () => {
         'node personal-skill-system/skills/tools/manage-skill/scripts/run.js apply-derived-governance-export --latest'
       ]));
       expect(payload['latest-derived-governance-export']).toEqual(expect.objectContaining({
-        directory: '.code-abyss/derived-governance-exports/ready-export',
-        manifest: '.code-abyss/derived-governance-exports/ready-export/manifest.json'
+        directory: '.personal-skill-system/derived-governance-exports/ready-export',
+        manifest: '.personal-skill-system/derived-governance-exports/ready-export/manifest.json'
       }));
     } finally {
       process.chdir(originalCwd);

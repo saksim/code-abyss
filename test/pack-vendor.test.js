@@ -64,7 +64,7 @@ describe('pack vendor providers', () => {
     const status = getPackVendorStatus(tmpDir, 'local-pack');
 
     expect(report.provider).toBe('local-dir');
-    expect(fs.existsSync(path.join(tmpDir, '.code-abyss', 'vendor', 'local-pack', 'README.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.personal-skill-system', 'vendor', 'local-pack', 'README.md'))).toBe(true);
     expect(status).toMatchObject({ exists: true, dirty: false, drifted: false, provider: 'local-dir' });
   });
 
@@ -87,7 +87,7 @@ describe('pack vendor providers', () => {
     const status = getPackVendorStatus(tmpDir, 'archive-pack');
 
     expect(report.provider).toBe('archive');
-    expect(fs.existsSync(path.join(tmpDir, '.code-abyss', 'vendor', 'archive-pack', 'README.md'))).toBe(true);
+    expect(fs.existsSync(path.join(tmpDir, '.personal-skill-system', 'vendor', 'archive-pack', 'README.md'))).toBe(true);
     expect(status).toMatchObject({ exists: true, dirty: false, drifted: false, provider: 'archive' });
   });
 });

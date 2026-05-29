@@ -1,6 +1,6 @@
 # Packs Lock Schema
 
-> 适用对象：维护 `.code-abyss/packs.lock.json` 的仓库维护者
+> 适用对象：维护 `.personal-skill-system/packs.lock.json` 的仓库维护者
 
 ## 这份文档解决什么问题
 
@@ -105,7 +105,7 @@
 
 优先使用：
 
-- `.code-abyss/vendor/<pack>`
+- `.personal-skill-system/vendor/<pack>`
 - 或 host-specific env override
 
 ### `disabled`

@@ -80,7 +80,7 @@ describe('skill discovery cli helpers', () => {
     try {
       printSkillCatalog();
       const output = spy.mock.calls.map((call) => call.join(' ')).join('\n');
-      expect(output).toContain('Code Abyss skills');
+      expect(output).toContain('Personal Skill System skills');
       expect(output).toContain('development');
       expect(output).toContain('review');
       expect(output).toContain('verify-security');

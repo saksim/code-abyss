@@ -4,7 +4,7 @@
 
 ## 这份文档解决什么问题
 
-如果你已经知道 Code Abyss 有 `packs/`、`packs.lock`、`vendor`、`reports`，但不清楚它们各自负责什么、先后顺序是什么，就看这份文档。
+如果你已经知道 Personal Skill System 有 `packs/`、`packs.lock`、`vendor`、`reports`，但不清楚它们各自负责什么、先后顺序是什么，就看这份文档。
 
 ## 先建立最小模型
 
@@ -12,10 +12,10 @@ pack 系统分成四层：
 
 | 层 | 文件 | 作用 |
 | --- | --- | --- |
-| Core pack | `packs/abyss/manifest.json` | 描述 Code Abyss 自带 runtime 如何安装 |
+| Core pack | `packs/abyss/manifest.json` | 描述 Personal Skill System 自带 runtime 如何安装 |
 | External pack | `packs/<name>/manifest.json` | 描述第三方 runtime 的安装 / 卸载 / upstream 信息 |
-| Project policy | `.code-abyss/packs.lock.json` | 描述当前项目决定启用哪些 pack |
-| Runtime artifacts | `.code-abyss/reports/`、`.code-abyss/snippets/` | 记录安装结果、生成文档片段 |
+| Project policy | `.personal-skill-system/packs.lock.json` | 描述当前项目决定启用哪些 pack |
+| Runtime artifacts | `.personal-skill-system/reports/`、`.personal-skill-system/snippets/` | 记录安装结果、生成文档片段 |
 
 一句话：`manifest` 定义能力边界，`packs.lock` 决定当前项目是否启用。
 
@@ -32,15 +32,15 @@ pack 系统分成四层：
 入口命令：
 
 ```bash
-npx code-abyss --target claude -y
-npx code-abyss --target codex -y
-npx code-abyss --target gemini -y
+npx personal-skill-system --target claude -y
+npx personal-skill-system --target codex -y
+npx personal-skill-system --target gemini -y
 ```
 
 安装时会发生什么：
 
 1. 先安装 core pack `abyss`
-2. 向上查找最近的 `.code-abyss/packs.lock.json`
+2. 向上查找最近的 `.personal-skill-system/packs.lock.json`
 3. 按 host 读取 `required`、`optional`、`optional_policy`、`sources`
 4. 根据 source mode 解析每个 external pack 的来源
 5. 把 external pack 的 runtime 同步到目标 host
@@ -50,7 +50,7 @@ npx code-abyss --target gemini -y
 ### source mode 的含义
 
 - `pinned`：使用 manifest 里 pin 住的 upstream
-- `local`：优先使用 `.code-abyss/vendor/<pack>` 或显式 override
+- `local`：优先使用 `.personal-skill-system/vendor/<pack>` 或显式 override
 - `disabled`：保留声明，但跳过安装
 
 ## 主流程 2：Bootstrap
@@ -69,8 +69,8 @@ bootstrap 做的是“初始化或刷新项目级 pack 配置”，不是安装�
 1. 从 manifests 生成默认 lock
 2. 应用 CLI 参数变更
 3. 校验 lock 合法性
-4. 写回 `.code-abyss/packs.lock.json`
-5. 生成 `.code-abyss/snippets/`
+4. 写回 `.personal-skill-system/packs.lock.json`
+5. 生成 `.personal-skill-system/snippets/`
 6. 可选地把 managed sections 回写到 `README.md` / `CONTRIBUTING.md`
 
 ## 主流程 3：Vendor
@@ -113,7 +113,7 @@ npm run packs:report -- summary --json
 reports 会写到：
 
 ```text
-.code-abyss/reports/
+.personal-skill-system/reports/
 ```
 
 常见 artifact 前缀：
@@ -145,7 +145,7 @@ npm run packs:uninstall -- gstack --host all --remove-lock --remove-vendor
 ### manifest 和 lock 不是一回事
 
 - `packs/<name>/manifest.json`：pack 自己能做什么
-- `.code-abyss/packs.lock.json`：当前项目要不要启用它
+- `.personal-skill-system/packs.lock.json`：当前项目要不要启用它
 
 ### pack reports 不是日志噪音
 

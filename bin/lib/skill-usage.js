@@ -230,8 +230,8 @@ function renderSkillCatalog(projectRoot) {
   const skills = loadInvocableSkills(projectRoot);
   const counts = countByCategory(skills);
   const lines = [
-    `Code Abyss skills (${skills.length} invocable)`,
-    'Use one primary skill per task. Ask `npx code-abyss --explain-skill <name>` for details.',
+    `Personal Skill System skills (${skills.length} invocable)`,
+    'Use one primary skill per task. Ask `npx personal-skill-system --explain-skill <name>` for details.',
     '',
     `Counts: ${formatCountsLine(counts)}`,
     '',
@@ -254,7 +254,7 @@ function renderSkillExplanation(projectRoot, requestedName) {
   const skill = findSkill(projectRoot, requestedName);
   if (!skill) {
     const skills = loadInvocableSkills(projectRoot).map((entry) => entry.name);
-    throw new Error(`Unknown skill: ${requestedName}. Try: npx code-abyss --list-skills`);
+    throw new Error(`Unknown skill: ${requestedName}. Try: npx personal-skill-system --list-skills`);
   }
 
   const usageBullets = extractUsageBullets(skill);
@@ -328,7 +328,7 @@ function renderSkillQuickstart(projectRoot, targetName) {
   const starterSkills = renderStarterSkillList(skillsByName);
 
   const lines = [
-    '# How To Use Code Abyss Skills',
+    '# How To Use Personal Skill System Skills',
     '',
     'This install does not replace your normal CLI flow. Keep using your host normally.',
     'The practical rule is simple: pick one primary skill, state the goal, state the constraints, name the deliverable, and include validation.',
@@ -384,9 +384,9 @@ function renderSkillQuickstart(projectRoot, targetName) {
     '',
     '## Discover more',
     '',
-    '- `npx code-abyss --list-skills`',
-    '- `npx code-abyss --explain-skill development`',
-    '- `npx code-abyss --explain-skill review`',
+    '- `npx personal-skill-system --list-skills`',
+    '- `npx personal-skill-system --explain-skill development`',
+    '- `npx personal-skill-system --explain-skill review`',
     '',
     '## Default rule when unsure',
     '',

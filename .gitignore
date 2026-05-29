@@ -51,7 +51,7 @@ node_modules/
 # Local config
 .env.local
 .ace-tool/
-.code-abyss/reports/
+.personal-skill-system/reports/
 .npmrc
 tmp-release-smoke/
 tmp-npm-cache-release-smoke/

@@ -16,7 +16,7 @@ const {
 } = require('./skill-lifecycle-governance');
 
 const REVIEW_QUEUE_SCHEMA_SOURCE = 'generated-from-skill-governance';
-const REVIEW_QUEUE_SCHEMA_ID = 'https://code-abyss.local/personal-skill-system/review-queue.schema.json';
+const REVIEW_QUEUE_SCHEMA_ID = 'https://personal-skill-system.local/personal-skill-system/review-queue.schema.json';
 const REVIEW_QUEUE_ENTRY_STATUSES = Object.freeze(['scheduled', 'due-soon', 'overdue', 'missing-metadata']);
 const REVIEW_QUEUE_PRIORITIES = Object.freeze(['critical', 'high', 'normal']);
 

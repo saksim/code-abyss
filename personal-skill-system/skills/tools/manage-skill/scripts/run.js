@@ -805,11 +805,11 @@ function getBundleRoot(projectRoot) {
 }
 
 function getDerivedGovernanceExportRoot(projectRoot) {
-  return path.join(projectRoot, '.code-abyss', 'derived-governance-exports');
+  return path.join(projectRoot, '.personal-skill-system', 'derived-governance-exports');
 }
 
 function getFallbackDerivedGovernanceExportRoot() {
-  return path.join(os.tmpdir(), 'code-abyss', 'derived-governance-exports');
+  return path.join(os.tmpdir(), 'personal-skill-system', 'derived-governance-exports');
 }
 
 function resolveDerivedGovernanceExportRoot(projectRoot) {

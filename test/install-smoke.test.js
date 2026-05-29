@@ -100,7 +100,7 @@ describe('install cli styles', () => {
 
     if (bailIfSpawnBlocked(result)) return;
     expect(result.status).toBe(0);
-    expect(result.stdout).toContain('Code Abyss skills');
+    expect(result.stdout).toContain('Personal Skill System skills');
     expect(result.stdout).toContain('development');
     expect(result.stdout).toContain('review');
     expect(result.stdout).toContain('verify-security');
@@ -138,7 +138,7 @@ describe('claude install smoke', () => {
         ...process.env,
         HOME: tmpHome,
         USERPROFILE: tmpHome,
-        CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+        PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
       },
       encoding: 'utf8',
     });
@@ -202,7 +202,7 @@ describe('claude install smoke', () => {
     copyPublishableBundle(repoRoot, bundleRoot);
 
     const install = runBundleInstall(bundleRoot, isolatedHome, 'claude', {
-      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+      PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
     });
     if (bailIfSpawnBlocked(install)) return;
 
@@ -213,7 +213,7 @@ describe('claude install smoke', () => {
     expect(fs.existsSync(path.join(claudeDir, 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
 
     const uninstall = runBundleUninstall(bundleRoot, isolatedHome, 'claude', {
-      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+      PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
     });
     if (bailIfSpawnBlocked(uninstall)) return;
 
@@ -421,7 +421,7 @@ describe('gemini install smoke', () => {
         ...process.env,
         HOME: tmpHome,
         USERPROFILE: tmpHome,
-        CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+        PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
       },
       encoding: 'utf8',
     });
@@ -487,7 +487,7 @@ describe('gemini install smoke', () => {
     copyPublishableBundle(repoRoot, bundleRoot);
 
     const install = runBundleInstall(bundleRoot, isolatedHome, 'gemini', {
-      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+      PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
     });
     if (bailIfSpawnBlocked(install)) return;
 
@@ -498,7 +498,7 @@ describe('gemini install smoke', () => {
     expect(fs.existsSync(path.join(geminiDir, 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
 
     const uninstall = runBundleUninstall(bundleRoot, isolatedHome, 'gemini', {
-      CODE_ABYSS_GSTACK_SOURCE: gstackFixture,
+      PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
     });
     if (bailIfSpawnBlocked(uninstall)) return;
 

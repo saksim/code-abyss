@@ -101,7 +101,7 @@ Candidate decisions:
 | `imagegen` | Optional tool or pack-backed skill after host capability review | It depends on image generation/editing support and asset handling. |
 | `plugin-creator` | Codex adapter or tool skill | It is likely Codex-specific and should not imply Claude/Gemini parity without proof. |
 | `skill-creator` | Merge into `manage-skill` and `skill-evolution` references, not a duplicate core skill | The project already has governed skill creation and lifecycle tools. |
-| `skill-installer` | Keep external or convert into pack/vendor docs | Code Abyss already owns install and pack workflows. |
+| `skill-installer` | Keep external or convert into pack/vendor docs | Personal Skill System already owns install and pack workflows. |
 
 Required admission commands:
 

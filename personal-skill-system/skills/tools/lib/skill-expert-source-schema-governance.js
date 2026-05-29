@@ -20,7 +20,7 @@ const {
 } = require('./skill-expert-source-governance');
 
 const EXPERT_SOURCE_INTEGRATION_SCHEMA_SOURCE = 'generated-from-skill-governance';
-const EXPERT_SOURCE_SCHEMA_ID_BASE = 'https://code-abyss.local/personal-skill-system';
+const EXPERT_SOURCE_SCHEMA_ID_BASE = 'https://personal-skill-system.local/personal-skill-system';
 
 const EXPERT_SOURCE_SCHEMA_DEFINITIONS = Object.freeze({
   'expert-source-families-schema': {

@@ -1,6 +1,6 @@
-# Code Abyss
+# Personal Skill System
 
-Code Abyss is an installer and runtime bundle for `Claude Code`, `Codex CLI`, and `Gemini CLI`.
+Personal Skill System is an installer and runtime bundle for `Claude Code`, `Codex CLI`, and `Gemini CLI`.
 It gives those CLIs a consistent setup for persona, output style, skills, and optional packs, with a tested installation path instead of a loose pile of prompt files.
 
 ## What you get
@@ -31,45 +31,45 @@ npm run verify:tarball-smoke
 Discover the install surface first:
 
 ```bash
-npx code-abyss --list-styles
-npx code-abyss --list-personas
-npx code-abyss --list-skills
-npx code-abyss --explain-skill review
+npx personal-skill-system --list-styles
+npx personal-skill-system --list-personas
+npx personal-skill-system --list-skills
+npx personal-skill-system --explain-skill review
 ```
 
 Interactive install:
 
 ```bash
-npx code-abyss
+npx personal-skill-system
 ```
 
 Direct install:
 
 ```bash
-npx code-abyss --target claude -y
-npx code-abyss --target codex -y
-npx code-abyss --target gemini -y
+npx personal-skill-system --target claude -y
+npx personal-skill-system --target codex -y
+npx personal-skill-system --target gemini -y
 ```
 
 Pick a style and persona:
 
 ```bash
-npx code-abyss --target claude --style abyss-cultivator --persona abyss -y
-npx code-abyss --target codex --style scholar-classic --persona scholar -y
-npx code-abyss --target gemini --style iron-dad-warm --persona iron-dad -y
+npx personal-skill-system --target claude --style abyss-cultivator --persona abyss -y
+npx personal-skill-system --target codex --style scholar-classic --persona scholar -y
+npx personal-skill-system --target gemini --style iron-dad-warm --persona iron-dad -y
 ```
 
 Uninstall:
 
 ```bash
-npx code-abyss --uninstall claude
-npx code-abyss --uninstall codex
-npx code-abyss --uninstall gemini
+npx personal-skill-system --uninstall claude
+npx personal-skill-system --uninstall codex
+npx personal-skill-system --uninstall gemini
 ```
 
 ## How users should use it
 
-After installation, keep using your normal AI CLI. Code Abyss changes the host runtime files that those CLIs already read.
+After installation, keep using your normal AI CLI. Personal Skill System changes the host runtime files that those CLIs already read.
 
 | Host | Start using it from |
 | --- | --- |
@@ -118,12 +118,12 @@ Validation: name missing tests or checks
 Common maintenance commands:
 
 ```bash
-npx code-abyss --list-styles
-npx code-abyss --list-personas
-npx code-abyss --list-skills
-npx code-abyss --explain-skill development
-npx code-abyss --target codex --style scholar-classic --persona scholar -y
-npx code-abyss --uninstall codex
+npx personal-skill-system --list-styles
+npx personal-skill-system --list-personas
+npx personal-skill-system --list-skills
+npx personal-skill-system --explain-skill development
+npx personal-skill-system --target codex --style scholar-classic --persona scholar -y
+npx personal-skill-system --uninstall codex
 ```
 
 ## What skills can do
@@ -146,11 +146,11 @@ In practice, most users only need to remember a small starter set:
 - `verify-quality`: run a deterministic code quality pass
 - `verify-security`: run a deterministic security pass
 
-Optional gstack pack skills add browser, QA, design, canary, and deploy-runtime workflows without becoming core skill source. See [docs/GSTACK_CAPABILITY_MAP.md](docs/GSTACK_CAPABILITY_MAP.md) for when to use gstack pack skills versus core Code Abyss skills.
+Optional gstack pack skills add browser, QA, design, canary, and deploy-runtime workflows without becoming core skill source. See [docs/GSTACK_CAPABILITY_MAP.md](docs/GSTACK_CAPABILITY_MAP.md) for when to use gstack pack skills versus core Personal Skill System skills.
 
 ## Installed vs not installed
 
-| User task | Without Code Abyss | With Code Abyss |
+| User task | Without Personal Skill System | With Personal Skill System |
 | --- | --- | --- |
 | Ask the model to implement a feature | You describe the task ad hoc and hope the host prompt stack is good enough | You can explicitly route to `development` and use one stable prompt shape |
 | Ask for a bug fix | There is no shared “fix with root cause first” workflow surface | You can explicitly route to `bugfix` |
@@ -160,7 +160,7 @@ Optional gstack pack skills add browser, QA, design, canary, and deploy-runtime 
 | Install across multiple hosts | Separate manual setup per host | One installer writes host-native runtime files for Claude, Codex, and Gemini |
 | Remove the setup safely | Manual cleanup risks deleting the wrong files | Install and uninstall are manifest-backed |
 
-Operationally, Code Abyss also gives you:
+Operationally, Personal Skill System also gives you:
 
 - one repeatable installer instead of host-by-host prompt copying
 - a generated first-run guide in the runtime root
@@ -180,9 +180,9 @@ Operationally, Code Abyss also gives you:
 
 | If you use | Install command |
 | --- | --- |
-| Claude Code | `npx code-abyss --target claude -y` |
-| Codex CLI | `npx code-abyss --target codex -y` |
-| Gemini CLI | `npx code-abyss --target gemini -y` |
+| Claude Code | `npx personal-skill-system --target claude -y` |
+| Codex CLI | `npx personal-skill-system --target codex -y` |
+| Gemini CLI | `npx personal-skill-system --target gemini -y` |
 
 ## OpenCode compatibility
 
@@ -191,13 +191,13 @@ OpenCode does not have a standalone `--target opencode` yet.
 - If your OpenCode setup reads `CLAUDE.md`, `~/.claude/commands/`, or `~/.claude/skills/`, run:
 
 ```bash
-npx code-abyss --target claude -y
+npx personal-skill-system --target claude -y
 ```
 
 - If your OpenCode setup reads `AGENTS.md`, `instruction.md`, or `~/.agents/skills/`, run:
 
 ```bash
-npx code-abyss --target codex -y
+npx personal-skill-system --target codex -y
 ```
 
 - If your OpenCode setup consumes both layouts, run both commands. In the current release policy, all three cases count as a successful OpenCode-compatible installation.
@@ -218,7 +218,7 @@ npx code-abyss --target codex -y
 | Output Style | `output-styles/` | Response style registry |
 | Skills Source | `personal-skill-system/skills/` | Authoritative skill source tree |
 | Installer / Runtime | `bin/` | Install, uninstall, command generation, pack sync |
-| Packs | `packs/` and `.code-abyss/packs.lock.json` | Optional runtime extensions and lock policy |
+| Packs | `packs/` and `.personal-skill-system/packs.lock.json` | Optional runtime extensions and lock policy |
 
 If you are maintaining the repo, start with [docs/ONBOARDING.md](docs/ONBOARDING.md) and [DESIGN.md](DESIGN.md).
 
@@ -242,7 +242,7 @@ node bin/install.js --list-personas
 node bin/install.js --list-skills
 node bin/install.js --explain-skill review
 npm run verify:tarball-smoke
-npm run verify:tarball-smoke -- --tgz ./code-abyss-2.1.2.tgz
+npm run verify:tarball-smoke -- --tgz ./personal-skill-system-2.1.2.tgz
 node bin/release-smoke.js --pack
 npm run packs:diff
 npm run packs:report -- summary

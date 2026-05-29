@@ -70,7 +70,7 @@
             "status": "pass"
           },
           "mismatches": [],
-          "stdout-preview": "{\n  \"tool\": \"verify-skill-system\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\code-abyss\\\\personal-skill-system\",\n  \"status\": \"pass\",\n  \"summary\": \"Audited 41 skill files, 41 registry entries, 106 capability modules, 3 future-skill opportunities, 8 admission requests, 1 evolution requests, 8 investment backlog items, 37 route entries, and 13 runtime proof entries.\",\n  \"findings\": [],\n  \"metri"
+          "stdout-preview": "{\n  \"tool\": \"verify-skill-system\",\n  \"target\": \"D:\\\\Download\\\\gaming\\\\new_program\\\\personal-skill-system\\\\personal-skill-system\",\n  \"status\": \"pass\",\n  \"summary\": \"Audited 41 skill files, 41 registry entries, 106 capability modules, 3 future-skill opportunities, 8 admission requests, 1 evolution requests, 8 investment backlog items, 37 route entries, and 13 runtime proof entries.\",\n  \"findings\": [],\n  \"metri"
         }
       ]
     }

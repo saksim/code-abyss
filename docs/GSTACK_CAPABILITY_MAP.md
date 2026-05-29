@@ -1,6 +1,6 @@
 # gstack Capability Map
 
-gstack is installed as an external pack, not as core Code Abyss skills. The core skill source remains `personal-skill-system/skills/`; gstack runtime files are governed through `packs/gstack/manifest.json` and `.code-abyss/packs.lock.json`.
+gstack is installed as an external pack, not as core Personal Skill System skills. The core skill source remains `personal-skill-system/skills/`; gstack runtime files are governed through `packs/gstack/manifest.json` and `.personal-skill-system/packs.lock.json`.
 
 ## Installed Capability Groups
 
@@ -15,7 +15,7 @@ gstack is installed as an external pack, not as core Code Abyss skills. The core
 
 ## Core Versus gstack
 
-| User intent | Prefer core Code Abyss | Prefer gstack pack |
+| User intent | Prefer core Personal Skill System | Prefer gstack pack |
 | --- | --- | --- |
 | Code review | `review` for static diff review and findings-first risk ranking | gstack `review` only when the installed pack runtime is explicitly requested |
 | Web app QA | `verify-*`, `pre-merge-gate`, or `review` for static checks | `qa` / `qa-only` when a live app must be exercised in a browser |

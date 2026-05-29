@@ -1,4 +1,4 @@
-# Code Abyss Project Diagnosis
+# Personal Skill System Project Diagnosis
 
 > Model: glm-5.1 | Date: 2026-04-22
 
@@ -40,7 +40,7 @@
 
 **Project Source vs Installed Version comparison:**
 
-| Aspect | Project Source (`code-abyss/skills/`) | Installed Version (`~/.claude/skills/`) |
+| Aspect | Project Source (`personal-skill-system/skills/`) | Installed Version (`~/.claude/skills/`) |
 |--------|---------------------------------------|---------------------------------------|
 | Schema version | Inconsistent, mixed styles | Unified schema-version: 2 |
 | Language | Chinese | English (more universal) |
@@ -285,7 +285,7 @@ Based on the comparison between installed version and project registry, these sk
 | **P1-3** | Add Gemini to abyss manifest | Three-platform alignment |
 | **P2-1** | Port chart-visualization and 3 other planned skills | Coverage from 71% → 100% |
 | **P2-2** | Port verify-skill-system self-verification tool | Build self-verification closed loop |
-| **P2-3** | Clean up .code-abyss/reports/ and stale package.json description | Documentation consistency |
+| **P2-3** | Clean up .personal-skill-system/reports/ and stale package.json description | Documentation consistency |
 
 ---
 
@@ -307,7 +307,7 @@ Based on the comparison between installed version and project registry, these sk
 | Issue | Details |
 |-------|---------|
 | `personas/index.json` has `gender` field | Couples data to presentation concerns |
-| `.code-abyss/reports/` has 60 stale JSON files | Should be in `.gitignore` |
+| `.personal-skill-system/reports/` has 60 stale JSON files | Should be in `.gitignore` |
 | Hand-rolled TOML parser in `codex.js` | Functional but incomplete for full TOML spec |
 | Mixed import patterns | `path.join(__dirname, '...', 'module.js')` vs `require('./module')` |
 

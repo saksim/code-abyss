@@ -4,7 +4,7 @@ const { getPack } = require('./pack-registry');
 const { shared, getVendorProvider } = require('./vendor-providers');
 
 function getPackVendorDir(projectRoot, packName) {
-  return shared.path.join(projectRoot, '.code-abyss', 'vendor', packName);
+  return shared.path.join(projectRoot, '.personal-skill-system', 'vendor', packName);
 }
 
 function ensurePackUpstream(projectRoot, packName) {
@@ -39,7 +39,7 @@ function removePackVendor(projectRoot, packName) {
 
 function readVendorMetadata(projectRoot, packName) {
   const vendorDir = getPackVendorDir(projectRoot, packName);
-  const metaPath = shared.path.join(vendorDir, '.code-abyss-vendor.json');
+  const metaPath = shared.path.join(vendorDir, '.personal-skill-system-vendor.json');
   if (!shared.fs.existsSync(metaPath)) return null;
   return JSON.parse(shared.fs.readFileSync(metaPath, 'utf8'));
 }

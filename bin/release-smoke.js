@@ -95,16 +95,16 @@ function printHelp() {
   console.log(`Usage: node bin/release-smoke.js [options]
 
 Options:
-  --tgz <path>        Smoke a specific code-abyss tarball
-  --tgz-dir <path>    Smoke the newest code-abyss tarball in a specific directory
+  --tgz <path>        Smoke a specific personal-skill-system tarball
+  --tgz-dir <path>    Smoke the newest personal-skill-system tarball in a specific directory
   --pack              Pack a fresh tarball into a system temp directory before smoke
   --targets <list>    Comma-separated targets, default: ${listTargetNames().join(',')}
   --home-root <path>  Directory used for isolated smoke homes
-  --fixture <path>    Override CODE_ABYSS_GSTACK_SOURCE fixture path
+  --fixture <path>    Override PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE fixture path
   --keep              Keep the probe directory even on success
   --help, -h          Show this help
 
-If neither --tgz nor --tgz-dir is provided, the newest code-abyss-*.tgz in the current directory is used.
+If neither --tgz nor --tgz-dir is provided, the newest personal-skill-system-*.tgz in the current directory is used.
 Use --pack when you want the smoke to prove a freshly packed tarball.`);
 }
 
@@ -129,7 +129,7 @@ function resolveTargets(input) {
 
 function findLatestTarball(cwd) {
   const matches = fs.readdirSync(cwd)
-    .filter((name) => /^code-abyss-.*\.tgz$/.test(name))
+    .filter((name) => /^personal-skill-system-.*\.tgz$/.test(name))
     .map((name) => ({
       name,
       fullPath: path.join(cwd, name),
@@ -138,7 +138,7 @@ function findLatestTarball(cwd) {
     .sort((a, b) => b.mtimeMs - a.mtimeMs);
 
   if (matches.length === 0) {
-    throw new Error('no code-abyss-*.tgz found in the current directory, run npm pack or pass --tgz');
+    throw new Error('no personal-skill-system-*.tgz found in the current directory, run npm pack or pass --tgz');
   }
 
   return matches[0].fullPath;
@@ -372,7 +372,7 @@ function buildEnv(homeRoot, fixturePath) {
   fs.mkdirSync(env.APPDATA, { recursive: true });
 
   if (fixturePath && fs.existsSync(fixturePath)) {
-    env.CODE_ABYSS_GSTACK_SOURCE = fixturePath;
+    env.PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE = fixturePath;
   }
 
   return env;
@@ -450,7 +450,7 @@ async function main() {
   const targets = resolveTargets(options.targets);
   const probeRoot = options.homeRoot
     ? path.resolve(options.homeRoot)
-    : fs.mkdtempSync(path.join(os.tmpdir(), 'code-abyss-release-smoke-'));
+    : fs.mkdtempSync(path.join(os.tmpdir(), 'personal-skill-system-release-smoke-'));
   const fixturePath = options.fixture ? path.resolve(options.fixture) : null;
   const failures = [];
   let tarball = null;

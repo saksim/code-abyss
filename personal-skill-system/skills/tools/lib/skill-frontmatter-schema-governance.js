@@ -25,7 +25,7 @@ function cloneArray(values) {
 function buildSkillFrontmatterSchema() {
   return {
     $schema: 'https://json-schema.org/draft/2020-12/schema',
-    $id: 'https://code-abyss.local/personal-skill-system/skill.schema.json',
+    $id: 'https://personal-skill-system.local/personal-skill-system/skill.schema.json',
     title: 'Portable Personal Skill Frontmatter Schema',
     type: 'object',
     additionalProperties: false,

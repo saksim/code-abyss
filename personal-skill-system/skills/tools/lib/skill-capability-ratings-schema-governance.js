@@ -15,7 +15,7 @@ const {
 
 const CAPABILITY_RATINGS_SCHEMA_VERSION = 3;
 const CAPABILITY_RATINGS_SCHEMA_SOURCE = 'generated-from-skill-governance';
-const CAPABILITY_RATINGS_SCHEMA_ID = 'https://code-abyss.local/personal-skill-system/capability-ratings.schema.json';
+const CAPABILITY_RATINGS_SCHEMA_ID = 'https://personal-skill-system.local/personal-skill-system/capability-ratings.schema.json';
 
 function cloneArray(values) {
   return Array.isArray(values) ? [...values] : Array.from(values || []);

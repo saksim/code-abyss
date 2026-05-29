@@ -93,15 +93,15 @@ describe('release-smoke tarball extraction', () => {
 
   test('resolveTarballInput keeps explicit tgz path and skips packing', async () => {
     const packed = await resolveTarballInput(
-      { tgz: '.\\dist\\code-abyss.tgz' },
+      { tgz: '.\\dist\\personal-skill-system.tgz' },
     );
 
     expect(packed.source).toBe('explicit');
-    expect(packed.tgzPath).toBe(path.resolve('.\\dist\\code-abyss.tgz'));
+    expect(packed.tgzPath).toBe(path.resolve('.\\dist\\personal-skill-system.tgz'));
   });
 
   test('resolveTarballInput uses newest tarball from an explicit directory', async () => {
-    const findLatestTarballFn = jest.fn(() => 'C:\\tmp\\release-smoke\\code-abyss-2.1.2.tgz');
+    const findLatestTarballFn = jest.fn(() => 'C:\\tmp\\release-smoke\\personal-skill-system-2.1.2.tgz');
     const packed = await resolveTarballInput(
       { tgzDir: '.\\tmp-release-smoke' },
       {
@@ -111,7 +111,7 @@ describe('release-smoke tarball extraction', () => {
 
     expect(findLatestTarballFn).toHaveBeenCalledWith(path.resolve('.\\tmp-release-smoke'));
     expect(packed).toEqual(expect.objectContaining({
-      tgzPath: 'C:\\tmp\\release-smoke\\code-abyss-2.1.2.tgz',
+      tgzPath: 'C:\\tmp\\release-smoke\\personal-skill-system-2.1.2.tgz',
       source: 'directory-latest',
     }));
   });
@@ -119,7 +119,7 @@ describe('release-smoke tarball extraction', () => {
   test('resolveTarballInput can pack a fresh tarball into system temp staging', async () => {
     const cleanup = jest.fn();
     const packFreshTarballFn = jest.fn(() => ({
-      tgzPath: 'C:\\tmp\\fresh-pack\\code-abyss-2.1.2.tgz',
+      tgzPath: 'C:\\tmp\\fresh-pack\\personal-skill-system-2.1.2.tgz',
       source: 'fresh-pack',
       stageRoot: 'C:\\tmp\\fresh-pack',
       cleanup,
@@ -127,14 +127,14 @@ describe('release-smoke tarball extraction', () => {
     const packed = await resolveTarballInput(
       { pack: true },
       {
-        tarballSearchRoot: 'D:\\workspace\\code-abyss',
+        tarballSearchRoot: 'D:\\workspace\\personal-skill-system',
         packFreshTarballFn,
       },
     );
 
-    expect(packFreshTarballFn).toHaveBeenCalledWith({ cwd: 'D:\\workspace\\code-abyss' });
+    expect(packFreshTarballFn).toHaveBeenCalledWith({ cwd: 'D:\\workspace\\personal-skill-system' });
     expect(packed).toEqual(expect.objectContaining({
-      tgzPath: 'C:\\tmp\\fresh-pack\\code-abyss-2.1.2.tgz',
+      tgzPath: 'C:\\tmp\\fresh-pack\\personal-skill-system-2.1.2.tgz',
       source: 'fresh-pack',
       stageRoot: 'C:\\tmp\\fresh-pack',
       cleanup,
@@ -145,13 +145,13 @@ describe('release-smoke tarball extraction', () => {
     const packed = await resolveTarballInput(
       { tgz: null },
       {
-        tarballSearchRoot: 'D:\\workspace\\code-abyss',
-        findLatestTarballFn: jest.fn(() => 'D:\\workspace\\code-abyss\\code-abyss-2.1.2.tgz'),
+        tarballSearchRoot: 'D:\\workspace\\personal-skill-system',
+        findLatestTarballFn: jest.fn(() => 'D:\\workspace\\personal-skill-system\\personal-skill-system-2.1.2.tgz'),
       },
     );
 
     expect(packed).toEqual(expect.objectContaining({
-      tgzPath: 'D:\\workspace\\code-abyss\\code-abyss-2.1.2.tgz',
+      tgzPath: 'D:\\workspace\\personal-skill-system\\personal-skill-system-2.1.2.tgz',
       source: 'latest-existing-tarball',
     }));
   });

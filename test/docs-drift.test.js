@@ -102,8 +102,8 @@ describe('docs drift guard', () => {
     expect(readme).toContain('OpenCode does not have a standalone `--target opencode` yet.');
     expect(readme).toContain('successful OpenCode-compatible installation');
     expect(readme).toContain('[docs/RELEASE_GUIDE.md](docs/RELEASE_GUIDE.md)');
-    expect(readme).not.toContain('npx code-abyss --target opencode -y');
+    expect(readme).not.toContain('npx personal-skill-system --target opencode -y');
     expect(onboarding).toContain('不要直接对外宣称 `--target opencode`');
-    expect(releaseGuide).toContain('do not publish `npx code-abyss --target opencode -y`');
+    expect(releaseGuide).toContain('do not publish `npx personal-skill-system --target opencode -y`');
   });
 });
