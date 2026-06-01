@@ -241,6 +241,7 @@ describe('codex install smoke', () => {
         ...process.env,
         HOME: tmpHome,
         USERPROFILE: tmpHome,
+        PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
       },
       encoding: 'utf8',
     });
@@ -383,7 +384,9 @@ describe('codex install smoke', () => {
     fs.mkdirSync(isolatedHome, { recursive: true });
     copyPublishableBundle(repoRoot, bundleRoot);
 
-    const result = runBundleInstall(bundleRoot, isolatedHome, 'codex');
+    const result = runBundleInstall(bundleRoot, isolatedHome, 'codex', {
+      PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
+    });
     if (bailIfSpawnBlocked(result)) return;
 
     const codexDir = path.join(isolatedHome, '.codex');
@@ -392,7 +395,9 @@ describe('codex install smoke', () => {
     expect(fs.existsSync(path.join(codexDir, 'config.toml'))).toBe(true);
     expect(fs.existsSync(path.join(isolatedHome, '.agents', 'personal-skill-system', 'registry', 'registry.generated.json'))).toBe(true);
 
-    const uninstall = runBundleUninstall(bundleRoot, isolatedHome, 'codex');
+    const uninstall = runBundleUninstall(bundleRoot, isolatedHome, 'codex', {
+      PERSONAL_SKILL_SYSTEM_GSTACK_SOURCE: gstackFixture,
+    });
     if (bailIfSpawnBlocked(uninstall)) return;
 
     expect(uninstall.status).toBe(0);
